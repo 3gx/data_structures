@@ -96,18 +96,6 @@ class kdBody
 #endif
 };
 
-class CompareBodies
-{
-  unsigned int _split_dim;
-  public:
-  CompareBodies(const unsigned int val) : _split_dim(val%3) {};
-  bool operator() (const kdBody &lhs, const kdBody &rhs) const
-  {
-    return lhs.pos()[_split_dim] < rhs.pos()[_split_dim];
-  }
-  unsigned int split_dim() const {return _split_dim;}
-};
-
 #ifdef __mySSE__
 namespace std
 {
@@ -193,6 +181,23 @@ class kdTree
     assert(false);
   }
 
+  void nth_element_omp(
+      kdBody::Iterator beg, 
+      kdBody::Iterator med, 
+      kdBody::Iterator end,
+      const int split_dim);
+
+  class CompareBodies
+  {
+    unsigned int _split_dim;
+    public:
+    CompareBodies(const unsigned int val) : _split_dim(val%3) {};
+    bool operator() (const kdBody &lhs, const kdBody &rhs) const
+    {
+      return lhs.pos()[_split_dim] < rhs.pos()[_split_dim];
+    }
+  };
+
 
   void recursively_build_left_ballanced_tree(
       const int n_node,
@@ -220,7 +225,7 @@ class kdTree
     recursively_build_left_ballanced_tree( n_node<<1,    depth+1, bodies_beg,          bodies_beg+median);
     recursively_build_left_ballanced_tree((n_node<<1)+1, depth+1, bodies_beg+median+1, bodies_end       );
   }
-  
+
   void iteratively_build_left_ballanced_tree(kdBody::Vector &bodies)
   {
 #if 0  /* depth first */
@@ -232,9 +237,7 @@ class kdTree
       const kdStack  s = stack.top();
       const int      n = s.end - s.beg;
       const int n_node = s.node; 
-      const int  depth = s.depth;
-      stack.pop();
-    
+
       const int m  = prevPow2(n);
       const int r  = n - (m - 1);
       const int lt = (m-2)/2 + (r <= m/2 ? r : m/2);
@@ -277,7 +280,7 @@ class kdTree
 
           const int median    =s.beg +  lt;
           const int split_dim = depth%3;
-          std::nth_element(bodies.begin()+s.beg, bodies.begin()+median, bodies.begin()+s.end, CompareBodies(split_dim));
+          nth_element_omp(bodies.begin()+s.beg, bodies.begin()+median, bodies.begin()+s.end, split_dim);
           this->depth = __max(this->depth, depth);
 
           const kdBody &body = bodies[median];

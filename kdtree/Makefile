@@ -5,11 +5,10 @@ F90 = gfortran
 
 ifeq ($(OMP), 1)
 	OMPFLAGS  = -fopenmp
-	OMPFLAGS += -D_GLIBCXX_PARALLEL
+	OMPFLAGS_GLIBCXX = -D_GLIBCXX_PARALLEL
 endif
 
 OFLAGS = -O4 -g -Wall
-# OMPFLAGS=
 
 CXXFLAGS =  -fPIC $(OFLAGS) -Wstrict-aliasing=2 $(OMPFLAGS)
 
@@ -22,8 +21,8 @@ endif
 LDFLAGS = 
 
 SRCPATH = ./
-SRC = kdtree.cpp
-OBJ = $(SRC:%.cpp=%.o)
+SRC = kdtree.cpp  kdtree_OMP.cpp
+OBJ = $(SRC:%.cpp=%.o) 
 
 PROG  = kdtree
 
@@ -34,6 +33,9 @@ all:	  $(PROG) $(PROG1) $(PROG2)
 
 $(PROG): $(OBJ) 
 	$(LD) $(LDFLAGS) $^ -o $@ $(OMPFLAGS)
+
+kdtree_OMP.o: kdtree_OMP.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@ $(OMPFLAGS_GLIBCXX)
 
 %.o: $(SRCPATH)/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
