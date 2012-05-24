@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <stack>
+#include <queue>
 #include "vector3.h"
 
 typedef float real;
@@ -238,7 +239,6 @@ class kdTree
       const int r  = n - (m - 1);
       const int lt = (m-2)/2 + (r <= m/2 ? r : m/2);
 
-#if 1
       const int median = s.beg+lt;
       const int split_dim = depth%3;
       std::nth_element(bodies.begin()+s.beg, bodies.begin()+median, bodies.begin()+s.end, CompareBodies(split_dim));
@@ -252,63 +252,8 @@ class kdTree
       const int n_right = n - lt - 1;
       if (n_left  > 0) stack.push(kdStack(s.beg,    median, (n_node<<1)+0, depth+1));
       if (n_right > 0) stack.push(kdStack(median+1, s.end,  (n_node<<1)+1, depth+1));
-#else
-      const int median    = lt;
-      const int split_dim = depth%3;
-      kdBody::Vector lbodies(bodies.begin()+s.beg, bodies.begin() + s.end);
-      std::nth_element(lbodies.begin(), lbodies.begin()+median, lbodies.end(), CompareBodies(split_dim));
-      this->depth = __max(this->depth, depth);
-
-      const kdBody &body = lbodies[median];
-      assert(n_node < (int)nodes.size());
-      nodes[n_node] = kdNode(body, split_dim);
-
-      const int n_left  = lt;
-      const int n_right = n - lt - 1;
-      if (n_left  > 0) stack.push(kdStack(s.beg,          s.beg+median, (n_node<<1)+0, depth+1));
-      if (n_right > 0) stack.push(kdStack(s.beg+median+1, s.end,        (n_node<<1)+1, depth+1));
-#endif
     }
 #else  /* breadth first */
-#if 0
-    std::stack<kdStack> *stack      = new std::stack<kdStack>;
-    std::stack<kdStack> *stack_next = new std::stack<kdStack>;
-
-    stack_next->push(kdStack(0, bodies.size(), 1, 0));
-
-    while (!stack_next->empty())
-    {
-      std::swap(stack, stack_next);
-      while (!stack->empty())
-      {
-        const kdStack  s = stack->top();
-        const int      n = s.end - s.beg;
-        const int n_node = s.node; 
-        const int  depth = s.depth;
-        stack->pop();
-
-        const int m  = prevPow2(n);
-        const int r  = n - (m - 1);
-        const int lt = (m-2)/2 + (r <= m/2 ? r : m/2);
-
-        const int median = s.beg+lt;
-        const int split_dim = depth%3;
-        std::nth_element(bodies.begin()+s.beg, bodies.begin()+median, bodies.begin()+s.end, CompareBodies(split_dim));
-        this->depth = __max(this->depth, depth);
-
-        const kdBody &body = bodies[median];
-        assert(n_node < (int)nodes.size());
-        nodes[n_node] = kdNode(body, split_dim);
-
-        const int n_left  = lt;
-        const int n_right = n - lt - 1;
-        if (n_left  > 0) stack_next->push(kdStack(s.beg,    median, (n_node<<1)+0, depth+1));
-        if (n_right > 0) stack_next->push(kdStack(median+1, s.end,  (n_node<<1)+1, depth+1));
-      }
-    }
-    delete stack;
-    delete stack_next;
-#else
     std::vector<kdStack> *list      = new std::vector<kdStack>;
     std::vector<kdStack> *list_next = new std::vector<kdStack>;
 
@@ -358,6 +303,7 @@ class kdTree
           const int r  = n - (m - 1);
           const int lt = (m-2)/2 + (r <= m/2 ? r : m/2);
 
+#if 0
           const int median    = lt;
           const int split_dim = depth%3;
           kdBody::Vector lbodies(bodies.begin()+s.beg, bodies.begin() + s.end);
@@ -375,13 +321,30 @@ class kdTree
             if (n_left  > 0) list_next->push_back(kdStack(s.beg,          s.beg+median, (n_node<<1)+0, depth+1));
             if (n_right > 0) list_next->push_back(kdStack(s.beg+median+1, s.end,        (n_node<<1)+1, depth+1));
           }
+#else
+          const int median    =s.beg +  lt;
+          const int split_dim = depth%3;
+          std::nth_element(bodies.begin()+s.beg, bodies.begin()+median, bodies.begin()+s.end, CompareBodies(split_dim));
+          this->depth = __max(this->depth, depth);
+
+          const kdBody &body = bodies[median];
+          assert(n_node < (int)nodes.size());
+          nodes[n_node] = kdNode(body, split_dim);
+
+          const int n_left  = lt;
+          const int n_right = n - lt - 1;
+#pragma omp critical
+          {
+            if (n_left  > 0) list_next->push_back(kdStack(s.beg,    median, (n_node<<1)+0, depth+1));
+            if (n_right > 0) list_next->push_back(kdStack(median+1, s.end,  (n_node<<1)+1, depth+1));
+          }
+#endif
         }
       }
       list->clear();
     }
     delete list;
     delete list_next;
-#endif
 #endif
   }
 
