@@ -12,13 +12,23 @@ int main(int argc, char * argv[])
   fprintf(stderr, "n_bodies= %d\n", n_bodies);
 
   const double t00 = get_wtime();
+#if 0
   const Plummer data(n_bodies);
+#endif
   const double t10 = get_wtime();
 
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
   for (int i = 0; i < n_bodies; i++)
+  {
+#if 0
     ptcl.push_back(Particle(data.pos[i], data.mass[i]));
+#else
+    ptcl.push_back(Particle(
+          vec3(drand48(), drand48(), drand48()),
+          1.0/n_bodies));
+#endif
+  }
 
 
   const double t20 = get_wtime();
@@ -30,7 +40,8 @@ int main(int argc, char * argv[])
   std::vector<int> nblist;
   nblist.reserve(1024);
   int nb = 0;
-  const real s = 0.03;
+  const int nb_mean = 32;
+  const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
 #pragma omp parallel for reduction(+:nb)
   for (int i = 0; i < n_bodies; i++)
   {
@@ -38,12 +49,13 @@ int main(int argc, char * argv[])
   }
   const double t40 = get_wtime();
 
-  const int K = 16;
-#if 0
+  const int K = 8;
+#if 1
   fprintf(stderr, " -- Searching k-nearest ngb -- \n");
-  int klist[K];
+#pragma omp parallel for
   for (int i = 0; i < n_bodies; i++)
   {
+    int klist[K];
     tree.find_knb<K>(ptcl[i].pos, klist);
   }
 #endif

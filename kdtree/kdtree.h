@@ -490,7 +490,7 @@ class kdTree
     for (unsigned int i = 0; i < ptcl.size(); i++)
       bodies.push_back(kdBody(ptcl[i], i));
 
-#if 0
+#if 1
     recursively_build_left_ballanced_tree(1, 0, bodies.begin(), bodies.end());
 #else
     iteratively_build_left_ballanced_tree(bodies);
@@ -535,7 +535,6 @@ class kdTree
   }
 
   public:
-#if 1
   template<const int K>
   void find_knb(const vec3 &pos, int knb_list[K]) const
   {
@@ -544,42 +543,6 @@ class kdTree
     for (int k = 0; k < K; k++)
       knb_list[k] = list[k].id;
   }
-#else
-  template<const int K> 
-  void find_knb(const vec3 &pos, int klist[2*K+1]) const
-  {
-    real s2list[2*K+1];
-    for (int i = 0; i < 2*K+1; i++)
-    {
-      s2list[i] = HUGE;
-      klist [i] = -1;
-    }
-
-    std::stack<int> stack;
-    stack.push(1);
-
-    const int n_nodes = nodes.size();
-
-    while(!stack.empty())
-    {
-      const int node_id = stack.top();
-      stack.pop();
-
-      const kdNode &node = nodes[node_id];
-      const int split_dim = node.split_dim();
-      const int left  = node_id << 1;
-      const int right = left + 1;
-
-      if (right < n_nodes)
-      {
-        if (pos[split_dim] - s2list[K-1] < node.pos()[split_dim]) stack.push(left);
-        if (pos[split_dim] + s2list[K-1] > node.pos()[split_dim]) stack.push(right);
-      }
-#error "need to add stuff"
-    }
-  }
-#endif
-
 #if 1
   int find_range_nb(const vec3 &pos, const real s) const
   {
@@ -590,33 +553,31 @@ class kdTree
 #else
   int find_range_nb(const vec3 &pos, const real s) const
   {
-    std::stack<int> stack;
-    stack.push(1);
-
-    const real s2 = s*s;
     const int n_nodes = nodes.size();
+    std::vector<int> kd_stack(n_nodes);
+
+    int n_stack = 0;
+    kd_stack[n_stack] = 1;
+
     int nb = 0;
-
-    while(!stack.empty())
+    while (n_stack > -1)
     {
-      const int node_id = stack.top();
-      stack.pop();
-
+      int node_id = kd_stack[n_stack--];
       const kdNode &node = nodes[node_id];
-      const int split_dim = node.split_dim();
-      const int left  = node_id << 1;
-      const int right = left + 1;
 
-      if (right < n_nodes)
+      const int split = node.split_dim();
+      node_id *= 2;
+      if (node_id <= n_nodes)
       {
-        if (pos[split_dim] - s < node.pos()[split_dim]) stack.push(left);
-        if (pos[split_dim] + s > node.pos()[split_dim]) stack.push(right);
+        if (pos[split] - s < node.pos()[split]) kd_stack[++n_stack] = node_id;
+        if (pos[split] + s > node.pos()[split]) kd_stack[++n_stack] = node_id + 1;
       }
 
-      if ((pos - node.pos()).norm2() < s2)
-      {
+#if 0
+      if ((pos - node.pos()).norm2() < s*s)
+#endif
         nb++;
-      }
+      
     }
     return nb;
   }
@@ -659,15 +620,13 @@ class kdTree
       const int left  = inode << 1;
       const int right = left + 1; 
 
-      if (pos[split_dim] - s < node.pos()[split_dim])
-        find_recursively_range_nb(pos, left, s, nb);
-      if (pos[split_dim] + s > node.pos()[split_dim]) 
-        find_recursively_range_nb(pos, right, s, nb);
-      
+      if (pos[split_dim] - s < node.pos()[split_dim]) find_recursively_range_nb(pos, left, s, nb);
+      if (pos[split_dim] + s > node.pos()[split_dim]) find_recursively_range_nb(pos, right, s, nb);
+
+#if 1
       if ((pos - node.pos()).norm2() < s*s)
-      {
+#endif
         nb++;
-      }
     }
 };
 
