@@ -16,6 +16,10 @@ static inline T __min(const T &a, const T &b) {return a < b ? a : b;}
 template<class T>
 static inline T __max(const T &a, const T &b) {return a > b ? a : b;}
 
+
+#define SQR(x) ((x)*(x))
+
+#if 1
   template <class T>
 T prevPow2(const T v)
 {
@@ -25,6 +29,78 @@ T prevPow2(const T v)
   for (k = sizeof(T) * 8 - 1; ((static_cast<T>(1U) << k) & v) == 0; k--);
   return static_cast<T>(1U) << k;
 }
+#else
+template <class T>
+T prevPow2(const T v) {
+  if (v == 0)
+    return 1;
+
+}
+#endif
+
+struct MinDist
+{
+  int   id;
+  float s2;
+
+  MinDist() : id(-1), s2(HUGE) {}
+  MinDist(const int _id, const float _s2) : id(_id), s2(_s2) {}
+
+  bool operator<(const MinDist &rhs) const
+  {
+    return s2 < rhs.s2;
+  }
+  bool operator<=(const MinDist &rhs) const
+  {
+    return s2 <= rhs.s2;
+  }
+  bool operator>(const MinDist &rhs) const
+  {
+    return s2 > rhs.s2;
+  }
+  bool operator()(const MinDist &lhs, const MinDist &rhs) const
+  {
+    return lhs < rhs;
+  }
+
+};
+
+template<class T, const int K>
+class SortedList
+{
+  T list[K+1];
+
+  public:
+
+  SortedList()
+  {
+    for (int i = 0; i < K; i++)
+      list[i] = T();
+  }
+
+  const T& operator[](const int i) const {return list[i];}
+
+  bool push(const T &x)
+  {
+    if (x > list[K-1]) return false;
+    int lo = 0;
+    int hi = K;
+    while (lo < hi) 
+    {
+      const int mid = (lo + hi) >> 1;
+      if (list[mid] <= x) lo = mid + 1;
+      else                hi = mid;
+    }
+    assert(lo < K);
+
+    for (int j = K-1; j >= lo; j--)
+      list[j] = list[j-1];
+    list[lo] = x;
+    return true;
+  }
+
+  const T& back() const {return list[K-1];}
+};
 
 struct kdStack
 {
@@ -33,7 +109,7 @@ struct kdStack
 
   kdStack(const int _beg, const int _end, const int _node, const int _depth) :
     beg(_beg), end(_end), node(_node), depth(_depth) {}
-  
+
 
 #ifdef __mySSE__ 
   const kdStack operator=(const kdStack &rhs)
@@ -51,48 +127,48 @@ struct kdStack
 class Particle
 {
   public:
-  typedef std::vector<Particle>         Vector;
-  typedef Vector::iterator            Iterator;
-  typedef Vector::const_iterator constIterator;
+    typedef std::vector<Particle>         Vector;
+    typedef Vector::iterator            Iterator;
+    typedef Vector::const_iterator constIterator;
 
   public:
 
-  vec3 pos;
-  real mass;
+    vec3 pos;
+    real mass;
 
-  Particle(const vec3 &_pos, const real _mass) : pos(_pos), mass(_mass) {}
+    Particle(const vec3 &_pos, const real _mass) : pos(_pos), mass(_mass) {}
 };
 
 
 class kdBody
 {
   public:
-  typedef std::vector<kdBody>         Vector;
-  typedef Vector::iterator            Iterator;
-  typedef Vector::const_iterator constIterator;
+    typedef std::vector<kdBody>         Vector;
+    typedef Vector::iterator            Iterator;
+    typedef Vector::const_iterator constIterator;
 
   private:
-  vec3 _pos;
-  unsigned int _idx;
+    vec3 _pos;
+    unsigned int _idx;
 
   public:
 
-  kdBody(const Particle &ptcl, const int __idx) : _pos(ptcl.pos), _idx(__idx) 
+    kdBody(const Particle &ptcl, const int __idx) : _pos(ptcl.pos), _idx(__idx) 
   {
     assert(sizeof(kdBody) == sizeof(float)*4);
   }
-  const vec3& pos() const {return _pos;}
-  unsigned int idx() const {return _idx;}
-   
+    const vec3& pos() const {return _pos;}
+    unsigned int idx() const {return _idx;}
+
 #ifdef __mySSE__ 
-  const kdBody operator = (const kdBody &rhs)
-  {
-    typedef float v4sf __attribute__ ((vector_size(16)));
-    v4sf *lp =(v4sf *)this;
-    v4sf *rp =(v4sf *)(&rhs);
-    lp[0] = rp[0];
-    return *this;
-  }
+    const kdBody operator = (const kdBody &rhs)
+    {
+      typedef float v4sf __attribute__ ((vector_size(16)));
+      v4sf *lp =(v4sf *)this;
+      v4sf *rp =(v4sf *)(&rhs);
+      lp[0] = rp[0];
+      return *this;
+    }
 #endif
 };
 
@@ -141,7 +217,18 @@ class kdNode
     return packed_data & 0x1FFFFFFF;
   }
 
-  const vec3 &pos() const {return _pos;}
+  const vec3& pos() const {return _pos;}
+ 
+#ifdef __mySSE__ 
+  const kdNode operator=(const kdNode &rhs)
+  {
+    typedef float v4sf __attribute__ ((vector_size(16)));
+    v4sf *lp =(v4sf *)this;
+    v4sf *rp =(v4sf *)(&rhs);
+    lp[0] = rp[0];
+    return *this;
+  }
+#endif
 };
 
 class kdTree
@@ -234,6 +321,31 @@ class kdTree
   }
 
 #define OMP_BODIES_MIN 65536
+ 
+#if 0 
+  void sanity_check()
+  {
+    std::stack<int> stack;
+    stack.push(1);
+
+    vec3 pos(HUGE);
+
+    while(!stack.empty())
+    {
+      const int node_id = stack.top();
+      stack.pop();
+      
+      const kdNode &node = nodes[node_id];
+      const int left  = node << 1
+      const int right = left  + 1;
+
+
+
+    }
+  }
+
+#endif
+
 
   void iteratively_build_left_ballanced_tree(kdBody::Vector &bodies)
   {
@@ -246,6 +358,7 @@ class kdTree
       const kdStack  s = stack.top();
       const int      n = s.end - s.beg;
       const int n_node = s.node; 
+      const int  depth = s.depth;
       stack.pop();
 
       const int m  = prevPow2(n);
@@ -254,10 +367,14 @@ class kdTree
 
       const int median = s.beg+lt;
       const int split_dim = depth%3;
+#if 1
       if (n > OMP_BODIES_MIN)
         nth_element_omp(bodies.begin()+s.beg, bodies.begin()+median, bodies.begin()+s.end, split_dim);
       else
         std::nth_element(bodies.begin()+s.beg, bodies.begin()+median, bodies.begin()+s.end, CompareBodies(split_dim));
+#else
+        std::sort(bodies.begin()+s.beg, bodies.begin()+s.end, CompareBodies(split_dim));
+#endif
       this->depth = __max(this->depth, depth);
 
       const kdBody &body = bodies[median];
@@ -363,6 +480,7 @@ class kdTree
     delete list_next;
 #endif
   }
+  
 
   void build_left_ballanced_tree(const Particle::Vector &ptcl)
   {
@@ -379,8 +497,162 @@ class kdTree
 #endif
   }
 
+  int find_nnb(const vec3 &pos) const
+  {
+    real s2min     = HUGE;
+    int  inode_min = -1;
+    find_recursively_nnb(s2min, 1, s2min, inode_min);
+
+    return inode_min;
+  }
+
+  void find_recursively_nnb(
+      const vec3 &pos,
+      const int   inode,
+      real &s2min,
+      int  &inode_min) const
+  {
+    if (inode >= (int)nodes.size()) return;
+
+    const kdNode &node = nodes[inode];
+    const int split_dim = node.split_dim();
+    const bool go_left = pos[split_dim] <= node.pos()[split_dim];
+    const int left  = (inode << 1);
+    const int right = (inode << 1) + 1;
+    const int near = go_left ? left  : right;
+    const int far  = go_left ? right : left;
+
+    find_recursively_nnb(pos, near, s2min, inode_min);
+    if (SQR(pos[split_dim] - node.pos()[split_dim]) <= s2min)
+      find_recursively_nnb(pos, far, s2min, inode_min);
+
+    const real s2 = (pos - node.pos()).norm2();
+    if (s2 <= s2min && s2 > 0.0)
+    {
+      s2min      = s2;
+      inode_min = inode;
+    }
+  }
+
+  public:
+#if 1
+  template<const int K>
+  void find_knb(const vec3 &pos, int knb_list[K]) const
+  {
+    SortedList<MinDist, K> list;
+    find_recursively_knb(pos, 1, list);
+    for (int k = 0; k < K; k++)
+      knb_list[k] = list[k].id;
+  }
+#else
+  template<const int K> 
+  void find_knb(const vec3 &pos, int klist[2*K+1]) const
+  {
+    real s2list[2*K+1];
+    for (int i = 0; i < 2*K+1; i++)
+    {
+      s2list[i] = HUGE;
+      klist [i] = -1;
+    }
+
+    std::stack<int> stack;
+    stack.push(1);
+
+    const int n_nodes = nodes.size();
+
+    while(!stack.empty())
+    {
+      const int node_id = stack.top();
+      stack.pop();
+
+      const kdNode &node = nodes[node_id];
+      const int split_dim = node.split_dim();
+      const int left  = node_id << 1;
+      const int right = left + 1;
+
+      if (right < n_nodes)
+      {
+        if (pos[split_dim] - s2list[K-1] < node.pos()[split_dim]) stack.push(left);
+        if (pos[split_dim] + s2list[K-1] > node.pos()[split_dim]) stack.push(right);
+      }
 
 
+      const real s2 = (pos - node.pos()).norm2();
+      if (s2 <= s2list[K-1])
+      {
+        int lo = 0;
+        int hi = K;
+        while (lo < hi) 
+        {
+          const int mid = (lo + hi) >> 1;
+          if (s2list[mid] < s2) lo = mid + 1;
+          else                  hi = mid;
+        }
+
+        assert(lo < K);
+
+        for (int j = K-1; j >= 0; j--) {
+          s2list[lo + j + 1] = s2list[lo + j];
+          klist [lo + j + 1] = klist [lo + j];
+        }
+        s2list[lo] = s2;
+        klist [lo] = node_id;
+      }
+    }
+  }
+#endif
+  void find_range_nb(const vec3 &pos, const real s2, std::vector<int> &nblist)
+  {
+    std::stack<int> stack;
+    stack.push(1);
+
+    const int n_nodes = nodes.size();
+
+    while(!stack.empty())
+    {
+      const int node_id = stack.top();
+      stack.pop();
+
+      const kdNode &node = nodes[node_id];
+      const int split_dim = node.split_dim();
+      const int left  = node_id << 1;
+      const int right = left + 1;
+
+      if (right < n_nodes)
+      {
+        if (pos[split_dim] - s2 < node.pos()[split_dim]) stack.push(left);
+        if (pos[split_dim] + s2 > node.pos()[split_dim]) stack.push(right);
+      }
+
+
+      if ((pos - node.pos()).norm2() < s2)
+        nblist.push_back(node_id);
+    }
+  }
+  private:
+
+  template<const int K>
+    void find_recursively_knb(
+        const vec3 &pos,
+        const int inode,
+        SortedList<MinDist, K> &list) const
+    {
+      if (inode >= (int)nodes.size()) return;
+
+      const kdNode &node  = nodes[inode];
+      const int split_dim = node.split_dim();
+      const bool go_left  = pos[split_dim] <= node.pos()[split_dim];
+      const int left  = (inode << 1);
+      const int right = (inode << 1) + 1;
+      const int near = go_left ? left  : right;
+      const int far  = go_left ? right : left;
+
+      find_recursively_knb<K>(pos, near, list);
+      if (SQR(pos[split_dim] - node.pos()[split_dim]) <= list.back().s2)
+        find_recursively_knb<K>(pos, far, list);
+
+      list.push(MinDist(inode, (pos - node.pos()).norm2()));
+    }
 };
 
 #endif /* __KDTREE_H__ */

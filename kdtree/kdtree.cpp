@@ -26,11 +26,39 @@ int main(int argc, char * argv[])
   kdTree tree(ptcl);
   const double t30 = get_wtime();
 
+  fprintf(stderr, " -- Searching range ngb -- \n");
+  std::vector<int> nblist;
+  nblist.reserve(1024);
+  int nb = 0;
+  const real s = 0.1;
+  const real s2 = s*s;
+#pragma omp parallel for reduction(+:nb)
+  for (int i = 0; i < n_bodies; i++)
+  {
+    std::vector<int> nblist;
+    nblist.reserve(1024);
+    tree.find_range_nb(ptcl[i].pos, s2, nblist);
+    nb += nblist.size();
+  }
+  const double t40 = get_wtime();
+
+  const int K = 16;
+#if 0
+  fprintf(stderr, " -- Searching k-nearest ngb -- \n");
+  int klist[K];
+  for (int i = 0; i < n_bodies; i++)
+  {
+    tree.find_knb<K>(ptcl[i].pos, klist);
+  }
+#endif
+  const double t50 = get_wtime();
   fprintf(stderr, " Timing info: \n");
   fprintf(stderr, " -------------\n");
   fprintf(stderr, "   Plummer:  %g sec \n", t10 -t00);
   fprintf(stderr, "   Copy:     %g sec \n", t20 -t10);
   fprintf(stderr, "   kdTree:   %g sec \n", t30 -t20);
+  fprintf(stderr, "   ngb :     %g sec, nb= %g \n", t40 -t30, (real)nb/(real)n_bodies);
+  fprintf(stderr, "   kgb :     %g sec, K= %d \n", t50 -t40, K);
 
 
 
