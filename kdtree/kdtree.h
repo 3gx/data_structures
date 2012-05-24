@@ -91,7 +91,7 @@ class SortedList
       if (list[mid] <= x) lo = mid + 1;
       else                hi = mid;
     }
-    assert(lo < K);
+    assert(lo <= K);
 
     for (int j = K-1; j >= lo; j--)
       list[j] = list[j-1];
@@ -575,38 +575,27 @@ class kdTree
         if (pos[split_dim] - s2list[K-1] < node.pos()[split_dim]) stack.push(left);
         if (pos[split_dim] + s2list[K-1] > node.pos()[split_dim]) stack.push(right);
       }
-
-
-      const real s2 = (pos - node.pos()).norm2();
-      if (s2 <= s2list[K-1])
-      {
-        int lo = 0;
-        int hi = K;
-        while (lo < hi) 
-        {
-          const int mid = (lo + hi) >> 1;
-          if (s2list[mid] < s2) lo = mid + 1;
-          else                  hi = mid;
-        }
-
-        assert(lo < K);
-
-        for (int j = K-1; j >= 0; j--) {
-          s2list[lo + j + 1] = s2list[lo + j];
-          klist [lo + j + 1] = klist [lo + j];
-        }
-        s2list[lo] = s2;
-        klist [lo] = node_id;
-      }
+#error "need to add stuff"
     }
   }
 #endif
-  void find_range_nb(const vec3 &pos, const real s2, std::vector<int> &nblist)
+
+#if 1
+  int find_range_nb(const vec3 &pos, const real s) const
+  {
+    int nb = 0;
+    find_recursively_range_nb(pos, 1, s, nb);
+    return nb;
+  }
+#else
+  int find_range_nb(const vec3 &pos, const real s) const
   {
     std::stack<int> stack;
     stack.push(1);
 
+    const real s2 = s*s;
     const int n_nodes = nodes.size();
+    int nb = 0;
 
     while(!stack.empty())
     {
@@ -620,15 +609,18 @@ class kdTree
 
       if (right < n_nodes)
       {
-        if (pos[split_dim] - s2 < node.pos()[split_dim]) stack.push(left);
-        if (pos[split_dim] + s2 > node.pos()[split_dim]) stack.push(right);
+        if (pos[split_dim] - s < node.pos()[split_dim]) stack.push(left);
+        if (pos[split_dim] + s > node.pos()[split_dim]) stack.push(right);
       }
 
-
       if ((pos - node.pos()).norm2() < s2)
-        nblist.push_back(node_id);
+      {
+        nb++;
+      }
     }
+    return nb;
   }
+#endif
   private:
 
   template<const int K>
@@ -652,6 +644,30 @@ class kdTree
         find_recursively_knb<K>(pos, far, list);
 
       list.push(MinDist(inode, (pos - node.pos()).norm2()));
+    }
+  
+    void find_recursively_range_nb(
+        const vec3 &pos,
+        const int inode,
+        const real s,
+        int &nb) const
+    {
+      if (inode >= (int)nodes.size()) return;
+
+      const kdNode &node  = nodes[inode];
+      const int split_dim = node.split_dim();
+      const int left  = inode << 1;
+      const int right = left + 1; 
+
+      if (pos[split_dim] - s < node.pos()[split_dim])
+        find_recursively_range_nb(pos, left, s, nb);
+      if (pos[split_dim] + s > node.pos()[split_dim]) 
+        find_recursively_range_nb(pos, right, s, nb);
+      
+      if ((pos - node.pos()).norm2() < s*s)
+      {
+        nb++;
+      }
     }
 };
 

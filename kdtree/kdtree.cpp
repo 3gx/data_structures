@@ -30,15 +30,11 @@ int main(int argc, char * argv[])
   std::vector<int> nblist;
   nblist.reserve(1024);
   int nb = 0;
-  const real s = 0.1;
-  const real s2 = s*s;
+  const real s = 0.03;
 #pragma omp parallel for reduction(+:nb)
   for (int i = 0; i < n_bodies; i++)
   {
-    std::vector<int> nblist;
-    nblist.reserve(1024);
-    tree.find_range_nb(ptcl[i].pos, s2, nblist);
-    nb += nblist.size();
+    nb += tree.find_range_nb(ptcl[i].pos, s);
   }
   const double t40 = get_wtime();
 
