@@ -5,7 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <stack>
-#include <queue>
+#include <parallel/partition.h>
 #include "vector3.h"
 
 typedef float real;
@@ -185,7 +185,14 @@ class kdTree
       kdBody::Iterator beg, 
       kdBody::Iterator med, 
       kdBody::Iterator end,
-      const int split_dim);
+      const int split_dim)
+  {
+#ifdef _OPENMP
+    __gnu_parallel::__parallel_nth_element(beg, med, end, CompareBodies(split_dim));
+#else
+    std::nth_element(beg, med, end, CompareBodies(split_dim));
+#endif
+  }
 
   class CompareBodies
   {
