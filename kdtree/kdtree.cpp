@@ -50,9 +50,8 @@ int main(int argc, char * argv[])
   const double t40 = get_wtime();
 
   const int K = 8;
-#if 1
+#if 0
   fprintf(stderr, " -- Searching k-nearest ngb -- \n");
-#pragma omp parallel for
   for (int i = 0; i < n_bodies; i++)
   {
     int klist[K];
