@@ -7,6 +7,10 @@ ifeq ($(OMP), 1)
 	OMPFLAGS  = -fopenmp
 endif
 
+ifeq ($(OMPCXX), 1)
+	OMPFLAGS += -D_GLIBCXX_PARALLEL
+endif
+
 OFLAGS = -O4 -g -Wall
 
 CXXFLAGS =  -fPIC $(OFLAGS) -Wstrict-aliasing=2 $(OMPFLAGS)

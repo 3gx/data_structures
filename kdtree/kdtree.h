@@ -233,9 +233,11 @@ class kdTree
     recursively_build_left_ballanced_tree((n_node<<1)+1, depth+1, bodies_beg+median+1, bodies_end       );
   }
 
+#define OMP_BODIES_MIN 65536
+
   void iteratively_build_left_ballanced_tree(kdBody::Vector &bodies)
   {
-#if 0  /* depth first */
+#if 1  /* depth first */
     std::stack<kdStack> stack;
     stack.push(kdStack(0, bodies.size(), 1, 0));
 
@@ -244,6 +246,7 @@ class kdTree
       const kdStack  s = stack.top();
       const int      n = s.end - s.beg;
       const int n_node = s.node; 
+      stack.pop();
 
       const int m  = prevPow2(n);
       const int r  = n - (m - 1);
@@ -251,7 +254,10 @@ class kdTree
 
       const int median = s.beg+lt;
       const int split_dim = depth%3;
-      std::nth_element(bodies.begin()+s.beg, bodies.begin()+median, bodies.begin()+s.end, CompareBodies(split_dim));
+      if (n > OMP_BODIES_MIN)
+        nth_element_omp(bodies.begin()+s.beg, bodies.begin()+median, bodies.begin()+s.end, split_dim);
+      else
+        std::nth_element(bodies.begin()+s.beg, bodies.begin()+median, bodies.begin()+s.end, CompareBodies(split_dim));
       this->depth = __max(this->depth, depth);
 
       const kdBody &body = bodies[median];
