@@ -435,6 +435,78 @@ struct Octree
   }
 #endif
 
+#if 1
+  int range_search1(const vec3 &pos, const real h, const Body::Vector &bodies) const
+  {
+    int nb = 0;
+    for (int k = 0; k < 8; k++)
+      range_search_recursive(k, pos, h*h, boundary(pos, h), bodies, nb);
+    return nb;
+  }
+
+  void range_search_recursive(
+      const int node, 
+      const vec3 &ipos, const real h2, const boundary &ibnd,
+      const Body::Vector &bodies,
+      int &nb) const
+  {
+    assert(node < (int)node_list.size());
+    const int cell = node_list[node];
+    if (cell == EMPTY) return;
+    if (not_overlapped(ibnd, innerBnd[node])) return;
+
+    if (cell > EMPTY)
+    {
+      for (int k = 0; k < 8; k++)
+        range_search_recursive(cell+k, ipos, h2, ibnd, bodies, nb);
+    }
+    else
+    {
+      const vec3 jpos = bodies[reverse_int(cell)].pos();
+      if ((ipos - jpos).norm2() < h2)
+        nb++;
+    }
+  }
+#else
+  int range_search1(const vec3 &ipos, const real h, const Body::Vector &bodies) const
+  {
+    int nb = 0;
+    std::stack<int> stack;
+    const boundary ibnd(ipos, h);
+    const real h2 = h*h;
+
+    for (int k = 0; k < 8; k++)
+      if (node_list[k] != EMPTY)
+        stack.push(k);
+
+    while(!stack.empty())
+    {
+      const int node = stack.top();
+      stack.pop();
+
+      assert(node < (int)node_list.size());
+      const int cell = node_list[node];
+      assert(cell != EMPTY);
+      if (not_overlapped(ibnd, innerBnd[node])) continue;
+
+      if (cell > EMPTY)
+      {
+        for (int k = 0; k < 8; k++)
+          if (node_list[cell+k] != EMPTY)
+            stack.push(cell+k);
+      }
+      else
+      {
+        const vec3 jpos = bodies[reverse_int(cell)].pos();
+        if ((ipos - jpos).norm2() < h2)
+          nb++;
+      }
+    }
+
+    return nb;
+  }
+#endif
+
   boundary inner_boundary(const Body::Vector &bodies)
   {
     boundary bnd;

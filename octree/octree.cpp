@@ -126,7 +126,7 @@ int main(int argc, char * argv[])
 
   fprintf(stderr, " -- Range search -- \n");
   int nb = 0;
-#if 0
+#if 1
   const int nb_mean = 32;
   const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
 #pragma omp parallel for reduction(+:nb)
@@ -136,6 +136,17 @@ int main(int argc, char * argv[])
   }
 #endif
   const double t70 = get_wtime();
+  
+  fprintf(stderr, " -- Range1 search -- \n");
+  int nb1 = 0;
+#if 1
+#pragma omp parallel for reduction(+:nb)
+  for (int i = 0; i < n_bodies; i++)
+  {
+    nb1 += tree.range_search1(ptcl[i].pos, s, octBodiesSorted);
+  }
+#endif
+  const double t80 = get_wtime();
 
 
 
@@ -151,6 +162,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   Boundary: %g sec \n", t67 -t63);
   fprintf(stderr, "   Sanity1:   %g sec \n", t68 -t67);
   fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t68, (real)nb/n_bodies);
+  fprintf(stderr, "   RangeS1:  %g sec <nb>= %g \n", t80 -t70, (real)nb1/n_bodies);
 
   return 0;
 }
