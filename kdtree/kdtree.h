@@ -369,7 +369,7 @@ class kdTree
       const int lt = (m-2)/2 + (r <= m/2 ? r : m/2);
 
       const int median = s.beg+lt;
-      const int split_dim = depth%3;
+      const int split_dim = (2*depth)%3;
 #if 1
       if (n > OMP_BODIES_MIN)
         nth_element_omp(bodies.begin()+s.beg, bodies.begin()+median, bodies.begin()+s.end, split_dim);
@@ -493,7 +493,7 @@ class kdTree
     for (unsigned int i = 0; i < ptcl.size(); i++)
       bodies.push_back(kdBody(ptcl[i], i));
 
-#if 1
+#if 0
     recursively_build_left_ballanced_tree(1, 0, bodies.begin(), bodies.end());
 #else
     iteratively_build_left_ballanced_tree(bodies);
