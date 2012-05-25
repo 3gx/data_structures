@@ -62,9 +62,7 @@ int main(int argc, char * argv[])
   }
   fprintf(stderr, "ncell= %d n_nodes= %d  depth= %d\n",
       tree.ncell, tree.n_nodes, tree.depth);
-  double t30 = get_wtime();
-  assert(tree.sanity_check(octBodies) == n_bodies);
-  t30 = get_wtime();
+  const double t30 = get_wtime();
   
   fprintf(stderr, " -- Dump morton -- \n");
   std::vector<int> morton_list;
@@ -75,8 +73,8 @@ int main(int argc, char * argv[])
   for (std::vector<int>::iterator it = morton_list.begin(); it != morton_list.end(); it++)
     assert(*it < n_bodies);
   assert((int)morton_list.size() == n_bodies);
+ 
   const double t40 = get_wtime();
-  
   fprintf(stderr, " -- Shuffle octBodies -- \n");
   Octree::Body::Vector octBodiesSorted;
   octBodiesSorted.reserve(n_bodies);
@@ -91,8 +89,8 @@ int main(int argc, char * argv[])
         octBodiesSorted.back().pos.z);
 #endif
   }
+  
   const double t50 = get_wtime();
-
   fprintf(stderr, " -- Buidling octTreeSorted -- \n");
   tree.clear();
   for (int i = 0; i < n_bodies; i++)
@@ -101,12 +99,10 @@ int main(int argc, char * argv[])
   }
   fprintf(stderr, "ncell= %d n_nodes= %d  depth= %d\n",
       tree.ncell, tree.n_nodes, tree.depth);
+ 
   const double t60 = get_wtime();
-  fprintf(stderr, " -- Sanity check -- \n");
-  assert(tree.sanity_check(octBodiesSorted) == n_bodies);
-  const double t63 = get_wtime();
   fprintf(stderr, " -- Inner boundary -- \n");
-  const boundary rootBnd = tree.inner_boundary(octBodiesSorted);
+  const boundary rootBnd = tree.inner_boundary<true>(octBodiesSorted);
   fprintf(stderr, " bnd= %g %g %g  size= %g %g %g \n",
       rootBnd.center().x,
       rootBnd.center().y,
@@ -120,8 +116,8 @@ int main(int argc, char * argv[])
       tree.root_centre.z,
       tree.root_size*0.5);
   
-  const double t67 = get_wtime();
-  assert(tree.sanity_check1(octBodiesSorted) == n_bodies);
+  const double t63 = get_wtime();
+  assert(tree.sanity_check(octBodiesSorted) == n_bodies);
   const double t68 = get_wtime();
 
   fprintf(stderr, " -- Range search -- \n");
@@ -137,18 +133,6 @@ int main(int argc, char * argv[])
 #endif
   const double t70 = get_wtime();
   
-  fprintf(stderr, " -- Range1 search -- \n");
-  int nb1 = 0;
-#if 1
-#pragma omp parallel for reduction(+:nb)
-  for (int i = 0; i < n_bodies; i++)
-  {
-    nb1 += tree.range_search1(ptcl[i].pos, s, octBodiesSorted);
-  }
-#endif
-  const double t80 = get_wtime();
-
-
 
   fprintf(stderr, " Timing info: \n");
   fprintf(stderr, " -------------\n");
@@ -158,11 +142,9 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   Morton:   %g sec \n", t40 -t30);
   fprintf(stderr, "   Shuffle:  %g sec \n", t50 -t40);
   fprintf(stderr, "   TreeSort: %g sec \n", t60 -t50);
-  fprintf(stderr, "   Sanity:   %g sec \n", t63 -t60);
-  fprintf(stderr, "   Boundary: %g sec \n", t67 -t63);
-  fprintf(stderr, "   Sanity1:   %g sec \n", t68 -t67);
+  fprintf(stderr, "   Boundary: %g sec \n", t63 -t60);
+  fprintf(stderr, "   Sanity:   %g sec \n", t68 -t63);
   fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t68, (real)nb/n_bodies);
-  fprintf(stderr, "   RangeS1:  %g sec <nb>= %g \n", t80 -t70, (real)nb1/n_bodies);
 
   return 0;
 }
