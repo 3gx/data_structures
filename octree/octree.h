@@ -200,6 +200,37 @@ struct Octree
       nb++;
     }
   }
+  
+  int sanity_check1(const Body::Vector &bodies) const
+  {
+    int nb = 0;
+    for (int k = 0; k < 8; k++)
+      sanity_check_recursive(k, bodies, nb);
+    return nb;
+  }
+
+  void sanity_check_recursive(
+      const int node, 
+      const Body::Vector &bodies,
+      int &nb) const
+  {
+    assert(node < (int)node_list.size());
+    const int cell = node_list[node];
+    if (cell == EMPTY) return;
+
+    if (cell > EMPTY)
+    {
+      for (int k = 0; k < 8; k++)
+        if (node_list[cell+k] != EMPTY) 
+          sanity_check_recursive(cell+k, bodies, nb);
+    }
+    else
+    {
+      const vec3 jpos = bodies[reverse_int(cell)].pos();
+      assert(overlapped(innerBnd[node], jpos));
+      nb++;
+    }
+  }
 
   /********/
 
@@ -403,7 +434,7 @@ struct Octree
     return nb;
   }
 #endif
-  
+
   boundary inner_boundary(const Body::Vector &bodies)
   {
     boundary bnd;
@@ -427,13 +458,14 @@ struct Octree
       for (int k = 0; k < 8; k++)
         if (node_list[cell+k] != EMPTY) 
           innerBnd[node].merge(inner_boundary_recursive(cell+k, bodies));
-      return innerBnd[node];
     }
     else
     {
       const vec3 jpos = bodies[reverse_int(cell)].pos();
-      return boundary(jpos);
+      innerBnd[node] = boundary(jpos);
     }
+
+    return innerBnd[node];
   }
 
 };

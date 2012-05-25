@@ -119,7 +119,11 @@ int main(int argc, char * argv[])
       tree.root_centre.y,
       tree.root_centre.z,
       tree.root_size*0.5);
+  
   const double t67 = get_wtime();
+  assert(tree.sanity_check1(octBodiesSorted) == n_bodies);
+  const double t68 = get_wtime();
+
   fprintf(stderr, " -- Range search -- \n");
   int nb = 0;
 #if 0
@@ -145,7 +149,8 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   TreeSort: %g sec \n", t60 -t50);
   fprintf(stderr, "   Sanity:   %g sec \n", t63 -t60);
   fprintf(stderr, "   Boundary: %g sec \n", t67 -t63);
-  fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t67, (real)nb/n_bodies);
+  fprintf(stderr, "   Sanity1:   %g sec \n", t68 -t67);
+  fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t68, (real)nb/n_bodies);
 
   return 0;
 }
