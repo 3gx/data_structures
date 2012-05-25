@@ -83,7 +83,7 @@ int main(int argc, char * argv[])
   {
     assert(*it < n_bodies);
     octBodiesSorted.push_back(octBodies[*it]);
-#if 1
+#if 0
     fprintf(stdout, "%g %g %g \n", 
         octBodiesSorted.back().pos.x,
         octBodiesSorted.back().pos.y,
