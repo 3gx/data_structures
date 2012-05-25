@@ -68,7 +68,7 @@ struct Octree
       *it = -1;
   }
 
-  inline int reverse_int(const int a) {return BODYX-a;}
+  static inline int reverse_int(const int a) {return BODYX-a;}
 
   static inline int Octant(const vec3 &lhs, const vec3 &rhs) 
   {
@@ -167,13 +167,13 @@ struct Octree
     this->depth = __max(this->depth, depth);
   }
 
-  void morton_dump(std::vector<int> &list)
+  void morton_dump(std::vector<int> &list) const
   {
     for (int k = 0; k < 8; k++)
       morton_dump_recursive(k, list);
   }
 
-  void morton_dump_recursive(int node, std::vector<int> &list)
+  void morton_dump_recursive(const int node, std::vector<int> &list) const
   {
     assert(node < (int)node_list.size());
     const int cell = node_list[node];

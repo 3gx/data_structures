@@ -12,7 +12,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, "n_bodies= %d\n", n_bodies);
 
   const double t00 = get_wtime();
-#if 0
+#if 1
   const Plummer data(n_bodies);
 #endif
   const double t10 = get_wtime();
@@ -21,7 +21,7 @@ int main(int argc, char * argv[])
   ptcl.reserve(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
-#if 0
+#if 1
     ptcl.push_back(Particle(data.pos[i], data.mass[i]));
 #else
     ptcl.push_back(Particle(
