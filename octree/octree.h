@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
+#include <stack>
 #include <list>
 #include "vector3.h"
 
@@ -132,8 +133,10 @@ struct Octree
     return centre + len * off[oct];
   }
 #else
-  static inline vec3 compute_centre(const vec3 &c, real &s, const int oct)
+  static inline vec3 compute_centre(const vec3 &c, real s, const int oct)
   {
+    assert(oct >= 0);
+    assert(oct  < 8);
     s *= (real)0.5;
     return vec3(
         c.x + s * ((oct&1) ? (real)1.0 : (real)-1.0),
@@ -143,22 +146,58 @@ struct Octree
   }
 #endif
 
-  int sanity_check() const
+  int sanity_check(const Body::Vector &bodies) const
   {
-    int nbody = 0;
-    int nnode = 0;
-    int empty = 0;
-    for (int i = 0; i < (const int)node_list.size(); i++)
-      if (node_list[i] == EMPTY)
-        empty++;
-      else if (node_list[i] >= 0)
-        nnode++;
-      else
-        nbody++;
-    fprintf(stderr, "empty= %d nnode= %d nbody= %d\n",
-        empty, nnode, nbody);
-    return nbody;
+    int nb = 0;
+    for (int k = 0; k < 8; k++)
+      if (node_list[k] != EMPTY)
+      {
+        vec3 c = root_centre;
+        real h = root_size*(real)0.5;
+        c = compute_centre(c, h, k);
+        h *= (real)0.5;
+        sanity_check_recursive(k, bodies, c, h, nb);
+      }
+    return nb;
   }
+
+  void sanity_check_recursive(
+      const int node, 
+      const Body::Vector &bodies,
+      const vec3 c, const real h, 
+      int &nb) const
+  {
+    assert(node < (int)node_list.size());
+    const int cell = node_list[node];
+    assert(cell != EMPTY);
+
+    if (cell > EMPTY)
+    {
+      for (int k = 0; k < 8; k++)
+        if (node_list[cell+k] != EMPTY) 
+        {
+          const vec3 c1 = compute_centre(c, h, k);
+          const real h1 = h * (real)0.5;
+          sanity_check_recursive(cell+k, bodies, c1, h1, nb);
+        }
+    }
+    else
+    {
+      const vec3 jpos = bodies[reverse_int(cell)].pos();
+      const real h1 = h*1.001;
+      const bool overlap_x = (jpos.x < c.x+h1) && (jpos.x > c.x-h1);
+      const bool overlap_y = (jpos.y < c.y+h1) && (jpos.y > c.y-h1);
+      const bool overlap_z = (jpos.z < c.z+h1) && (jpos.z > c.z-h1);
+      const bool overlap   = overlap_x && overlap_y && overlap_z;
+      assert(overlap_x);
+      assert(overlap_y);
+      assert(overlap_z);
+      assert(overlap);
+      nb++;
+    }
+  }
+
+  /********/
 
 
   void push(const Body &body, const int idx, const Body::Vector &bodies)
@@ -184,6 +223,7 @@ struct Octree
 
       child_idx  = Octant(centre, body.pos());
       centre     = compute_centre(centre, hsize, child_idx);
+      hsize     *= (real)0.5;
 
       locked = node + child_idx;
       assert(locked < _n_nodes);
@@ -192,10 +232,7 @@ struct Octree
 
     /* locked on the cell that needs to be updated */
 
-    if (child == EMPTY)  /* if the cell is empty, just put the body in it */
-      node_list[locked] = reverse_int(idx);
-    else 
-    {  /* otherwise split the cell */
+    if (child != EMPTY)
       while((child = node_list[locked]) != EMPTY)
       {
         assert(child < EMPTY);
@@ -213,10 +250,11 @@ struct Octree
 
         child_idx = Octant(centre, body.pos());
         centre    = compute_centre(centre, hsize, child_idx);
+        hsize    *= (real)0.5;
         locked    = cfirst + child_idx;
       }
-      node_list[locked] = reverse_int(idx);
-    }
+    assert(node_list[locked] == EMPTY);
+    node_list[locked] = reverse_int(idx);
 
     this->depth = __max(this->depth, depth);
   }
@@ -240,6 +278,128 @@ struct Octree
     else
       list.push_back(reverse_int(cell));
   }
+
+#if 0
+  int range_search(const vec3 &pos, const real s, const Body::Vector &bodies) const
+  {
+    int nb = 0;
+#ifdef __mySSE__
+#error "SSE version is not implemented yet"
+    const v4sf ipos   = (v4sf){pos.x, pos.y, pos.z, 0.0f};
+    const v4sf centre = (v4sf){root_centre.x, root_centre.y, root_centre.z, 0.5f*root_size};
+    for (int k = 0; k < 8; k++)
+      range_search_recursive(k, ipos, centre, nb);
+#else
+    for (int k = 0; k < 8; k++)
+      if (node_list[k] != EMPTY)
+      {
+        vec3 c = root_centre;
+        real h = root_size*(real)0.5;
+        c = compute_centre(c, h, k);
+        h *= (real)0.5;
+        range_search_recursive(k, pos, s, bodies, c, h, nb);
+      }
+#endif
+    return nb;
+  }
+
+  void range_search_recursive(
+      const int node, 
+      const vec3 &ipos,   const real s,
+      const Body::Vector &bodies,
+      vec3 c, real h, 
+      int &nb) const
+  {
+    assert(node < (int)node_list.size());
+    const int cell = node_list[node];
+    assert(cell != EMPTY);
+    const bool overlap_x = (ipos.x-s < c.x+h) && (ipos.x+s > c.x - h);
+    const bool overlap_y = (ipos.y-s < c.y+h) && (ipos.y+s > c.y - h);
+    const bool overlap_z = (ipos.z-s < c.z+h) && (ipos.z+s > c.z - h);
+    const bool overlap   = overlap_x && overlap_y && overlap_z;
+    if (!overlap) return;
+
+    if (cell > EMPTY)
+    {
+      for (int k = 0; k < 8; k++)
+        if (node_list[cell+k] != EMPTY) 
+        {
+          const vec3 c1 = compute_centre(c, h, k);
+          const real h1 = h * (real)0.5;
+          range_search_recursive(cell+k, ipos, s, bodies, c1, h1, nb);
+        }
+    }
+    else
+    {
+      const vec3 jpos = bodies[reverse_int(cell)].pos();
+      if ((ipos - jpos).norm2() < s*s)
+        nb++;
+    }
+  }
+#else
+  struct walkStack
+  {
+    int  node;
+    vec3 c;
+    real h;
+    walkStack(const int _node, const vec3 &_c, const real _h) :
+      node(_node), c(_c), h(_h) {}
+  };
+  int range_search(const vec3 &ipos, const real s, const Body::Vector &bodies) const
+  {
+    int nb = 0;
+    std::stack<walkStack> stack;
+
+    for (int k = 0; k < 8; k++)
+      if (node_list[k] != EMPTY)
+      {
+        vec3 c = root_centre;
+        real h = root_size*(real)0.5;
+        c = compute_centre(c, h, k);
+        h *= (real)0.5;
+        stack.push(walkStack(k, c, h));
+      }
+
+    while(!stack.empty())
+    {
+      const walkStack top = stack.top();
+      stack.pop();
+
+      const int  node = top.node;
+      const vec3   &c = top.c;
+      const real   &h = top.h;
+
+      assert(node < (int)node_list.size());
+      const int cell = node_list[node];
+      assert(cell != EMPTY);
+      const bool overlap_x = (ipos.x-s < c.x+h) && (ipos.x+s > c.x - h);
+      const bool overlap_y = (ipos.y-s < c.y+h) && (ipos.y+s > c.y - h);
+      const bool overlap_z = (ipos.z-s < c.z+h) && (ipos.z+s > c.z - h);
+      const bool overlap   = overlap_x && overlap_y && overlap_z;
+      if (!overlap) continue;
+
+      if (cell > EMPTY)
+      {
+        for (int k = 0; k < 8; k++)
+          if (node_list[cell+k] != EMPTY) 
+          {
+            const vec3 c1 = compute_centre(c, h, k);
+            const real h1 = h * (real)0.5;
+            stack.push(walkStack(cell+k, c1, h1));
+          }
+      }
+      else
+      {
+        const vec3 jpos = bodies[reverse_int(cell)].pos();
+        if ((ipos - jpos).norm2() < s*s)
+          nb++;
+      }
+    }
+
+    return nb;
+  }
+#endif
+
 };
 
 

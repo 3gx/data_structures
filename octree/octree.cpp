@@ -14,7 +14,7 @@ int main(int argc, char * argv[])
   const double t00 = get_wtime();
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
-#if 1
+#if 0
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
@@ -62,8 +62,9 @@ int main(int argc, char * argv[])
   }
   fprintf(stderr, "ncell= %d n_nodes= %d  depth= %d\n",
       tree.ncell, tree.n_nodes, tree.depth);
-  assert(tree.sanity_check() == n_bodies);
-  const double t30 = get_wtime();
+  double t30 = get_wtime();
+  assert(tree.sanity_check(octBodies) == n_bodies);
+  t30 = get_wtime();
   
   fprintf(stderr, " -- Dump morton -- \n");
   std::vector<int> morton_list;
@@ -100,8 +101,22 @@ int main(int argc, char * argv[])
   }
   fprintf(stderr, "ncell= %d n_nodes= %d  depth= %d\n",
       tree.ncell, tree.n_nodes, tree.depth);
-  assert(tree.sanity_check() == n_bodies);
-  const double t60 = get_wtime();
+  double t60 = get_wtime();
+  assert(tree.sanity_check(octBodiesSorted) == n_bodies);
+
+  t60 = get_wtime();
+  fprintf(stderr, " -- Range search -- \n");
+  int nb = 0;
+  const int nb_mean = 32;
+  const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
+#pragma omp parallel for reduction(+:nb)
+  for (int i = 0; i < n_bodies; i++)
+  {
+    nb += tree.range_search(ptcl[i].pos, s, octBodiesSorted);
+  }
+  const double t70 = get_wtime();
+
+
 
   fprintf(stderr, " Timing info: \n");
   fprintf(stderr, " -------------\n");
@@ -111,6 +126,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   Morton:   %g sec \n", t40 -t30);
   fprintf(stderr, "   Shuffle:  %g sec \n", t50 -t40);
   fprintf(stderr, "   TreeSort: %g sec \n", t60 -t50);
+  fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t60, (real)nb/n_bodies);
 
   return 0;
 }
