@@ -116,7 +116,7 @@ struct Octree
 #endif
 
 #ifdef __mySSE__
-  static inline v4sf compute_centre(const v4sf centre, const int oct)
+  static inline v4sf compute_centre(const v4sf centre, const real dummy, const int oct)
   {
     static const v4sf off[8] = {
       {-0.25f, -0.25f, -0.25f, -0.5f},
@@ -143,13 +143,6 @@ struct Octree
   }
 #endif
 
-  void check_overflow(const int n) const
-  {
-#if 1
-    assert(n < (int)node_list.size());
-#endif
-  }
-
   int sanity_check() const
   {
     int nbody = 0;
@@ -172,36 +165,37 @@ struct Octree
   {
     int child_idx = 0;   /* child idx inside a node */
     int child     = 0;   /* child */
-    int locked    = 0;   /* locked cell */
+    int locked    = 0;   /* cell that needs to be updated */
     int depth     = 0;   /* depth */ 
+    const int _n_nodes = node_list.size();
 
 #ifdef __mySSE__
-    v4sf     centre = {root_centre.x, root_centre.y, root_centre.z, root_size};
+    v4sf centre = {root_centre.x, root_centre.y, root_centre.z, root_size};
 #else
     vec3 centre = root_centre;
-    real hsize  = root_size*(real)0.5;
 #endif
-    while (child > EMPTY)  /* if positive, this means node is already there */
+    real hsize  = root_size*(real)0.5; /* not being used in SSE version */
+
+    /* walk the tree to find the first leaf or empty cell */
+    while (child > EMPTY)  /* if non-negative, means it is a tree-node */
     {
       const int node = child;
       depth++;
 
       child_idx  = Octant(centre, body.pos());
-#ifdef __mySSE__
-      centre     = compute_centre(centre, child_idx);
-#else
       centre     = compute_centre(centre, hsize, child_idx);
-#endif
 
       locked = node + child_idx;
-      check_overflow(locked);
+      assert(locked < _n_nodes);
       child  = node_list[locked];
     }
 
-    if (child == EMPTY)
+    /* locked on the cell that needs to be updated */
+
+    if (child == EMPTY)  /* if the cell is empty, just put the body in it */
       node_list[locked] = reverse_int(idx);
-    else
-    {
+    else 
+    {  /* otherwise split the cell */
       while((child = node_list[locked]) != EMPTY)
       {
         assert(child < EMPTY);
@@ -209,9 +203,7 @@ struct Octree
         ncell++;
 
         const int cfirst = ncell<<3;
-        check_overflow(cfirst+7);
-        for (int k = 0; k < 8; k++)
-          node_list[cfirst + k] = EMPTY;
+        assert(cfirst+7 < _n_nodes);
         node_list[locked] = cfirst;
 
         const int body_id = reverse_int(child);
@@ -220,11 +212,7 @@ struct Octree
         node_list[cfirst + child_idx] = child;
 
         child_idx = Octant(centre, body.pos());
-#ifdef __mySSE__
-        centre    = compute_centre(centre, child_idx);
-#else
         centre    = compute_centre(centre, hsize, child_idx);
-#endif
         locked    = cfirst + child_idx;
       }
       node_list[locked] = reverse_int(idx);
