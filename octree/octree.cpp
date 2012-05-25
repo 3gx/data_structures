@@ -101,12 +101,28 @@ int main(int argc, char * argv[])
   }
   fprintf(stderr, "ncell= %d n_nodes= %d  depth= %d\n",
       tree.ncell, tree.n_nodes, tree.depth);
-  double t60 = get_wtime();
+  const double t60 = get_wtime();
+  fprintf(stderr, " -- Sanity check -- \n");
   assert(tree.sanity_check(octBodiesSorted) == n_bodies);
-
-  t60 = get_wtime();
+  const double t63 = get_wtime();
+  fprintf(stderr, " -- Inner boundary -- \n");
+  const boundary rootBnd = tree.inner_boundary(octBodiesSorted);
+  fprintf(stderr, " bnd= %g %g %g  size= %g %g %g \n",
+      rootBnd.center().x,
+      rootBnd.center().y,
+      rootBnd.center().z,
+      rootBnd.hlen().x,
+      rootBnd.hlen().y,
+      rootBnd.hlen().z);
+  fprintf(stderr, " c= %g %g %g size= %g\n",
+      tree.root_centre.x,
+      tree.root_centre.y,
+      tree.root_centre.z,
+      tree.root_size*0.5);
+  const double t67 = get_wtime();
   fprintf(stderr, " -- Range search -- \n");
   int nb = 0;
+#if 0
   const int nb_mean = 32;
   const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
 #pragma omp parallel for reduction(+:nb)
@@ -114,6 +130,7 @@ int main(int argc, char * argv[])
   {
     nb += tree.range_search(ptcl[i].pos, s, octBodiesSorted);
   }
+#endif
   const double t70 = get_wtime();
 
 
@@ -126,7 +143,9 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   Morton:   %g sec \n", t40 -t30);
   fprintf(stderr, "   Shuffle:  %g sec \n", t50 -t40);
   fprintf(stderr, "   TreeSort: %g sec \n", t60 -t50);
-  fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t60, (real)nb/n_bodies);
+  fprintf(stderr, "   Sanity:   %g sec \n", t63 -t60);
+  fprintf(stderr, "   Boundary: %g sec \n", t67 -t63);
+  fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t67, (real)nb/n_bodies);
 
   return 0;
 }

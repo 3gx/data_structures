@@ -7,9 +7,11 @@
 #include <stack>
 #include <list>
 #include "vector3.h"
+#include "boundary.h"
 
 typedef float real;
 typedef vector3<real> vec3;
+typedef Boundary<real> boundary;
 
 template<class T>
 static inline T __min(const T &a, const T &b) {return a < b ? a : b;}
@@ -81,11 +83,13 @@ struct Octree
   int ncell;
   int n_nodes;
   std::vector<int> node_list;
+  std::vector<boundary> innerBnd;
 
   Octree(const vec3 &_centre, const real _size, const int _n_nodes) :
     root_centre(_centre), root_size(_size), depth(0), ncell(0), n_nodes(_n_nodes)
   {
     node_list.resize(n_nodes<<3);
+    innerBnd.resize(n_nodes<<3);
     for (std::vector<int>::iterator it = node_list.begin(); it != node_list.end(); it++)
       *it = -1;
   }
@@ -399,6 +403,38 @@ struct Octree
     return nb;
   }
 #endif
+  
+  boundary inner_boundary(const Body::Vector &bodies)
+  {
+    boundary bnd;
+    for (int k = 0; k < 8; k++)
+    {
+      innerBnd[k] = inner_boundary_recursive(k, bodies);
+      bnd.merge(innerBnd[k]);
+    }
+    return bnd;
+  }
+  boundary inner_boundary_recursive(const int node, const Body::Vector &bodies) 
+  {
+    assert(node < (int)node_list.size());
+    const int cell = node_list[node];
+    if (cell == EMPTY) return boundary();
+
+    innerBnd[node] = boundary();
+
+    if (cell > EMPTY)
+    {
+      for (int k = 0; k < 8; k++)
+        if (node_list[cell+k] != EMPTY) 
+          innerBnd[node].merge(inner_boundary_recursive(cell+k, bodies));
+      return innerBnd[node];
+    }
+    else
+    {
+      const vec3 jpos = bodies[reverse_int(cell)].pos();
+      return boundary(jpos);
+    }
+  }
 
 };
 
