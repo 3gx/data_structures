@@ -14,7 +14,7 @@ int main(int argc, char * argv[])
   const double t00 = get_wtime();
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
-#if 0
+#if 1
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
@@ -58,7 +58,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, " -- Buidling octTree -- \n");
   for (int i = 0; i < n_bodies; i++)
   {
-    tree.push(octBodies[i], octBodies);
+    tree.push(octBodies[i], i, octBodies);
   }
   fprintf(stderr, "ncell= %d n_nodes= %d  depth= %d\n",
       tree.ncell, tree.n_nodes, tree.depth);
@@ -92,6 +92,17 @@ int main(int argc, char * argv[])
   }
   const double t50 = get_wtime();
 
+  fprintf(stderr, " -- Buidling octTreeSorted -- \n");
+  tree.clear();
+  for (int i = 0; i < n_bodies; i++)
+  {
+    tree.push(octBodiesSorted[i], i, octBodiesSorted);
+  }
+  fprintf(stderr, "ncell= %d n_nodes= %d  depth= %d\n",
+      tree.ncell, tree.n_nodes, tree.depth);
+  assert(tree.sanity_check() == n_bodies);
+  const double t60 = get_wtime();
+
   fprintf(stderr, " Timing info: \n");
   fprintf(stderr, " -------------\n");
   fprintf(stderr, "   Plummer:  %g sec \n", t10 -t00);
@@ -99,6 +110,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   Tree:     %g sec \n", t30 -t20);
   fprintf(stderr, "   Morton:   %g sec \n", t40 -t30);
   fprintf(stderr, "   Shuffle:  %g sec \n", t50 -t40);
+  fprintf(stderr, "   TreeSort: %g sec \n", t60 -t50);
 
   return 0;
 }

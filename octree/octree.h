@@ -61,6 +61,13 @@ struct Octree
       *it = -1;
   }
 
+  void clear()
+  {
+    depth = ncell = 0;
+    for (std::vector<int>::iterator it = node_list.begin(); it != node_list.end(); it++)
+      *it = -1;
+  }
+
   inline int reverse_int(const int a) {return BODYX-a;}
 
   static inline int Octant(const vec3 &lhs, const vec3 &rhs) 
@@ -105,7 +112,7 @@ struct Octree
   }
 
 
-  void push(const Body &body, const Body::Vector &bodies)
+  void push(const Body &body, const int idx, const Body::Vector &bodies)
   {
     int child_idx = 0;   /* child idx inside a node */
     int child     = 0;   /* child */
@@ -126,15 +133,10 @@ struct Octree
       locked = node + child_idx;
       check_overflow(locked);
       child  = node_list[locked];
-//      fprintf(stderr, " depth= %d child= %d lock= %d\n", depth, child, locked);
     }
-//    fprintf(stderr, " -- depth= %d child= %d lock= %d\n", depth, child, locked);
 
     if (child == EMPTY)
-    {
-      node_list[locked] = reverse_int(body.idx);
-//      fprintf(stderr, " -- insert \n");
-    }
+      node_list[locked] = reverse_int(idx);
     else
     {
       while((child = node_list[locked]) != EMPTY)
@@ -159,8 +161,7 @@ struct Octree
         centre    = compute_centre(centre, hsize, child_idx);
         locked    = cfirst + child_idx;
       }
-      node_list[locked] = reverse_int(body.idx);
-//      fprintf(stderr, " -- split: lock= %d\n", locked);
+      node_list[locked] = reverse_int(idx);
     }
 
     this->depth = __max(this->depth, depth);
@@ -172,19 +173,19 @@ struct Octree
       morton_dump_recursive(k, list);
   }
 
-    void morton_dump_recursive(int node, std::vector<int> &list)
+  void morton_dump_recursive(int node, std::vector<int> &list)
+  {
+    assert(node < (int)node_list.size());
+    const int cell = node_list[node];
+    if (cell == EMPTY) return;
+    if (cell >  EMPTY)
     {
-      assert(node < (int)node_list.size());
-      const int cell = node_list[node];
-      if (cell == EMPTY) return;
-      if (cell >  EMPTY)
-      {
-        for (int k = 0; k < 8; k++)
-          morton_dump_recursive(cell+k, list);
-      }
-      else
-        list.push_back(reverse_int(cell));
+      for (int k = 0; k < 8; k++)
+        morton_dump_recursive(cell+k, list);
     }
+    else
+      list.push_back(reverse_int(cell));
+  }
 };
 
 
