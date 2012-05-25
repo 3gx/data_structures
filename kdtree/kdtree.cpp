@@ -59,6 +59,41 @@ int main(int argc, char * argv[])
   }
 #endif
   const double t50 = get_wtime();
+
+  fprintf(stderr, " -- Searching nearest ngb -- \n");
+  {
+    real s = 0.0;
+    real s2 = 0.0;
+#pragma omp parallel for reduction(+:s,s2)
+    for (int i = 0; i < n_bodies; i++)
+    {
+      const int node_id = tree.find_nnb(ptcl[i].pos);
+      const int  j = tree[node_id].body_idx();
+      const real r = (ptcl[i].pos - ptcl[j].pos).abs();
+#if 0 /* correctness check */
+      real s2min = HUGE;
+      int  jmin  = -1;
+      for (int jx = 0; jx < n_bodies; jx++)
+      {
+        const real r2 = (ptcl[i].pos - ptcl[jx].pos).norm2();
+        if (r2 < s2min && r2 != 0.0f)
+        {
+          s2min = r2;
+          jmin = jx;
+        } 
+      }
+      assert(jmin == j);
+#endif
+      s  += r;
+      s2 += r*r;
+    }
+    s  *= 1.0/n_bodies;
+    s2 *= 1.0/n_bodies;
+    const real ds = std::sqrt(s2 - s*s);
+    fprintf(stderr, "<r> = %g  sigma= %g \n", s, ds);
+  }
+  const double t60 = get_wtime();
+
   fprintf(stderr, " Timing info: \n");
   fprintf(stderr, " -------------\n");
   fprintf(stderr, "   Plummer:  %g sec \n", t10 -t00);
@@ -66,6 +101,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   kdTree:   %g sec \n", t30 -t20);
   fprintf(stderr, "   ngb :     %g sec, nb= %g \n", t40 -t30, (real)nb/(real)n_bodies);
   fprintf(stderr, "   kgb :     %g sec, K= %d \n", t50 -t40, K);
+  fprintf(stderr, "   ngb :     %g sec \n", t60 -t50);
 
 
 

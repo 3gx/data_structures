@@ -212,7 +212,7 @@ class kdNode
   {
     return packed_data >> 29;
   }
-  int body_id() const
+  int body_idx() const
   {
     return packed_data & 0x1FFFFFFF;
   }
@@ -238,6 +238,9 @@ class kdTree
   int depth;
 
   public:
+
+  const kdNode& operator[](const int i) const { return nodes[i];}
+
 
   kdTree(const Particle::Vector &ptcl, const TREE_TYPE type = LEFT_BALLANCED) :
     depth(0)
@@ -497,44 +500,16 @@ class kdTree
 #endif
   }
 
+
+  public:
   int find_nnb(const vec3 &pos) const
   {
     real s2min     = HUGE;
     int  inode_min = -1;
-    find_recursively_nnb(s2min, 1, s2min, inode_min);
+    find_recursively_nnb(pos, 1, s2min, inode_min);
 
     return inode_min;
   }
-
-  void find_recursively_nnb(
-      const vec3 &pos,
-      const int   inode,
-      real &s2min,
-      int  &inode_min) const
-  {
-    if (inode >= (int)nodes.size()) return;
-
-    const kdNode &node = nodes[inode];
-    const int split_dim = node.split_dim();
-    const bool go_left = pos[split_dim] <= node.pos()[split_dim];
-    const int left  = (inode << 1);
-    const int right = (inode << 1) + 1;
-    const int near = go_left ? left  : right;
-    const int far  = go_left ? right : left;
-
-    find_recursively_nnb(pos, near, s2min, inode_min);
-    if (SQR(pos[split_dim] - node.pos()[split_dim]) <= s2min)
-      find_recursively_nnb(pos, far, s2min, inode_min);
-
-    const real s2 = (pos - node.pos()).norm2();
-    if (s2 <= s2min && s2 > 0.0)
-    {
-      s2min      = s2;
-      inode_min = inode;
-    }
-  }
-
-  public:
   template<const int K>
   void find_knb(const vec3 &pos, int knb_list[K]) const
   {
@@ -547,7 +522,9 @@ class kdTree
   int find_range_nb(const vec3 &pos, const real s) const
   {
     int nb = 0;
-    find_recursively_range_nb(pos, 1, s, nb);
+    vec3 rmin(-HUGE);
+    vec3 rmax(+HUGE);
+    find_recursively_range_nb(pos, 1, s, nb, rmin, rmax);
     return nb;
   }
 #else
@@ -584,6 +561,34 @@ class kdTree
 #endif
   private:
 
+  void find_recursively_nnb(
+      const vec3 &pos,
+      const int   inode,
+      real &s2min,
+      int  &inode_min) const
+  {
+    if (inode >= (int)nodes.size()) return;
+
+    const kdNode &node = nodes[inode];
+    const int split_dim = node.split_dim();
+    const bool go_left = pos[split_dim] <= node.pos()[split_dim];
+    const int left  = (inode << 1);
+    const int right = (inode << 1) + 1;
+    const int near = go_left ? left  : right;
+    const int far  = go_left ? right : left;
+
+    find_recursively_nnb(pos, near, s2min, inode_min);
+    if (SQR(pos[split_dim] - node.pos()[split_dim]) <= s2min)
+      find_recursively_nnb(pos, far, s2min, inode_min);
+
+    const real s2 = (pos - node.pos()).norm2();
+    if (s2 <= s2min && s2 > 0.0)
+    {
+      s2min      = s2;
+      inode_min = inode;
+    }
+  }
+
   template<const int K>
     void find_recursively_knb(
         const vec3 &pos,
@@ -611,7 +616,9 @@ class kdTree
         const vec3 &pos,
         const int inode,
         const real s,
-        int &nb) const
+        int &nb,
+        vec3 &rmin,
+        vec3 &rmax) const
     {
       if (inode >= (int)nodes.size()) return;
 
@@ -620,10 +627,20 @@ class kdTree
       const int left  = inode << 1;
       const int right = left + 1; 
 
-      if (pos[split_dim] - s < node.pos()[split_dim]) find_recursively_range_nb(pos, left, s, nb);
-      if (pos[split_dim] + s > node.pos()[split_dim]) find_recursively_range_nb(pos, right, s, nb);
-
 #if 1
+      if (pos[split_dim] - s < node.pos()[split_dim]) 
+        find_recursively_range_nb(pos, left, s, nb, rmin, rmax);
+      if (pos[split_dim] + s > node.pos()[split_dim]) 
+        find_recursively_range_nb(pos, right, s, nb, rmin, rmax);
+#else
+      if (pos[split_dim] - s < node.pos()[split_dim]) 
+      {
+        rmax[split_dim] = node.pos()[split_dim];
+        find_recursively_range_nb(pos, left, s, nb, rmin, rmax);
+      }
+#endif
+
+#if 0
       if ((pos - node.pos()).norm2() < s*s)
 #endif
         nb++;
