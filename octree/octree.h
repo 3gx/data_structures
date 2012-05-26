@@ -111,6 +111,28 @@ struct Octree
     bool isNode () const { return addr > EMPTY;}
   };
 
+  struct Leaf
+  {
+    private:
+      int _nb;           /* number of bodies in the list */
+      int _list[NLEAF];  /* idx of the body */
+
+    public:
+      Leaf() : _nb(0) {}
+      bool push(const int idx) 
+      {
+        if (_nb < NLEAF)
+        { 
+          _list[_nb++] = idx;
+          return true;
+        }
+        return false;
+      }
+      int operator[](const int i) const { return _list[i];}
+      int operator[](const int i)       { return _list[i];}
+      int nb() const {return _nb;}
+  };
+
   struct CellFull
   {
 #ifdef MEMALIGN
@@ -152,7 +174,7 @@ struct Octree
     cells.clear();
     cells.resize(ncell);
   }
-  
+
   bool isTreeReady() const {return treeReady;}
 
   static inline int reverse_int(const int a) {return BODYX-a;}
