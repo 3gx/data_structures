@@ -118,9 +118,7 @@ struct Octree
 #else
     typedef std::vector<CellFull> Vector;
 #endif
-    int np;
     boundary inner;
-    int dummy;
 
     CellFull() {};
   };
@@ -242,33 +240,35 @@ struct Octree
 
     /* locked on the cell that needs to be updated */
 
-    if (child != EMPTY)
-      while((child = cell_list[locked].addr) != EMPTY)
-      {
-        assert(child < EMPTY);
-        depth++;
-        nnode++;
+    while((child = cell_list[locked].addr) != EMPTY)
+    {  /* split the cell is already occupied */
+      assert(child < EMPTY);
+      depth++;
+      nnode++;
 
-        const int cfirst = nnode<<3;
-        assert(cfirst+7 < _n_nodes);
-        cell_list[locked].addr = cfirst;
+      const int cfirst = nnode<<3;
+      assert(cfirst+7 < _n_nodes);
+      cell_list[locked].addr = cfirst;
 
-        const int body_id = reverse_int(child);
-        assert(body_id >= 0);
-        child_idx = Octant(centre, bodies[body_id].pos());
-        cell_list[cfirst + child_idx] = Cell(child, ncell++);
+      const int body_id = reverse_int(child);
+      assert(body_id >= 0);
+      child_idx = Octant(centre, bodies[body_id].pos());
+      cell_list[cfirst + child_idx] = Cell(child, ncell++);
 
-        child_idx = Octant(centre, body.pos());
-        centre    = compute_centre(centre, hsize, child_idx);
-        hsize    *= (real)0.5;
-        locked    = cfirst + child_idx;
-      }
+      child_idx = Octant(centre, body.pos());
+      centre    = compute_centre(centre, hsize, child_idx);
+      hsize    *= (real)0.5;
+      locked    = cfirst + child_idx;
+    }
+
+    /* now we have an empty cell, insert a particle */
+
     assert(cell_list[locked].isClean());
     cell_list[locked] = Cell(reverse_int(idx), ncell++);
 
     this->depth = __max(this->depth, depth);
   }
-  
+
   /**************/
 
   template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
@@ -381,8 +381,8 @@ struct Octree
         assert(isTreeReady());
         const boundary ibnd(boundary(pos, h));
         for (int k = 0; k < 8; k++)
-          if (!cell_list[k].isEmpty() && 
-              !not_overlapped(ibnd, cells[cell_list[k].id].inner))
+          if (!cell_list[k].isEmpty())
+            if (!not_overlapped(ibnd, cells[cell_list[k].id].inner))
               nb = range_search<false>(pos, h, bodies, k, ibnd, nb);
       }
       else
