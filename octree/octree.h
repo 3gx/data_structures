@@ -77,6 +77,8 @@ struct Octree
 
   };
 
+  typedef std::pair<int, int> Int2;
+
   vec3 root_centre;
   real root_size;
   int depth;
@@ -150,36 +152,6 @@ struct Octree
   }
 #endif
 
-  int sanity_check(const Body::Vector &bodies) const
-  {
-    int nb = 0;
-    for (int k = 0; k < 8; k++)
-      sanity_check_recursive(k, bodies, nb);
-    return nb;
-  }
-
-  void sanity_check_recursive(
-      const int node, 
-      const Body::Vector &bodies,
-      int &nb) const
-  {
-    assert(node < (int)node_list.size());
-    const int cell = node_list[node];
-    if (cell == EMPTY) return;
-
-    if (cell > EMPTY)
-    {
-      for (int k = 0; k < 8; k++)
-        if (node_list[cell+k] != EMPTY) 
-          sanity_check_recursive(cell+k, bodies, nb);
-    }
-    else
-    {
-      const vec3 jpos = bodies[reverse_int(cell)].pos();
-      assert(overlapped(innerBnd[node], jpos));
-      nb++;
-    }
-  }
 
   /********/
 
@@ -242,93 +214,135 @@ struct Octree
 
     this->depth = __max(this->depth, depth);
   }
+ 
+  /**************/
 
-  void morton_dump(std::vector<int> &list) const
-  {
-    for (int k = 0; k < 8; k++)
-      morton_dump_recursive(k, list);
-  }
-
-  void morton_dump_recursive(const int node, std::vector<int> &list) const
-  {
-    assert(node < (int)node_list.size());
-    const int cell = node_list[node];
-    if (cell == EMPTY) return;
-    if (cell >  EMPTY)
+  template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
+    boundary inner_boundary(const Body::Vector &bodies, const int node = 0)
     {
-      for (int k = 0; k < 8; k++)
-        morton_dump_recursive(cell+k, list);
-    }
-    else
-      list.push_back(reverse_int(cell));
-  }
-
-  int range_search(const vec3 &pos, const real h, const Body::Vector &bodies) const
-  {
-    int nb = 0;
-    for (int k = 0; k < 8; k++)
-      range_search_recursive(k, pos, h*h, boundary(pos, h), bodies, nb);
-    return nb;
-  }
-
-  void range_search_recursive(
-      const int node, 
-      const vec3 &ipos, const real h2, const boundary &ibnd,
-      const Body::Vector &bodies,
-      int &nb) const
-  {
-    const int cell = node_list[node];
-    if (cell == EMPTY || not_overlapped(ibnd, innerBnd[node])) 
-      return;
-    else if (cell > EMPTY)
-    {
-      for (int k = 0; k < 8; k++)
-        range_search_recursive(cell+k, ipos, h2, ibnd, bodies, nb);
-    }
-    else
-    {
-      const vec3 jpos = bodies[reverse_int(cell)].pos();
-      if ((ipos - jpos).norm2() < h2)
-        nb++;
-    }
-  }
-
-
-  template<const bool ROOT>
-  boundary inner_boundary(const Body::Vector &bodies, const int node = 0)
-  {
-    boundary bnd;
-    if (ROOT)
-    {
-      for (int k = 0; k < 8; k++)
-      {
-        innerBnd[k] = inner_boundary<false>(bodies, k);
-        bnd.merge(innerBnd[k]);
-      }
-      return bnd;
-    }
-    else
-    {
-      assert(node < (int)node_list.size());
-      const int cell = node_list[node];
-      if (cell == EMPTY) return boundary();
-
-      innerBnd[node] = boundary();
-
-      if (cell > EMPTY)
+      boundary bnd;
+      if (ROOT)
       {
         for (int k = 0; k < 8; k++)
-          if (node_list[cell+k] != EMPTY) 
-            innerBnd[node].merge(inner_boundary<false>(bodies, cell+k));
+        {
+          innerBnd[k] = inner_boundary<false>(bodies, k);
+          bnd.merge(innerBnd[k]);
+        }
+        return bnd;
       }
       else
       {
-        const vec3 jpos = bodies[reverse_int(cell)].pos();
-        innerBnd[node] = boundary(jpos);
+        assert(node < (int)node_list.size());
+        const int cell = node_list[node];
+        if (cell == EMPTY) return boundary();
+
+        innerBnd[node] = boundary();
+
+        if (cell > EMPTY)
+        {
+          for (int k = 0; k < 8; k++)
+            if (node_list[cell+k] != EMPTY) 
+              innerBnd[node].merge(inner_boundary<false>(bodies, cell+k));
+        }
+        else
+        {
+          const vec3 jpos = bodies[reverse_int(cell)].pos();
+          innerBnd[node] = boundary(jpos);
+        }
+        return innerBnd[node];
       }
-      return innerBnd[node];
     }
-  }
+
+  /**************/
+
+  template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
+    int sanity_check(const Body::Vector &bodies, const int node = 0, int nb = 0) const
+    {
+      if (ROOT)
+      {
+        for (int k = 0; k < 8; k++)
+          nb = sanity_check<false>(bodies, k, nb);
+      }
+      else
+      {
+        assert(node < (int)node_list.size());
+        const int cell = node_list[node];
+        if (cell == EMPTY) return nb;
+
+        if (cell > EMPTY)
+        {
+          for (int k = 0; k < 8; k++)
+            if (node_list[cell+k] != EMPTY) 
+              nb = sanity_check<false>(bodies, cell+k, nb);
+        }
+        else
+        {
+          const vec3 jpos = bodies[reverse_int(cell)].pos();
+          assert(overlapped(innerBnd[node], jpos));
+          nb++;
+        }
+      }
+      return nb;
+    }
+
+  /**************/
+
+  template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
+    void tree_dump(std::vector<int> &list, const int node = 0) const
+    {
+      if (ROOT)
+      {
+        for (int k = 0; k < 8; k++)
+          tree_dump<false>(list, k);
+      }
+      else
+      {
+        assert(node < (int)node_list.size());
+        const int cell = node_list[node];
+        if (cell == EMPTY) return;
+        if (cell >  EMPTY)
+        {
+          for (int k = 0; k < 8; k++)
+            tree_dump<false>(list, cell+k);
+        }
+        else
+          list.push_back(reverse_int(cell));
+      }
+    }
+
+  /**************/
+
+  template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
+    int range_search(
+        const vec3 &pos, const real h, const Body::Vector &bodies,
+        const int node = 0, const boundary &ibnd = boundary(), int nb = 0) const
+    {
+      if (ROOT)
+      {
+        for (int k = 0; k < 8; k++)
+          nb = range_search<false>(pos, h, bodies, k, boundary(pos, h), nb);
+      }
+      else
+      {
+        const int cell = node_list[node];
+        if (cell == EMPTY || not_overlapped(ibnd, innerBnd[node]))
+          return nb;
+        else if (cell > EMPTY)
+        {
+          for (int k = 0; k < 8; k++)
+            nb = range_search<false>(pos, h, bodies, cell+k, ibnd, nb);
+        }
+        else
+        {
+          const vec3 jpos = bodies[reverse_int(cell)].pos();
+          if ((pos - jpos).norm2() < h*h)
+            nb++;
+        }
+      }
+      return nb;
+    }
+  
+  /**************/
 
 };
 

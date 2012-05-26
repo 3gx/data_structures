@@ -67,7 +67,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, " -- Dump morton -- \n");
   std::vector<int> morton_list;
   morton_list.reserve(n_bodies);
-  tree.morton_dump(morton_list);
+  tree.tree_dump<true>(morton_list);
   fprintf(stderr, "morton_list.size()= %d  n_bodies= %d\n",
       (int)morton_list.size(), n_bodies);
   for (std::vector<int>::iterator it = morton_list.begin(); it != morton_list.end(); it++)
@@ -117,7 +117,7 @@ int main(int argc, char * argv[])
       tree.root_size*0.5);
   
   const double t63 = get_wtime();
-  assert(tree.sanity_check(octBodiesSorted) == n_bodies);
+  assert(tree.sanity_check<true>(octBodiesSorted) == n_bodies);
   const double t68 = get_wtime();
 
   fprintf(stderr, " -- Range search -- \n");
@@ -128,7 +128,7 @@ int main(int argc, char * argv[])
 #pragma omp parallel for reduction(+:nb)
   for (int i = 0; i < n_bodies; i++)
   {
-    nb += tree.range_search(ptcl[i].pos, s, octBodiesSorted);
+    nb += tree.range_search<true>(ptcl[i].pos, s, octBodiesSorted);
   }
 #endif
   const double t70 = get_wtime();
