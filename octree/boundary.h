@@ -1,11 +1,13 @@
 #ifndef __BOUNDARY_H__
 #define __BOUNDARY_H__
 
+#include <vector>
 #include "vector3.h"
 #include <cmath>
 
 template <typename REAL>
 struct Boundary{
+  typedef std::vector<Boundary> Vector;
 	typedef vector3<REAL> vec;
 	vec min, max;
 	Boundary() : min(HUGE), max(-HUGE) {}

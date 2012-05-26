@@ -60,8 +60,8 @@ int main(int argc, char * argv[])
   {
     tree.push(octBodies[i], i, octBodies);
   }
-  fprintf(stderr, "ncell= %d n_nodes= %d  depth= %d\n",
-      tree.ncell, tree.n_nodes, tree.depth);
+  fprintf(stderr, "ncell= %d nnode= %d n_nodes= %d  depth= %d\n",
+      tree.ncell, tree.nnode, n_nodes, tree.depth);
   const double t30 = get_wtime();
   
   fprintf(stderr, " -- Dump morton -- \n");
@@ -97,8 +97,8 @@ int main(int argc, char * argv[])
   {
     tree.push(octBodiesSorted[i], i, octBodiesSorted);
   }
-  fprintf(stderr, "ncell= %d n_nodes= %d  depth= %d\n",
-      tree.ncell, tree.n_nodes, tree.depth);
+  fprintf(stderr, "ncell= %d nnode= %d n_nodes= %d  depth= %d\n",
+      tree.ncell, tree.nnode, n_nodes, tree.depth);
  
   const double t60 = get_wtime();
   fprintf(stderr, " -- Inner boundary -- \n");
