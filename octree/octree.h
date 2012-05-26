@@ -153,13 +153,13 @@ struct Octree
   int ncell;         /* number of tree cells: node + leaf */
   bool treeReady;    /* this is a flag if tree is ready for walks */
   Cell    ::Vector cell_list;
-  CellFull::Vector cells;
+  boundary::Vector cellBnd;
 
   Octree(const vec3 &_centre, const real _size, const int n_nodes) :
     root_centre(_centre), root_size(_size), depth(0), nnode(0), ncell(1), treeReady(false)
   {
     cell_list.resize(n_nodes<<3);
-    cells.resize(ncell);
+    cellBnd.resize(ncell);
   }
 
 
@@ -171,8 +171,8 @@ struct Octree
     const int nsize = n_nodes <= 0 ? cell_list.size() : n_nodes << 3;
     cell_list.clear();
     cell_list.resize(nsize);
-    cells.clear();
-    cells.resize(ncell);
+    cellBnd.clear();
+    cellBnd.resize(ncell);
   }
 
   bool isTreeReady() const {return treeReady;}
@@ -324,10 +324,10 @@ struct Octree
       boundary bnd;
       if (ROOT)
       {
-        cells.resize(ncell);
+        cellBnd.resize(ncell);
         for (int k = 0; k < 8; k++)
           if (!cell_list[k].isEmpty())
-            bnd.merge(cells[cell_list[k].id].inner = inner_boundary<false>(bodies, k));
+            bnd.merge(cellBnd[cell_list[k].id] = inner_boundary<false>(bodies, k));
         treeReady = true;
         return bnd;
       }
@@ -338,20 +338,20 @@ struct Octree
         assert (!cell.isEmpty());
         assert(cell.id >= 0);
 
-        cells[cell.id].inner = boundary();
+        cellBnd[cell.id] = boundary();
 
         if (cell.isNode())
         {
           for (int k = cell.addr; k < cell.addr+8; k++)
             if (!cell_list[k].isEmpty())
-              cells[cell.id].inner.merge(inner_boundary<false>(bodies, k));
+              cellBnd[cell.id].merge(inner_boundary<false>(bodies, k));
         }
         else
         {
           const vec3 jpos = bodies[reverse_int(cell.addr)].pos();
-          cells[cell.id].inner = boundary(jpos);
+          cellBnd[cell.id] = boundary(jpos);
         }
-        return cells[cell.id].inner;
+        return cellBnd[cell.id];
       }
     }
 
@@ -365,7 +365,7 @@ struct Octree
         assert(isTreeReady());
         for (int k = 0; k < 8; k++)
           if (!cell_list[k].isEmpty())
-            nb = sanity_check<false>(bodies, k, cells[cell_list[k].id].inner, nb);
+            nb = sanity_check<false>(bodies, k, cellBnd[cell_list[k].id], nb);
       }
       else
       {
@@ -377,12 +377,12 @@ struct Octree
         if (cell.isNode())
         {
           for (int k = cell.addr; k < cell.addr+8; k++)
-            nb = sanity_check<false>(bodies, k, cells[cell.id].inner, nb);
+            nb = sanity_check<false>(bodies, k, cellBnd[cell.id], nb);
         }
         else
         {
           const vec3 jpos = bodies[reverse_int(cell.addr)].pos();
-          assert(overlapped(cells[cell.id].inner, jpos));
+          assert(overlapped(cellBnd[cell.id], jpos));
           assert(overlapped(parent_bnd, jpos));
           nb++;
         }
@@ -404,7 +404,7 @@ struct Octree
         const boundary ibnd(boundary(pos, h));
         for (int k = 0; k < 8; k++)
           if (!cell_list[k].isEmpty())
-            if (!not_overlapped(ibnd, cells[cell_list[k].id].inner))
+            if (!not_overlapped(ibnd, cellBnd[cell_list[k].id]))
               nb = range_search<false>(pos, h, bodies, k, ibnd, nb);
       }
       else
@@ -414,7 +414,7 @@ struct Octree
         {
           for (int k = 0; k < 8; k++)
             if (!cell_list[cell.addr+k].isEmpty())
-              if (!not_overlapped(ibnd, cells[cell_list[cell.addr+k].id].inner))
+              if (!not_overlapped(ibnd, cellBnd[cell_list[cell.addr+k].id]))
                 nb = range_search<false>(pos, h, bodies, cell.addr+k, ibnd, nb);
         }
         else
