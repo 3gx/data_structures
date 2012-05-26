@@ -12,6 +12,7 @@ ifeq ($(OMPCXX), 1)
 endif
 
 OFLAGS = -O4 -g -Wall
+OFLAGS += -funroll-all-loops
 
 CXXFLAGS =  -fPIC $(OFLAGS) -Wstrict-aliasing=2 $(OMPFLAGS)
 

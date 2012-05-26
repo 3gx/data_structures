@@ -83,12 +83,12 @@ struct Octree
   real root_size;
   int depth;
   int ncell;
-  int n_nodes;
+  int nnode;
   std::vector<int> node_list;
   std::vector<boundary> innerBnd;
 
-  Octree(const vec3 &_centre, const real _size, const int _n_nodes) :
-    root_centre(_centre), root_size(_size), depth(0), ncell(0), n_nodes(_n_nodes)
+  Octree(const vec3 &_centre, const real _size, const int n_nodes) :
+    root_centre(_centre), root_size(_size), depth(0), ncell(0), nnode(n_nodes)
   {
     node_list.resize(n_nodes<<3);
     innerBnd.resize(n_nodes<<3);
@@ -320,17 +320,19 @@ struct Octree
       if (ROOT)
       {
         for (int k = 0; k < 8; k++)
-          nb = range_search<false>(pos, h, bodies, k, boundary(pos, h), nb);
+          if (node_list[k] != EMPTY)
+            nb = range_search<false>(pos, h, bodies, k, boundary(pos, h), nb);
       }
       else
       {
         const int cell = node_list[node];
-        if (cell == EMPTY || not_overlapped(ibnd, innerBnd[node]))
+        if (not_overlapped(ibnd, innerBnd[node]))
           return nb;
         else if (cell > EMPTY)
         {
           for (int k = 0; k < 8; k++)
-            nb = range_search<false>(pos, h, bodies, cell+k, ibnd, nb);
+            if (node_list[cell+k] != EMPTY)
+              nb = range_search<false>(pos, h, bodies, cell+k, ibnd, nb);
         }
         else
         {

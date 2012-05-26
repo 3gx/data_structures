@@ -83,9 +83,10 @@ struct Octree
     int addr;
     int id;
    
-    Cell() : addr(EMPTY), id(EMPTY) {}
+    Cell() : addr(EMPTY), id(0) {}
     Cell(const int _addr, const int _id) : addr(_addr), id(_id) {}
     bool operator==(const Cell &v) const {return addr == v.addr && id == v.id;}
+    bool isClean() const { return addr == EMPTY && id == 0;}
     bool isEmpty() const { return addr == EMPTY;}
     bool isLeaf () const { return addr < EMPTY;}
     bool isNode () const { return addr > EMPTY;}
@@ -103,19 +104,24 @@ struct Octree
   boundary::Vector innerBnd;
 
   Octree(const vec3 &_centre, const real _size, const int n_nodes) :
-    root_centre(_centre), root_size(_size), depth(0), nnode(0), ncell(0), treeReady(false)
+    root_centre(_centre), root_size(_size), depth(0), nnode(0), ncell(1), treeReady(false)
   {
     cell_list.resize(n_nodes<<3);
+    innerBnd.resize(ncell);
+    innerBnd[0] = boundary(HUGE, HUGE);
   }
 
 
   void clear(const int n_nodes = 0)
   {
-    depth = nnode = ncell = 0;
+    depth = nnode = 0;
+    ncell = 1;
     treeReady = false;
     const int nsize = n_nodes <= 0 ? cell_list.size() : n_nodes << 3;
     cell_list.clear();
     cell_list.resize(nsize);
+    innerBnd.resize(ncell);
+    innerBnd[0] = boundary(HUGE, HUGE);
   }
   
   bool isTreeReady() const {return treeReady;}
@@ -226,7 +232,7 @@ struct Octree
         hsize    *= (real)0.5;
         locked    = cfirst + child_idx;
       }
-    assert(cell_list[locked] == Cell(-1,-1));
+    assert(cell_list[locked].isClean());
     cell_list[locked] = Cell(reverse_int(idx), ncell++);
 
     this->depth = __max(this->depth, depth);
@@ -342,20 +348,21 @@ struct Octree
       if (ROOT)
       {
         assert(isTreeReady());
+        const boundary ibnd(boundary(pos, h));
         for (int k = 0; k < 8; k++)
-          if (!cell_list[k].isEmpty())
-            nb = range_search<false>(pos, h, bodies, k, boundary(pos, h), nb);
+          if (!cell_list[k].isEmpty() && 
+              !not_overlapped(ibnd, innerBnd[cell_list[k].id]))
+              nb = range_search<false>(pos, h, bodies, k, ibnd, nb);
       }
       else
       {
-        const Cell &cell = cell_list[addr];
-        assert(!cell.isEmpty());
-        if (not_overlapped(ibnd, innerBnd[cell.id])) return nb;
-        else if (cell.isNode())
+        const Cell cell = cell_list[addr];
+        if (cell.isNode())
         {
-          for (int k = cell.addr; k < cell.addr+8; k++)
-            if (!cell_list[k].isEmpty())
-              nb = range_search<false>(pos, h, bodies, k, ibnd, nb);
+          for (int k = 0; k < 8; k++)
+            if (!cell_list[cell.addr+k].isEmpty())
+              if (!not_overlapped(ibnd, innerBnd[cell_list[cell.addr+k].id]))
+                nb = range_search<false>(pos, h, bodies, cell.addr+k, ibnd, nb);
         }
         else
         {
