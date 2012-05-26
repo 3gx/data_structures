@@ -232,8 +232,8 @@ struct Octree
 
   void push(const Body &body, const int idx, const Body::Vector &bodies)
   {
-    int child_idx = 0;   /* child idx inside a node */
-    int child     = 0;   /* child */
+    int  child_idx = 0;   /* child idx inside a node */
+    Cell child     = Cell(0, 0);   /* child */
     int locked    = 0;   /* cell that needs to be updated */
     int depth     = 0;   /* depth */ 
     const int _n_nodes = cell_list.size();
@@ -246,25 +246,25 @@ struct Octree
     real hsize  = root_size*(real)0.5; /* not being used in SSE version */
 
     /* walk the tree to find the first leaf or empty cell */
-    while (child > EMPTY)  /* if non-negative, means it is a tree-node */
+    while (child.isNode())  /* if non-negative, means it is a tree-node */
     {
-      const int node = child;
+      const Cell node = child;
       depth++;
 
       child_idx  = Octant(centre, body.pos());
       centre     = compute_centre(centre, hsize, child_idx);
       hsize     *= (real)0.5;
 
-      locked = node + child_idx;
+      locked = node.addr + child_idx;
       assert(locked < _n_nodes);
-      child  = cell_list[locked].addr;
+      child  = cell_list[locked];
     }
 
     /* locked on the cell that needs to be updated */
 
-    while((child = cell_list[locked].addr) != EMPTY)
+    while(!(child = cell_list[locked]).isEmpty())
     {  /* split the cell is already occupied */
-      assert(child < EMPTY);
+      assert(child.isLeaf());
       depth++;
       nnode++;
 
@@ -272,10 +272,10 @@ struct Octree
       assert(cfirst+7 < _n_nodes);
       cell_list[locked].addr = cfirst;
 
-      const int body_id = reverse_int(child);
+      const int body_id = reverse_int(child.addr);
       assert(body_id >= 0);
       child_idx = Octant(centre, bodies[body_id].pos());
-      cell_list[cfirst + child_idx] = Cell(child, ncell++);
+      cell_list[cfirst + child_idx] = Cell(child.addr, ncell++);
 
       child_idx = Octant(centre, body.pos());
       centre    = compute_centre(centre, hsize, child_idx);
@@ -304,15 +304,15 @@ struct Octree
       else
       {
         assert(node < (int)cell_list.size());
-        const int cell = cell_list[node].addr;
-        if (cell == EMPTY) return;
-        if (cell >  EMPTY)
+        const Cell cell = cell_list[node];
+        if (cell.isEmpty()) return;
+        if (cell.isNode())
         {
           for (int k = 0; k < 8; k++)
-            tree_dump<false>(list, cell+k);
+            tree_dump<false>(list, cell.addr+k);
         }
         else
-          list.push_back(reverse_int(cell));
+          list.push_back(reverse_int(cell.addr));
       }
     }
 
