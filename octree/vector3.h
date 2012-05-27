@@ -8,11 +8,7 @@
 struct float4
 {
 #ifdef __mySSEX__
-  union
-  {
-    struct {float x, y,z, w;};
-    v4sf  v;
-  };
+  v4sf  v;
   float4(const v4sf _v) : v(_v) {}
   float4(const float _x, const float _y, const float _z, const float _w) 
   {
@@ -32,23 +28,31 @@ struct float4
     const v4sf res  = __builtin_ia32_haddps(tmp, tmp);
     return __builtin_ia32_vec_ext_v4sf(res, 0);
   }
+  float x() const {return __builtin_ia32_vec_ext_v4sf(v, 0);}
+  float y() const {return __builtin_ia32_vec_ext_v4sf(v, 1);}
+  float z() const {return __builtin_ia32_vec_ext_v4sf(v, 2);}
+  float w() const {return __builtin_ia32_vec_ext_v4sf(v, 3);}
 #else
-  float x, y, z, w;
-  float4(const float _x, const float _y, const float _z, const float _w) 
+  float _x, _y, _z, _w;
+  float4(const float x, const float y, const float z, const float w) 
   {
-    x = _x;
-    y = _y;
-    z = _z;
-    w = _w;
+    _x = x;
+    _y = y;
+    _z = z;
+    _w = w;
   }
   float4 operator-(const float4 v) const
   {
-    return float4(x-v.x, y-v.y, z-v.z, w-v.w);
+    return float4(_x-v._x, _y-v._y, _z-v._z, _w-v._w);
   }
   float norm2() const
   {
-    return x*x+y*y+z*z;
+    return _x*_x+_y*_y+_z*_z;
   }
+  float x() const {return _x;}
+  float y() const {return _y;}
+  float z() const {return _z;}
+  float w() const {return _w;}
 #endif
   float4() {}
 };
@@ -62,18 +66,19 @@ public:
     struct{ REAL x, y, z, w; };
     v4sf v;
   };
-#ifdef __mySSEX__
-  vector3 (const float4 r) : v(r.v) {assert(sizeof(float)  == sizeof(REAL));}
-#else
-  vector3 (const float4 r) : x(r.x), y(r.y), z(r.z), w(r.w)  {}
-#endif
-  vector3 (const v4sf  _v) : v(_v) {assert(sizeof(float) == sizeof(REAL));}
+  vector3 (const float4 r) 
+  {
+    assert(sizeof(float)  == sizeof(REAL));
+    x = r.x();
+    y = r.y();
+    z = r.z();
+    w = r.w();
+  }
+  vector3 (const v4sf _v) : v(_v) {}
   operator v4sf() const {return v;}
-  operator float4() const {return float4(v);}
 #else
   REAL x, y, z, w;
   vector3 (const float4 r) : x(r.x), y(r.y), z(r.z), w(r.w)  {}
-  operator float4() const {return float4(x,y,z, w);}
 #endif
 
 	vector3(){

@@ -14,8 +14,8 @@ struct Boundary{
 	Boundary() : min(HUGE), max(-HUGE) {}
   Boundary(const float4 pos) 
   {
-    min = vec(pos.x - pos.w, pos.y - pos.w, pos.z - pos.w);
-    max = vec(pos.x + pos.w, pos.y + pos.w, pos.z + pos.w);
+    min = vec(pos.x() - pos.w(), pos.y() - pos.w(), pos.z() - pos.w());
+    max = vec(pos.x() + pos.w(), pos.y() + pos.w(), pos.z() + pos.w());
   }
 	Boundary(const vec &_min, const vec &_max) : min(_min), max(_max) {}
 	Boundary(const vec &pos, const REAL &h = 0.0) : min(pos - vec(h)), max(pos + vec(h)) {}
@@ -34,7 +34,8 @@ struct Boundary{
 	}
 
 #ifdef __mySSE__
-	Boundary(v4sf _min, v4sf _max){
+	Boundary(v4sf _min, v4sf _max)
+  {
 		min = _min;
 		max = _max;
 	}

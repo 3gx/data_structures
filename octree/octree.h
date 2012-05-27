@@ -79,7 +79,7 @@ struct Octree
     Body(const vec3 &pos, const int idx) : packed_pos(float4(pos.x, pos.y, pos.z, (float)idx)) {}
     Body(const Particle &p, const int idx) : packed_pos(float4(p.pos.x, p.pos.y, p.pos.z, (float)idx)) {}
     Body(const vec3 &pos, const float h) : packed_pos(pos.x, pos.y, pos.z, h) {};
-    int idx() const {return (int)packed_pos.w;}
+    int idx() const {return (int)packed_pos.w();}
     float4 pos() const {return packed_pos;}
   };
 
@@ -159,8 +159,8 @@ struct Octree
   int get_nnode() const { return nnode;}
   int get_nleaf() const { return leafList.size();}
   int get_ncell() const { return ncell;}
-  const vec3 get_rootCentre() const { return vec3(root_centre.x, root_centre.y, root_centre.z);}
-  real get_rootSize() const { return root_centre.w;}
+  const vec3 get_rootCentre() const { return vec3(root_centre.x(), root_centre.y(), root_centre.z());}
+  real get_rootSize() const { return root_centre.w();}
 
 
   void clear(const int n_nodes = 0)
@@ -186,9 +186,9 @@ struct Octree
     return 7 & mask;
 #else
     return
-      (((lhs.x <= rhs.x) ? 1 : 0) +  
-       ((lhs.y <= rhs.y) ? 2 : 0) + 
-       ((lhs.z <= rhs.z) ? 4 : 0));
+      (((lhs.x() <= rhs.x()) ? 1 : 0) +  
+       ((lhs.y() <= rhs.y()) ? 2 : 0) + 
+       ((lhs.z() <= rhs.z()) ? 4 : 0));
 #endif
   }
 
@@ -205,12 +205,12 @@ struct Octree
     return (v4sf)centre - tmp;
 #else
     const int oct = Octant(centre, ppos);
-    const float s = centre.w*0.25f;
+    const float s = centre.w()*0.25f;
     return float4(
-        centre.x + s * ((oct&1) ? (real)1.0 : (real)-1.0),
-        centre.y + s * ((oct&2) ? (real)1.0 : (real)-1.0),
-        centre.z + s * ((oct&4) ? (real)1.0 : (real)-1.0),
-        centre.w*0.5f
+        centre.x() + s * ((oct&1) ? (real)1.0 : (real)-1.0),
+        centre.y() + s * ((oct&2) ? (real)1.0 : (real)-1.0),
+        centre.z() + s * ((oct&4) ? (real)1.0 : (real)-1.0),
+        centre.w()*0.5f
         );
 #endif
   }
@@ -460,7 +460,7 @@ struct Octree
           asm("#eg01");
           const Leaf &leaf  = leafList[cell.leafIdx()];
           const float4 ipos = body.pos();
-          const real     h2 = ipos.w*ipos.w;
+          const real     h2 = ipos.w()*ipos.w();
           for (int i = 0; i < leaf.nb(); i++)
           {
             const float4 jpos = leaf[i].pos();
