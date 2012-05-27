@@ -457,7 +457,6 @@ struct Octree
         }
         else
         {
-          asm("#eg01");
           const Leaf &leaf  = leafList[cell.leafIdx()];
           const float4 ipos = body.pos();
           const real     h2 = ipos.w()*ipos.w();
@@ -467,7 +466,6 @@ struct Octree
             if ((ipos - jpos).norm2() < h2)
               nb++;
           }
-          asm("#eg02");
         }
       }
 

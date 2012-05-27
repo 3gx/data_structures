@@ -5,6 +5,7 @@
 #include <fstream>
 #include <cmath>
 
+#if 0
 struct float4
 {
 #ifdef __mySSEX__
@@ -56,6 +57,104 @@ struct float4
 #endif
   float4() {}
 };
+#else
+struct float4
+{
+#ifdef __mySSEX__
+  v4sf vec;
+  float4(const v4sf _vec) : vec(_vec){}
+  float4(const float _x, const float _y, const float _z, const float _w) 
+  {
+    vec = (v4sf){_x, _y, _z, _w};
+  }
+  operator v4sf() const {return vec;}
+  float4 operator-(const float4 rhs) const
+  {
+    return (v4sf)rhs - vec;
+  }
+  float norm2() const
+  {
+    const v4si mask = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0};
+    const v4sf r    = __builtin_ia32_andps(vec, (v4sf)mask);
+    const v4sf r2   = r*r;
+    const v4sf tmp  = __builtin_ia32_haddps(r2,  r2);
+    const v4sf res  = __builtin_ia32_haddps(tmp, tmp);
+    return __builtin_ia32_vec_ext_v4sf(res, 0);
+  }
+
+  /* accessor methods */
+
+  template<int e>
+    struct Accessor
+    {
+      v4sf &vec;
+      Accessor(v4sf &_vec) : vec(_vec) {}
+      operator float() 
+      {
+        return __builtin_ia32_vec_ext_v4sf(vec, e);
+      }
+      float4 operator=(const float f)
+      {
+        vec = __builtin_ia32_vec_set_v4sf(vec, f, e);
+        return float4(vec);
+      }
+    };
+
+  template<int e>
+    struct ConstAccessor
+    {
+      const v4sf &vec;
+      ConstAccessor(const v4sf &_vec) : vec(_vec) {}
+      operator float() 
+      {
+        return __builtin_ia32_vec_ext_v4sf(vec, e);
+      };
+      private:
+        float4 operator=(const float f) 
+        {
+          assert(0);
+          return float4(vec);
+        }
+    };
+
+  Accessor<0> x() {return Accessor<0>(vec);}
+  Accessor<1> y() {return Accessor<1>(vec);}
+  Accessor<2> z() {return Accessor<2>(vec);}
+  Accessor<3> w() {return Accessor<3>(vec);}
+  ConstAccessor<0> x() const {return ConstAccessor<0>(vec);}
+  ConstAccessor<1> y() const {return ConstAccessor<1>(vec);}
+  ConstAccessor<2> z() const {return ConstAccessor<2>(vec);}
+  ConstAccessor<3> w() const {return ConstAccessor<3>(vec);}
+#else
+  float _x, _y, _z, _w;
+  float4(const float x, const float y, const float z, const float w) 
+  {
+    _x = x;
+    _y = y;
+    _z = z;
+    _w = w;
+  }
+  float4 operator-(const float4 v) const
+  {
+    return float4(_x-v._x, _y-v._y, _z-v._z, _w-v._w);
+  }
+  float norm2() const
+  {
+    return _x*_x+_y*_y+_z*_z;
+  }
+  float& x() {return _x;}
+  float& y() {return _y;}
+  float& z() {return _z;}
+  float& w() {return _w;}
+  float x() const {return _x;}
+  float y() const {return _y;}
+  float z() const {return _z;}
+  float w() const {return _w;}
+#endif
+  float4() {}
+};
+
+#endif
 
 
 template <class REAL> struct vector3{
