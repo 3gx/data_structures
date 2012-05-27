@@ -128,7 +128,7 @@ int main(int argc, char * argv[])
 #pragma omp parallel for reduction(+:nb)
   for (int i = 0; i < n_bodies; i++)
   {
-    nb += tree.range_search<true>(ptcl[i].pos, s);
+    nb += tree.range_search<true>(Octree::Body(ptcl[i].pos, s));
   }
 #endif
   const double t70 = get_wtime();

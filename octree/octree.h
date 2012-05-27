@@ -60,7 +60,7 @@ struct Particle
 
 struct Octree
 {
-  enum {NLEAF = 32};
+  enum {NLEAF = 64};
   enum {EMPTY = -1};
   enum {BODYX = -2};
 
@@ -78,6 +78,7 @@ struct Octree
     Body() {}
     Body(const vec3 &pos, const int idx) : packed_pos(float4(pos.x, pos.y, pos.z, (float)idx)) {}
     Body(const Particle &p, const int idx) : packed_pos(float4(p.pos.x, p.pos.y, p.pos.z, (float)idx)) {}
+    Body(const vec3 &pos, const float h) : packed_pos(pos.x, pos.y, pos.z, h) {};
     int idx() const {return (int)packed_pos.w;}
     float4 pos() const {return packed_pos;}
   };
@@ -432,18 +433,17 @@ struct Octree
   /**************/
 
   template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
-    int range_search(
-        const vec3 &pos, const real h, 
+    int range_search(const Body &body,
         const int addr = 0, const boundary &ibnd = boundary(), int nb = 0) const
     {
       if (ROOT)
       {
         assert(isTreeReady());
-        const boundary ibnd(boundary(pos, h));
+        const boundary ibnd(body.pos());
         for (int k = 0; k < 8; k++)
           if (!cellList[k].isEmpty())
             if (!not_overlapped(ibnd, cellBnd[cellList[k].id]))
-              nb = range_search<false>(pos, h, k, ibnd, nb);
+              nb = range_search<false>(body, k, ibnd, nb);
       }
       else
       {
@@ -453,26 +453,26 @@ struct Octree
           for (int k = 0; k < 8; k++)
             if (!cellList[cell.addr+k].isEmpty())
               if (!not_overlapped(ibnd, cellBnd[cellList[cell.addr+k].id]))
-                nb = range_search<false>(pos, h, cell.addr+k, ibnd, nb);
+                nb = range_search<false>(body, cell.addr+k, ibnd, nb);
         }
         else
         {
-#if 0
-          const Leaf &leaf = leafList[cell.leafIdx()];
+          asm("#eg01");
+          const Leaf &leaf  = leafList[cell.leafIdx()];
+          const float4 ipos = body.pos();
+          const real     h2 = ipos.w*ipos.w;
           for (int i = 0; i < leaf.nb(); i++)
           {
-            const vec3 jpos = leaf[i].pos();
-            if ((pos - jpos).norm2() < h*h)
+            const float4 jpos = leaf[i].pos();
+            if ((ipos - jpos).norm2() < h2)
               nb++;
           }
-#endif
+          asm("#eg02");
         }
       }
+
       return nb;
     }
-
-  /**************/
-
 };
 
 

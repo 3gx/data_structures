@@ -18,8 +18,20 @@ struct float4
   {
     v = (v4sf){_x, _y, _z, _w};
   }
-
   operator v4sf() const {return v;}
+  float4 operator-(const float4 rhs) const
+  {
+    return (v4sf)rhs - v;
+  }
+  float norm2() const
+  {
+    const v4si mask = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0};
+    const v4sf r    = __builtin_ia32_andps(v, (v4sf)mask);
+    const v4sf r2   = r*r;
+    const v4sf tmp  = __builtin_ia32_haddps(r2,  r2);
+    const v4sf res  = __builtin_ia32_haddps(tmp, tmp);
+    return __builtin_ia32_vec_ext_v4sf(res, 0);
+  }
 #else
   float x, y, z, w;
   float4(const float _x, const float _y, const float _z, const float _w) 
@@ -28,6 +40,14 @@ struct float4
     y = _y;
     z = _z;
     w = _w;
+  }
+  float4 operator-(const float4 v) const
+  {
+    return float4(x-v.x, y-v.y, z-v.z, w-v.w);
+  }
+  float norm2() const
+  {
+    return x*x+y*y+z*z;
   }
 #endif
   float4() {}

@@ -19,10 +19,10 @@ OFLAGS  += -funroll-all-loops
 CXXFLAGS = $(OFLAGS) -Wstrict-aliasing=2 $(OMPFLAGS)
 
 ifeq ($(SSE), 1)
-	CXXFLAGS += -D__mySSE__
+	CXXFLAGS += -D__mySSE__ -msse3
 endif
 ifeq ($(SSEX), 1)
-	CXXFLAGS += -D__mySSEX__
+	CXXFLAGS += -D__mySSEX__ -msse3
 endif
 ifeq ($(RELEASE), 1)
 	CXXFLAGS += -DNDEBUG
