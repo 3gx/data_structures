@@ -54,7 +54,7 @@ struct Particle
 
 struct Octree
 {
-  enum {NLEAF = 16};
+  enum {NLEAF = 32};
   enum {EMPTY = -1};
   enum {BODYX = -2};
 
@@ -469,7 +469,6 @@ struct Octree
     }
 
 
-#if 0
   /**************/
 
   template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
@@ -498,16 +497,19 @@ struct Octree
         }
         else
         {
-          const vec3 jpos = bodies[reverse_int(cell.addr)].pos();
-          if ((pos - jpos).norm2() < h*h)
-            nb++;
+          const Leaf &leaf = leafList[cell.leafIdx()];
+          for (int i = 0; i < leaf.nb(); i++)
+          {
+            const vec3 jpos = bodies[leaf[i]].pos();
+            if ((pos - jpos).norm2() < h*h)
+              nb++;
+          }
         }
       }
       return nb;
     }
 
   /**************/
-#endif
 
 };
 

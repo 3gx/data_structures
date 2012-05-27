@@ -14,7 +14,7 @@ int main(int argc, char * argv[])
   const double t00 = get_wtime();
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
-#if 1
+#if 0
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
@@ -120,7 +120,6 @@ int main(int argc, char * argv[])
   assert(tree.sanity_check<true>(octBodiesSorted) == n_bodies);
   const double t68 = get_wtime();
 
-#if 0  
   fprintf(stderr, " -- Range search -- \n");
   int nb = 0;
 #if 1
@@ -133,8 +132,7 @@ int main(int argc, char * argv[])
   }
 #endif
   const double t70 = get_wtime();
-#endif
-  
+ 
 
   fprintf(stderr, " Timing info: \n");
   fprintf(stderr, " -------------\n");
@@ -146,9 +144,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   TreeSort: %g sec \n", t60 -t50);
   fprintf(stderr, "   Boundary: %g sec \n", t63 -t60);
   fprintf(stderr, "   Sanity:   %g sec \n", t68 -t63);
-#if 0
   fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t68, (real)nb/n_bodies);
-#endif
 
   return 0;
 }
