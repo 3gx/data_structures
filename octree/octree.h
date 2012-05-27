@@ -13,12 +13,6 @@
 #ifdef MEMALIGN
 #include "memalign_allocator.h"
 #endif
-#include "vector3.h"
-#include "boundary.h"
-
-typedef float real;
-typedef vector3<real> vec3;
-typedef Boundary<real> boundary;
 
 template<class T>
 static inline T __min(const T &a, const T &b) {return a < b ? a : b;}
@@ -33,6 +27,14 @@ static inline T __max(const T &a, const T &b) {return a > b ? a : b;}
 typedef int    v4si  __attribute__((vector_size(16)));
 typedef float  v4sf  __attribute__((vector_size(16)));
 #endif
+
+#include "boundary.h"
+#include "vector3.h"
+
+typedef float real;
+typedef vector3<real> vec3;
+typedef Boundary<real> boundary;
+
 
 struct Particle
 {
@@ -94,6 +96,7 @@ struct Octree
 
   struct Cell
   {
+    enum CellType {ROOT};
 #ifdef MEMALIGN
     typedef std::vector<Cell, __gnu_cxx::malloc_allocator<Cell, 64> > Vector;
 #else
@@ -103,12 +106,19 @@ struct Octree
     int id;
    
     Cell() : addr(EMPTY), id(EMPTY) {}
+    Cell(const CellType type) : addr(EMPTY+1), id(EMPTY) {}
     Cell(const int _addr, const int _id) : addr(_addr), id(_id) {}
     bool operator==(const Cell &v) const {return addr == v.addr && id == v.id;}
     bool isClean() const { return addr == EMPTY && id == EMPTY;}
     bool isEmpty() const { return addr == EMPTY;}
     bool isLeaf () const { return addr < EMPTY;}
     bool isNode () const { return addr > EMPTY;}
+
+    const int leafIdx() const 
+    { 
+      assert(addr < EMPTY); 
+      return reverse_int(addr); 
+    }
   };
 
   struct Leaf
@@ -120,54 +130,50 @@ struct Octree
 
     public:
       Leaf() : _nb(0) {}
-      bool push(const int idx) 
+      Leaf(const int i) : _nb(0) {push(i);}
+      void push(const int idx) 
       {
-        if (_nb < NLEAF)
-        { 
-          _list[_nb++] = idx;
-          return true;
-        }
-        return false;
+        assert(_nb < NLEAF);
+        _list[_nb++] = idx;
       }
+      bool isFull() const {return _nb == NLEAF;}
       int operator[](const int i) const { return _list[i];}
       int operator[](const int i)       { return _list[i];}
       int nb() const {return _nb;}
   };
 
-  struct CellFull
-  {
-#ifdef MEMALIGN
-    typedef std::vector<CellFull, __gnu_cxx::malloc_allocator<CellFull, 64> > Vector;
-#else
-    typedef std::vector<CellFull> Vector;
-#endif
-    boundary inner;
-
-    CellFull() {};
-  };
 
 
+  private:
   vec3 root_centre;  /* root's geometric centre */
   real root_size;    /* root size */
   int depth;         /* tree-depth */
   int nnode;         /* number of tree nodes */
-  int nleaf;         /* number of leaves     */
   int ncell;         /* number of tree cells: node + leaf */
   bool treeReady;    /* this is a flag if tree is ready for walks */
   Cell    ::Vector cellList;
   Leaf    ::Vector leafList;
   boundary::Vector cellBnd;
 
+  public:
+
   Octree(const vec3 &_centre, const real _size, const int n_nodes) :
-    root_centre(_centre), root_size(_size), depth(0), nnode(0), nleaf(0), ncell(0), treeReady(false)
+    root_centre(_centre), root_size(_size), depth(0), nnode(0), ncell(0), treeReady(false)
   {
     cellList.resize(n_nodes<<3);
   }
 
+  int get_depth() const { return depth;}
+  int get_nnode() const { return nnode;}
+  int get_nleaf() const { return leafList.size();}
+  int get_ncell() const { return ncell;}
+  const vec3 &get_rootCentre() const { return root_centre;}
+  real get_rootSize() const { return root_size;}
+
 
   void clear(const int n_nodes = 0)
   {
-    depth = nnode = ncell = nleaf = 0;
+    depth = nnode = ncell = 0;
     treeReady = false;
     const int nsize = n_nodes <= 0 ? cellList.size() : n_nodes << 3;
     cellList.clear();
@@ -230,14 +236,39 @@ struct Octree
 
   /********/
 
+  Cell newLeaf()
+  {
+    leafList.push_back(Leaf());
+    return Cell(reverse_int(leafList.size() - 1), ncell++);
+  }
+  Cell newLeaf(const int body_idx)
+  {
+    leafList.push_back(Leaf(body_idx));
+    return Cell(reverse_int(leafList.size() - 1), ncell++);
+  }
+
+  int addLeaf(Cell &cell, const int addr)
+  {
+    leafList.push_back(Leaf());
+    cell = Cell(addr, ncell++);
+    return leafList.size() - 1;
+  }
+  
+  int addLeaf(Cell &cell, const int addr, const int idx)
+  {
+    leafList.push_back(Leaf(idx));
+    cell = Cell(addr, ncell++);
+    return leafList.size() - 1;
+  }
+
 
   void push(const Body &body, const int idx, const Body::Vector &bodies)
   {
-    int  child_idx = 0;   /* child idx inside a node */
-    Cell child     = Cell(0, 0);   /* child */
-    int locked    = 0;   /* cell that needs to be updated */
-    int depth     = 0;   /* depth */ 
-    const int _n_nodes = cellList.size();
+    int  child_idx = 0;                      /* child idx inside a node */
+    Cell child     = Cell(Cell::ROOT);       /* child */
+    int locked     = 0;                      /* cell that needs to be updated */
+    int depth      = 0;                      /* depth */ 
+    const int n_nodes_max = cellList.size();
 
 #ifdef __mySSE__
     v4sf centre = {root_centre.x, root_centre.y, root_centre.z, root_size};
@@ -257,38 +288,66 @@ struct Octree
       hsize     *= (real)0.5;
 
       locked = node.addr + child_idx;
-      assert(locked < _n_nodes);
+      assert(locked < n_nodes_max);
       child  = cellList[locked];
     }
 
     /* locked on the cell that needs to be updated */
 
-    while(!(child = cellList[locked]).isEmpty())
-    {  /* split the cell is already occupied */
-      assert(child.isLeaf());
-      depth++;
-      nnode++;
-
-      const int cfirst = nnode<<3;
-      assert(cfirst+7 < _n_nodes);
-      cellList[locked].addr = cfirst;
-
-      const int body_id = reverse_int(child.addr);
-      assert(body_id >= 0);
-      child_idx = Octant(centre, bodies[body_id].pos());
-      cellList[cfirst + child_idx] = Cell(child.addr, ncell++);
-
-      child_idx = Octant(centre, body.pos());
-      centre    = compute_centre(centre, hsize, child_idx);
-      hsize    *= (real)0.5;
-      locked    = cfirst + child_idx;
+    if (child.isEmpty())  /* the cell is empty, make it a leaf */
+    {
+      assert(child.isClean());
+      cellList[locked] = newLeaf(idx);
     }
+    else          /* this is already a leaf */
+    {
+      assert(child.isLeaf());
+      int leaf_idx = child.leafIdx();
+      assert(leaf_idx < (int)leafList.size());
+      while(leafList[leaf_idx].isFull())   /* if leaf is full split it */
+      {
+        depth++;
+        nnode++;
+        const int cfirst = nnode<<3;
+        assert(cfirst+7 < n_nodes_max);
+        cellList[locked].addr = cfirst;
 
-    /* now we have an empty cell, insert a particle */
+        assert(leaf_idx >= 0);
+        assert(leaf_idx < get_nleaf());
+        const Leaf leaf = leafList[leaf_idx];
 
-    assert(cellList[locked].isClean());
-    nleaf++;
-    cellList[locked] = Cell(reverse_int(idx), ncell++);
+        for (int i = 0; i < leaf.nb(); i++)
+        {
+          const int body_idx = leaf[i];
+          assert(body_idx >= 0);
+          assert(body_idx < (int)bodies.size());
+          child_idx = Octant(centre, bodies[body_idx].pos());
+          Cell &cell = cellList[cfirst + child_idx];
+          if (cell.isEmpty())
+          {
+            cell = newLeaf(body_idx);
+          }
+          else
+          {
+            assert(cell.isLeaf());
+            assert(!leafList[cell.leafIdx()].isFull());
+            leafList[cell.leafIdx()].push(body_idx);
+          }
+        }
+
+        child_idx = Octant(centre, body.pos());
+        centre    = compute_centre(centre, hsize, child_idx);
+        hsize    *= (real)0.5;
+
+        locked = cfirst + child_idx;
+        Cell &child  = cellList[locked];
+        if (child.isEmpty())
+          child = newLeaf();
+        assert(child.isLeaf());
+        leaf_idx = child.leafIdx();
+      }
+      leafList[leaf_idx].push(idx);  /* push particle into a leaf */
+    }
 
     this->depth = __max(this->depth, depth);
   }
@@ -314,7 +373,14 @@ struct Octree
             tree_dump<false>(list, cell.addr+k);
         }
         else
-          list.push_back(reverse_int(cell.addr));
+        {
+          assert(cell.isLeaf());
+          const int leaf_idx = cell.leafIdx();
+          assert(leaf_idx < get_nleaf());
+          const Leaf &leaf = leafList[leaf_idx];
+          for (int i = 0; i < leaf.nb(); i++)
+            list.push_back(leaf[i]);
+        }
       }
     }
 
@@ -340,7 +406,7 @@ struct Octree
         assert (!cell.isEmpty());
         assert(cell.id >= 0);
 
-        cellBnd[cell.id] = boundary();
+        cellBnd[cell.id] = bnd;
 
         if (cell.isNode())
         {
@@ -350,8 +416,12 @@ struct Octree
         }
         else
         {
-          const vec3 jpos = bodies[reverse_int(cell.addr)].pos();
-          cellBnd[cell.id] = boundary(jpos);
+          const Leaf &leaf = leafList[cell.leafIdx()];
+          for (int i= 0; i < leaf.nb(); i++)
+          {
+            const vec3 jpos = bodies[leaf[i]].pos();
+            cellBnd[cell.id].merge(jpos);
+          }
         }
         return cellBnd[cell.id];
       }
@@ -383,16 +453,23 @@ struct Octree
         }
         else
         {
-          const vec3 jpos = bodies[reverse_int(cell.addr)].pos();
-          assert(overlapped(cellBnd[cell.id], jpos));
-          assert(overlapped(parent_bnd, jpos));
-          nb++;
+          assert(cell.isLeaf());
+          assert(cell.leafIdx() < get_nleaf());
+          const Leaf &leaf = leafList[cell.leafIdx()];
+          for (int i = 0; i < leaf.nb(); i++)
+          {
+            const vec3 jpos = bodies[leaf[i]].pos();
+            assert(overlapped(cellBnd[cell.id], jpos));
+            assert(overlapped(parent_bnd, jpos));
+            nb++;
+          }
         }
       }
       return nb;
     }
 
 
+#if 0
   /**************/
 
   template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
@@ -430,6 +507,7 @@ struct Octree
     }
 
   /**************/
+#endif
 
 };
 

@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
-#include "plummer.h"
 #include "octree.h"
+#include "plummer.h"
 #include "mytimer.h"
 
 int main(int argc, char * argv[])
@@ -14,7 +14,7 @@ int main(int argc, char * argv[])
   const double t00 = get_wtime();
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
-#if 0
+#if 1
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
@@ -61,7 +61,7 @@ int main(int argc, char * argv[])
     tree.push(octBodies[i], i, octBodies);
   }
   fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
-      tree.ncell, tree.nnode, tree.nleaf, n_nodes, tree.depth);
+      tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
   const double t30 = get_wtime();
   
   fprintf(stderr, " -- Dump morton -- \n");
@@ -84,12 +84,12 @@ int main(int argc, char * argv[])
     octBodiesSorted.push_back(octBodies[*it]);
 #if 0
     fprintf(stdout, "%g %g %g \n", 
-        octBodiesSorted.back().pos.x,
-        octBodiesSorted.back().pos.y,
-        octBodiesSorted.back().pos.z);
+        octBodiesSorted.back().pos().x,
+        octBodiesSorted.back().pos().y,
+        octBodiesSorted.back().pos().z);
 #endif
   }
-  
+
   const double t50 = get_wtime();
   fprintf(stderr, " -- Buidling octTreeSorted -- \n");
   tree.clear();
@@ -98,7 +98,7 @@ int main(int argc, char * argv[])
     tree.push(octBodiesSorted[i], i, octBodiesSorted);
   }
   fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
-      tree.ncell, tree.nnode, tree.nleaf, n_nodes, tree.depth);
+      tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
  
   const double t60 = get_wtime();
   fprintf(stderr, " -- Inner boundary -- \n");
@@ -111,15 +111,16 @@ int main(int argc, char * argv[])
       rootBnd.hlen().y,
       rootBnd.hlen().z);
   fprintf(stderr, " c= %g %g %g size= %g\n",
-      tree.root_centre.x,
-      tree.root_centre.y,
-      tree.root_centre.z,
-      tree.root_size*0.5);
+      tree.get_rootCentre().x,
+      tree.get_rootCentre().y,
+      tree.get_rootCentre().z,
+      tree.get_rootSize()*0.5);
   
   const double t63 = get_wtime();
   assert(tree.sanity_check<true>(octBodiesSorted) == n_bodies);
   const double t68 = get_wtime();
 
+#if 0  
   fprintf(stderr, " -- Range search -- \n");
   int nb = 0;
 #if 1
@@ -132,6 +133,7 @@ int main(int argc, char * argv[])
   }
 #endif
   const double t70 = get_wtime();
+#endif
   
 
   fprintf(stderr, " Timing info: \n");
@@ -144,7 +146,9 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   TreeSort: %g sec \n", t60 -t50);
   fprintf(stderr, "   Boundary: %g sec \n", t63 -t60);
   fprintf(stderr, "   Sanity:   %g sec \n", t68 -t63);
+#if 0
   fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t68, (real)nb/n_bodies);
+#endif
 
   return 0;
 }

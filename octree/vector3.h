@@ -8,6 +8,16 @@
 template <class REAL> struct vector3{
 public:
 	REAL x, y, z;
+
+#ifdef __mySSE__
+  vector3 (const v4sf r) 
+  {
+    x = __builtin_ia32_vec_ext_v4sf(r,0);
+    y = __builtin_ia32_vec_ext_v4sf(r,1);
+    z = __builtin_ia32_vec_ext_v4sf(r,2);
+  }
+#endif
+
 	vector3(){
 		x = y = z = REAL(0);
 	}
