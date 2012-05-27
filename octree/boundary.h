@@ -9,11 +9,50 @@ template <typename REAL>
 struct Boundary{
   typedef std::vector<Boundary> Vector;
 	typedef vector3<REAL> vec;
+
 	vec min, max;
 	Boundary() : min(HUGE), max(-HUGE) {}
 	Boundary(const vec &_min, const vec &_max) : min(_min), max(_max) {}
 	Boundary(const vec &pos, const REAL &h = 0.0) : min(pos - vec(h)), max(pos + vec(h)) {}
+	
+  const vec center() const {
+		return REAL(0.5) * (max + min);
+	}
+	const vec hlen() const {
+		return REAL(0.5) * (max - min);
+	}
+	const REAL separation2_from(const vec &pos) const{
+		vec dr = center() - pos;
+		dr = dr.abseach() - hlen();
+		dr = vec::maxeach(dr, vec(0.0));
+		return dr.norm2();
+	}
 
+#ifdef __mySSE__
+	Boundary(v4sf _min, v4sf _max){
+		min = _min;
+		max = _max;
+	}
+
+	static const Boundary merge(const Boundary &a, const Boundary &b){
+		return Boundary(
+				__builtin_ia32_minps(a.min, b.min),
+				__builtin_ia32_maxps(a.max, b.max));
+	}
+	void merge(const Boundary &b){
+		*this = merge(*this, b);
+	}
+	friend bool not_overlapped(const Boundary &a, const Boundary &b)
+  {
+		return __builtin_ia32_movmskps(__builtin_ia32_orps(
+         __builtin_ia32_cmpltps(a.max, b.min),
+         __builtin_ia32_cmpltps(b.max, a.min)
+         ));
+	}
+	friend bool overlapped(const Boundary &a, const Boundary &b){
+		return !not_overlapped(a, b);
+	}
+#else
 	static const Boundary merge(const Boundary &a, const Boundary &b){
 		return Boundary(mineach(a.min, b.min), maxeach(a.max, b.max));
 	}
@@ -28,18 +67,7 @@ struct Boundary{
 	friend bool overlapped(const Boundary &a, const Boundary &b){
 		return !not_overlapped(a, b);
 	}
-	const vec center() const {
-		return REAL(0.5) * (max + min);
-	}
-	const vec hlen() const {
-		return REAL(0.5) * (max - min);
-	}
-	const REAL separation2_from(const vec &pos) const{
-		vec dr = center() - pos;
-		dr = dr.abseach() - hlen();
-		dr = vec::maxeach(dr, vec(0.0));
-		return dr.norm2();
-	}
+#endif
 };
 #if 0
 template <>

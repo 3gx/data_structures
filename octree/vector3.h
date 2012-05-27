@@ -5,30 +5,68 @@
 #include <fstream>
 #include <cmath>
 
+struct float4
+{
+#ifdef __mySSE__
+  union
+  {
+    struct {float x, y,z, w;};
+    v4sf  v;
+  };
+  float4(const v4sf _v) : v(_v) {}
+  float4(const float _x, const float _y, const float _z, const float _w) 
+  {
+    v = (v4sf){_x, _y, _z, _w};
+  }
+
+  operator v4sf() const {return v;}
+#else
+  float x, y, z, w;
+  float4(const float _x, const float _y, const float _z, const float _w) 
+  {
+    x = _x;
+    y = _y;
+    z = _z;
+    w = _w;
+  }
+#endif
+  float4() {}
+};
+
+
 template <class REAL> struct vector3{
 public:
-	REAL x, y, z;
-
 #ifdef __mySSE__
-  vector3 (const v4sf r) 
+  union
   {
-    x = __builtin_ia32_vec_ext_v4sf(r,0);
-    y = __builtin_ia32_vec_ext_v4sf(r,1);
-    z = __builtin_ia32_vec_ext_v4sf(r,2);
-  }
+    struct{ REAL x, y, z, w; };
+    v4sf v;
+  };
+  vector3 (const float4 r) : v(r.v) {assert(sizeof(float)  == sizeof(REAL));}
+  vector3 (const v4sf  _v) : v(_v) {assert(sizeof(float) == sizeof(REAL));}
+  operator v4sf() const {return v;}
+  operator float4() const {return float4(v);}
+#else
+  REAL x, y, z, w;
+  vector3 (const float4 r) : x(r.x), y(r.y), z(r.z), w(r.w)  {}
+  operator float4() const {return float4(x,y,z, w);}
 #endif
 
 	vector3(){
 		x = y = z = REAL(0);
+    w = REAL(0);
 	}
 	vector3(const REAL &r){
 		x = y = z = r;
+    w = REAL(0);
 	}
 	vector3(const REAL &_x, const REAL &_y, const REAL &_z){
 		x = _x;  y = _y;  z = _z;
+    w = REAL(0);
 	}
 	vector3(const REAL *p){
 		x = p[0]; y = p[1]; z = p[2];
+    w = REAL(0);
 	}
 	~vector3(){}
 

@@ -51,7 +51,6 @@ struct Particle
 };
 
 
-
 struct Octree
 {
   enum {NLEAF = 32};
@@ -66,33 +65,14 @@ struct Octree
     typedef std::vector<Body> Vector;
 #endif
     private:
-#ifdef __mySSE__
-    v4sf packed_pos;
-#else
-    vec3 _pos;
-    int  _idx;
-#endif
+    float4 packed_pos;
 
     public:
     Body() {}
-#ifdef __mySSE__
-    Body(const vec3 &pos, const int idx) 
-    {
-      packed_pos = (v4sf){pos.x, pos.y, pos.z, (float)idx};
-    }
-    Body(const Particle &p, const int idx) 
-    {
-      packed_pos = (v4sf){p.pos.x, p.pos.y, p.pos.z, (float)idx};
-    }
-    int idx() const {return (int)__builtin_ia32_vec_ext_v4sf(packed_pos, 3);}
-    v4sf pos() const {return packed_pos;}
-#else
-    Body(const vec3 &__pos, const int __idx) : _pos(__pos), _idx(__idx) {}
-    Body(const Particle &p, const int __idx) : _pos(p.pos), _idx(__idx) {}
-    int idx() const {return _idx;}
-    const vec3& pos() const {return _pos;}
-#endif
-
+    Body(const vec3 &pos, const int idx) : packed_pos(float4(pos.x, pos.y, pos.z, (float)idx)) {}
+    Body(const Particle &p, const int idx) : packed_pos(float4(p.pos.x, p.pos.y, p.pos.z, (float)idx)) {}
+    int idx() const {return (int)packed_pos.w;}
+    float4 pos() const {return packed_pos;}
   };
 
   struct Cell
@@ -124,7 +104,11 @@ struct Octree
 
   struct Leaf
   {
+#ifdef MEMALIGN
+    typedef std::vector<Leaf, __gnu_cxx::malloc_allocator<Leaf, 128> > Vector;
+#else
     typedef std::vector<Leaf> Vector;
+#endif
     private:
       int _nb;           /* number of bodies in the list */
       Body _list[NLEAF];  /* idx of the body */
@@ -145,8 +129,7 @@ struct Octree
 
 
   private:
-  vec3 root_centre;  /* root's geometric centre */
-  real root_size;    /* root size */
+  float4 root_centre;  /* root's geometric centre & size */
   int depth;         /* tree-depth */
   int nnode;         /* number of tree nodes */
   int ncell;         /* number of tree cells: node + leaf */
@@ -158,8 +141,9 @@ struct Octree
   public:
 
   Octree(const vec3 &_centre, const real _size, const int n_nodes) :
-    root_centre(_centre), root_size(_size), depth(0), nnode(0), ncell(0), treeReady(false)
+    depth(0), nnode(0), ncell(0), treeReady(false)
   {
+    root_centre = float4(_centre.x, _centre.y, _centre.z, _size);
     cellList.resize(n_nodes<<3);
   }
 
@@ -167,8 +151,8 @@ struct Octree
   int get_nnode() const { return nnode;}
   int get_nleaf() const { return leafList.size();}
   int get_ncell() const { return ncell;}
-  const vec3 &get_rootCentre() const { return root_centre;}
-  real get_rootSize() const { return root_size;}
+  const vec3 get_rootCentre() const { return vec3(root_centre.x, root_centre.y, root_centre.z);}
+  real get_rootSize() const { return root_centre.w;}
 
 
   void clear(const int n_nodes = 0)
@@ -186,26 +170,22 @@ struct Octree
 
   static inline int reverse_int(const int a) {return BODYX-a;}
 
-#ifdef __mySSE__
-  static inline int Octant(const v4sf lhs, const v4sf rhs) 
+  static inline int Octant(const float4 lhs, const float4 rhs) 
   {
+#ifdef __mySSE__
     int mask = __builtin_ia32_movmskps(
         __builtin_ia32_cmpgeps(rhs, lhs));
     return 7 & mask;
-  }
 #else
-  static inline int Octant(const vec3 &lhs, const vec3 &rhs) 
-  {
     return
       (((lhs.x <= rhs.x) ? 1 : 0) +  
        ((lhs.y <= rhs.y) ? 2 : 0) + 
        ((lhs.z <= rhs.z) ? 4 : 0));
-  }
 #endif
-
-#ifdef __mySSE__
-  static inline v4sf compute_centre(const v4sf centre, const real dummy, const int oct)
+  }
+  static inline float4 compute_centre(const float4 centre, const int oct)
   {
+#ifdef __mySSE__
     static const v4sf off[8] = {
       {-0.25f, -0.25f, -0.25f, -0.5f},
       {+0.25f, -0.25f, -0.25f, -0.5f},
@@ -217,21 +197,17 @@ struct Octree
       {+0.25f, +0.25f, +0.25f, -0.5f},
     };
     const v4sf len = __builtin_ia32_shufps(centre, centre, 0xff);
-    return centre + len * off[oct];
-  }
+    return (v4sf)centre + len * off[oct];
 #else
-  static inline vec3 compute_centre(const vec3 &c, real s, const int oct)
-  {
-    assert(oct >= 0);
-    assert(oct  < 8);
-    s *= (real)0.5;
-    return vec3(
-        c.x + s * ((oct&1) ? (real)1.0 : (real)-1.0),
-        c.y + s * ((oct&2) ? (real)1.0 : (real)-1.0),
-        c.z + s * ((oct&4) ? (real)1.0 : (real)-1.0)
+    const float s = centre.w*0.25f;
+    return float4(
+        centre.x + s * ((oct&1) ? (real)1.0 : (real)-1.0),
+        centre.y + s * ((oct&2) ? (real)1.0 : (real)-1.0),
+        centre.z + s * ((oct&4) ? (real)1.0 : (real)-1.0),
+        centre.w*0.5f
         );
-  }
 #endif
+  }
 
 
   /********/
@@ -255,12 +231,7 @@ struct Octree
     int depth      = 0;                      /* depth */ 
     const int n_nodes_max = cellList.size();
 
-#ifdef __mySSE__
-    v4sf centre = {root_centre.x, root_centre.y, root_centre.z, root_size};
-#else
-    vec3 centre = root_centre;
-#endif
-    real hsize  = root_size*(real)0.5; /* not being used in SSE version */
+    float4 centre =  root_centre;
 
     /* walk the tree to find the first leaf or empty cell */
     while (child.isNode())  /* if non-negative, means it is a tree-node */
@@ -269,8 +240,7 @@ struct Octree
       depth++;
 
       child_idx  = Octant(centre, new_body.pos());
-      centre     = compute_centre(centre, hsize, child_idx);
-      hsize     *= (real)0.5;
+      centre     = compute_centre(centre, child_idx);
 
       locked = node.addr + child_idx;
       assert(locked < n_nodes_max);
@@ -319,8 +289,7 @@ struct Octree
         }
 
         child_idx = Octant(centre, new_body.pos());
-        centre    = compute_centre(centre, hsize, child_idx);
-        hsize    *= (real)0.5;
+        centre    = compute_centre(centre, child_idx);
 
         locked = cfirst + child_idx;
         Cell &child  = cellList[locked];
@@ -480,6 +449,7 @@ struct Octree
         }
         else
         {
+#if 0
           const Leaf &leaf = leafList[cell.leafIdx()];
           for (int i = 0; i < leaf.nb(); i++)
           {
@@ -487,6 +457,7 @@ struct Octree
             if ((pos - jpos).norm2() < h*h)
               nb++;
           }
+#endif
         }
       }
       return nb;
