@@ -60,7 +60,7 @@ struct float4
 #else
 struct float4
 {
-#ifdef __mySSEX__
+#ifdef __mySSE1__
   v4sf vec;
   float4(const v4sf _vec) : vec(_vec){}
   float4(const float _x, const float _y, const float _z, const float _w) 

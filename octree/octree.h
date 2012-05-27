@@ -21,7 +21,7 @@ static inline T __max(const T &a, const T &b) {return a > b ? a : b;}
 
 #define SQR(x) ((x)*(x))
 
-#ifdef __mySSEX__
+#ifdef __mySSE1__
 #ifndef __mySSE__
 #define __mySSE__
 #endif
@@ -181,7 +181,7 @@ struct Octree
 
   inline int Octant(const float4 lhs, const float4 rhs) 
   {
-#ifdef __mySSEX__
+#ifdef __mySSE1__
     int mask = __builtin_ia32_movmskps(
         __builtin_ia32_cmpgeps(rhs, lhs));
     return 7 & mask;
@@ -195,7 +195,7 @@ struct Octree
 
   inline float4 child_centre(const float4 centre, const float4 ppos)
   {
-#ifdef __mySSEX__
+#ifdef __mySSE1__
     const v4si mask = {(int)0x80000000, (int)0x80000000, (int)0x80000000, 0};
     const v4sf off  = {0.25f, 0.25f, 0.25f, 0.5f};
     const v4sf len  = __builtin_ia32_shufps(centre, centre, 0xff);
