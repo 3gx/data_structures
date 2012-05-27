@@ -9,7 +9,6 @@
 #include <cstdlib>
 #include <cassert>
 #include <stack>
-#include <list>
 #ifdef MEMALIGN
 #include "memalign_allocator.h"
 #endif
@@ -144,6 +143,7 @@ struct Octree
   bool treeReady;    /* this is a flag if tree is ready for walks */
   Cell    ::Vector cellList;
   Leaf    ::Vector leafList;
+  std::stack<int> leafPool;
   boundary::Vector cellBnd;
 
   public:
@@ -171,6 +171,7 @@ struct Octree
     cellList.clear();
     cellList.resize(nsize);
     leafList.clear();
+    leafPool = std::stack<int>();
     cellBnd.clear();
   }
 
@@ -219,15 +220,25 @@ struct Octree
 
   /********/
 
-  Cell newLeaf()
+  void deleteLeaf(const int leafIdx)
   {
-    leafList.push_back(Leaf());
-    return Cell(reverse_int(leafList.size() - 1), ncell++);
+    leafPool.push(leafIdx);
   }
-  Cell newLeaf(const Body &body)
+  template<const bool WITHBODY>
+  Cell newLeaf(const Body &body = Body())
   {
-    leafList.push_back(Leaf(body));
-    return Cell(reverse_int(leafList.size() - 1), ncell++);
+    if (leafPool.empty())
+    {
+      leafList.push_back(WITHBODY ? Leaf(body) : Leaf());
+      return Cell(reverse_int(leafList.size()  - 1), ncell++);
+    }
+    else
+    {
+      const int addr = leafPool.top();
+      leafPool.pop();
+      leafList[addr] = WITHBODY ? Leaf(body) : Leaf();
+      return Cell(reverse_int(addr), ncell++);
+    }
   }
 
   void push(const Body &new_body)
@@ -261,7 +272,7 @@ struct Octree
     if (child.isEmpty())  /* the cell is empty, make it a leaf */
     {
       assert(child.isClean());
-      cellList[locked] = newLeaf(new_body);
+      cellList[locked] = newLeaf<true>(new_body);
     }
     else          /* this is already a leaf */
     {
@@ -279,15 +290,16 @@ struct Octree
         assert(leaf_idx >= 0);
         assert(leaf_idx < get_nleaf());
         const Leaf leaf = leafList[leaf_idx];
+        deleteLeaf(leaf_idx);
 
         for (int i = 0; i < leaf.nb(); i++)
         {
           const Body &body = leaf[i];
-          child_idx = Octant(centre, body.pos());
+          child_idx  = Octant(centre, body.pos());
           Cell &cell = cellList[cfirst + child_idx];
           if (cell.isEmpty())
           {
-            cell = newLeaf(body);
+            cell = newLeaf<true>(body);
           }
           else
           {
@@ -303,7 +315,7 @@ struct Octree
         locked = cfirst + child_idx;
         Cell &child  = cellList[locked];
         if (child.isEmpty())
-          child = newLeaf();
+          child = newLeaf<false>();
         assert(child.isLeaf());
         leaf_idx = child.leafIdx();
       }
