@@ -359,8 +359,6 @@ struct Octree
     int child_idx  = 0;
     while (child.isNode()) 
     {
-      cellList[child.addr()].setTouched();
-      path.push(locked);
       const Cell node = child;
       depth++;
 
@@ -370,6 +368,8 @@ struct Octree
       locked = node.addr() + child_idx;
       assert(locked < n_nodes_max);
       child  = cellList[locked];
+      path.push(locked);
+      cellList[locked].setTouched();
     }
 
     assert(!child.isEmpty());
@@ -432,6 +432,18 @@ struct Octree
     }
 
   /**************/
+
+  boundary rootBoundary()
+  {
+    boundary bnd;
+    for (int k = 0; k < 8; k++)
+      if (!cellList[k].isEmpty())
+      {
+        assert(!cellList[k].isTouched());
+        bnd.merge(innerBnd[cellList[k].id()]);
+      }
+    return bnd;
+  }
 
   template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
     boundary inner_boundary(const int addr = 0)

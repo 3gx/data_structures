@@ -103,7 +103,7 @@ int main(int argc, char * argv[])
   const double t60 = get_wtime();
   fprintf(stderr, " -- Inner boundary -- \n");
   const boundary rootBnd = tree.inner_boundary<true>();
-  fprintf(stderr, " bnd= %g %g %g  size= %g %g %g \n",
+  fprintf(stderr, " rootBnd= %g %g %g  size= %g %g %g \n",
       rootBnd.center().x,
       rootBnd.center().y,
       rootBnd.center().z,
@@ -115,8 +115,16 @@ int main(int argc, char * argv[])
       tree.get_rootCentre().y,
       tree.get_rootCentre().z,
       tree.get_rootSize()*0.5);
+  const boundary rootBnd0 = tree.rootBoundary();
+  fprintf(stderr, "rootBnd0:= %g %g %g  size= %g %g %g \n",
+      rootBnd0.center().x,
+      rootBnd0.center().y,
+      rootBnd0.center().z,
+      rootBnd0.hlen().x,
+      rootBnd0.hlen().y,
+      rootBnd0.hlen().z);
   const boundary rootBnd1 = tree.inner_boundary<true>();
-  fprintf(stderr, " bnd= %g %g %g  size= %g %g %g \n",
+  fprintf(stderr, " rootBnd1= %g %g %g  size= %g %g %g \n",
       rootBnd1.center().x,
       rootBnd1.center().y,
       rootBnd1.center().z,
