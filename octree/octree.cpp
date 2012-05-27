@@ -14,7 +14,7 @@ int main(int argc, char * argv[])
   const double t00 = get_wtime();
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
-#if 0
+#if 1
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
@@ -122,7 +122,7 @@ int main(int argc, char * argv[])
 
   fprintf(stderr, " -- Range search -- \n");
   int nb = 0;
-#if 1
+#if 0
   const int nb_mean = 32;
   const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
 #pragma omp parallel for reduction(+:nb)

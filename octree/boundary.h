@@ -39,7 +39,6 @@ struct Boundary{
 		max = _max;
 	}
 
-#if 0
 	static const Boundary merge(const Boundary &a, const Boundary &b){
 		return Boundary(
 				__builtin_ia32_minps(a.min, b.min),
@@ -48,14 +47,6 @@ struct Boundary{
 	void merge(const Boundary &b){
 		*this = merge(*this, b);
 	}
-#else /* faster on i7 2600K */
-	static const Boundary merge(const Boundary &a, const Boundary &b){
-		return Boundary(mineach(a.min, b.min), maxeach(a.max, b.max));
-	}
-	void merge(const Boundary &b){
-		*this = merge(*this, b);
-	}
-#endif
 	friend bool not_overlapped(const Boundary &a, const Boundary &b)
   {
 		return __builtin_ia32_movmskps(__builtin_ia32_orps(
