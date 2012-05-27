@@ -6,18 +6,26 @@ F90 = gfortran
 ifeq ($(OMP), 1)
 	OMPFLAGS  = -fopenmp
 endif
-
-ifeq ($(OMPCXX), 1)
+ifeq ($(OMPGLIBC), 1)
 	OMPFLAGS += -D_GLIBCXX_PARALLEL
 endif
 
 OFLAGS = -O4 -g -Wall
-OFLAGS += -funroll-all-loops
-
-CXXFLAGS =  -fPIC $(OFLAGS) -Wstrict-aliasing=2 $(OMPFLAGS)
+ifeq ($(GDB), 1)
+	OFLAGS = -O0 -g -Wall
+endif
+	
+OFLAGS  += -funroll-all-loops
+CXXFLAGS = $(OFLAGS) -Wstrict-aliasing=2 $(OMPFLAGS)
 
 ifeq ($(SSE), 1)
 	CXXFLAGS += -D__mySSE__
+endif
+ifeq ($(SSEX), 1)
+	CXXFLAGS += -D__mySSEX__
+endif
+ifeq ($(RELEASE), 1)
+	CXXFLAGS += -DNDEBUG
 endif
 
 

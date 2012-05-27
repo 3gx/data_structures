@@ -22,11 +22,18 @@ static inline T __max(const T &a, const T &b) {return a > b ? a : b;}
 
 #define SQR(x) ((x)*(x))
 
+#ifdef __mySSEX__
+#ifndef __mySSE__
+#define __mySSE__
+#endif
+#endif
+
 
 #ifdef __mySSE__
 typedef int    v4si  __attribute__((vector_size(16)));
 typedef float  v4sf  __attribute__((vector_size(16)));
 #endif
+
 
 #include "boundary.h"
 #include "vector3.h"
@@ -170,9 +177,9 @@ struct Octree
 
   static inline int reverse_int(const int a) {return BODYX-a;}
 
-  static inline int Octant(const float4 lhs, const float4 rhs) 
+  inline int Octant(const float4 lhs, const float4 rhs) 
   {
-#ifdef __mySSE__
+#ifdef __mySSEX__
     int mask = __builtin_ia32_movmskps(
         __builtin_ia32_cmpgeps(rhs, lhs));
     return 7 & mask;
@@ -183,22 +190,20 @@ struct Octree
        ((lhs.z <= rhs.z) ? 4 : 0));
 #endif
   }
-  static inline float4 compute_centre(const float4 centre, const int oct)
+
+  inline float4 child_centre(const float4 centre, const float4 ppos)
   {
-#ifdef __mySSE__
-    static const v4sf off[8] = {
-      {-0.25f, -0.25f, -0.25f, -0.5f},
-      {+0.25f, -0.25f, -0.25f, -0.5f},
-      {-0.25f, +0.25f, -0.25f, -0.5f},
-      {+0.25f, +0.25f, -0.25f, -0.5f},
-      {-0.25f, -0.25f, +0.25f, -0.5f},
-      {+0.25f, -0.25f, +0.25f, -0.5f},
-      {-0.25f, +0.25f, +0.25f, -0.5f},
-      {+0.25f, +0.25f, +0.25f, -0.5f},
-    };
-    const v4sf len = __builtin_ia32_shufps(centre, centre, 0xff);
-    return (v4sf)centre + len * off[oct];
+#ifdef __mySSEX__
+    const v4si mask = {(int)0x80000000, (int)0x80000000, (int)0x80000000, 0};
+    const v4sf off  = {0.25f, 0.25f, 0.25f, 0.5f};
+    const v4sf len  = __builtin_ia32_shufps(centre, centre, 0xff);
+
+    v4sf tmp = __builtin_ia32_cmpgeps(ppos, centre); // mask bits
+    tmp = __builtin_ia32_andps(tmp, (v4sf)mask);    // sign mask
+    tmp = __builtin_ia32_orps(tmp, off*len);        // offset;
+    return (v4sf)centre - tmp;
 #else
+    const int oct = Octant(centre, ppos);
     const float s = centre.w*0.25f;
     return float4(
         centre.x + s * ((oct&1) ? (real)1.0 : (real)-1.0),
@@ -208,6 +213,7 @@ struct Octree
         );
 #endif
   }
+
 
 
   /********/
@@ -229,7 +235,9 @@ struct Octree
     Cell child     = Cell(Cell::ROOT);       /* child */
     int locked     = 0;                      /* cell that needs to be updated */
     int depth      = 0;                      /* depth */ 
+#ifndef NDEBUG
     const int n_nodes_max = cellList.size();
+#endif
 
     float4 centre =  root_centre;
 
@@ -240,7 +248,7 @@ struct Octree
       depth++;
 
       child_idx  = Octant(centre, new_body.pos());
-      centre     = compute_centre(centre, child_idx);
+      centre     = child_centre(centre, new_body.pos());
 
       locked = node.addr + child_idx;
       assert(locked < n_nodes_max);
@@ -289,7 +297,7 @@ struct Octree
         }
 
         child_idx = Octant(centre, new_body.pos());
-        centre    = compute_centre(centre, child_idx);
+        centre    = child_centre(centre, new_body.pos());
 
         locked = cfirst + child_idx;
         Cell &child  = cellList[locked];

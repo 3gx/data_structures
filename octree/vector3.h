@@ -7,7 +7,7 @@
 
 struct float4
 {
-#ifdef __mySSE__
+#ifdef __mySSEX__
   union
   {
     struct {float x, y,z, w;};
@@ -42,7 +42,11 @@ public:
     struct{ REAL x, y, z, w; };
     v4sf v;
   };
+#ifdef __mySSEX__
   vector3 (const float4 r) : v(r.v) {assert(sizeof(float)  == sizeof(REAL));}
+#else
+  vector3 (const float4 r) : x(r.x), y(r.y), z(r.z), w(r.w)  {}
+#endif
   vector3 (const v4sf  _v) : v(_v) {assert(sizeof(float) == sizeof(REAL));}
   operator v4sf() const {return v;}
   operator float4() const {return float4(v);}
