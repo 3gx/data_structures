@@ -470,7 +470,7 @@ struct Octree
         if (cell.isNode())
         {
           for (int k = cell.addr(); k < cell.addr()+8; k++)
-            if (!cellList[k].isEmpty() || cellList[k].isTouched())
+            if (!cellList[k].isEmpty() && cellList[k].isTouched())
               innerBnd[cell.id()].merge(inner_boundary<false>(k));
         }
         else
