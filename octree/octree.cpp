@@ -58,7 +58,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, " -- Buidling octTree -- \n");
   for (int i = 0; i < n_bodies; i++)
   {
-    tree.push(octBodies[i], i, octBodies);
+    tree.push(octBodies[i]);
   }
   fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
       tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
@@ -95,14 +95,14 @@ int main(int argc, char * argv[])
   tree.clear();
   for (int i = 0; i < n_bodies; i++)
   {
-    tree.push(octBodiesSorted[i], i, octBodiesSorted);
+    tree.push(octBodiesSorted[i]);
   }
   fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
       tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
  
   const double t60 = get_wtime();
   fprintf(stderr, " -- Inner boundary -- \n");
-  const boundary rootBnd = tree.inner_boundary<true>(octBodiesSorted);
+  const boundary rootBnd = tree.inner_boundary<true>();
   fprintf(stderr, " bnd= %g %g %g  size= %g %g %g \n",
       rootBnd.center().x,
       rootBnd.center().y,
@@ -117,7 +117,7 @@ int main(int argc, char * argv[])
       tree.get_rootSize()*0.5);
   
   const double t63 = get_wtime();
-  assert(tree.sanity_check<true>(octBodiesSorted) == n_bodies);
+  assert(tree.sanity_check<true>() == n_bodies);
   const double t68 = get_wtime();
 
   fprintf(stderr, " -- Range search -- \n");
@@ -128,7 +128,7 @@ int main(int argc, char * argv[])
 #pragma omp parallel for reduction(+:nb)
   for (int i = 0; i < n_bodies; i++)
   {
-    nb += tree.range_search<true>(ptcl[i].pos, s, octBodiesSorted);
+    nb += tree.range_search<true>(ptcl[i].pos, s);
   }
 #endif
   const double t70 = get_wtime();
