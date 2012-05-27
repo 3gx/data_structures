@@ -90,22 +90,31 @@ struct Octree
 #else
     typedef std::vector<Cell> Vector;
 #endif
-    int addr;
-    int id;
-   
-    Cell() : addr(EMPTY), id(EMPTY) {}
-    Cell(const CellType type) : addr(EMPTY+1), id(EMPTY) {}
-    Cell(const int _addr, const int _id) : addr(_addr), id(_id) {}
-    bool operator==(const Cell &v) const {return addr == v.addr && id == v.id;}
-    bool isClean() const { return addr == EMPTY && id == EMPTY;}
-    bool isEmpty() const { return addr == EMPTY;}
-    bool isLeaf () const { return addr < EMPTY;}
-    bool isNode () const { return addr > EMPTY;}
+    private:
+    int _addr;
+    int _id;
 
-    const int leafIdx() const 
+    public:
+    Cell() : _addr(EMPTY), _id(EMPTY) {}
+    Cell(const CellType type) : _addr(EMPTY+1), _id(EMPTY) {}
+    Cell(const int addr, const int id) : _addr(addr), _id(id) {setTouched();}
+    bool operator==(const Cell &v) const {return _addr == v._addr && _id == v._id;}
+    bool isClean() const { return _addr == EMPTY && _id == EMPTY;}
+    bool isEmpty() const { return _addr == EMPTY;}
+    bool isLeaf () const { return _addr < EMPTY;}
+    bool isNode () const { return _addr > EMPTY;}
+
+    void set_addr(const int addr) {_addr = addr;}
+    int addr() const {return _addr;}
+    int id() const {return _id & 0x7FFFFFFF;}
+    bool    isTouched() const {return _id & 0x80000000;}
+    void   setTouched()       { _id |= 0x80000000;}
+    void unsetTouched()       { _id = id();}
+
+    int leafIdx() const 
     { 
-      assert(addr < EMPTY); 
-      return reverse_int(addr); 
+      assert(_addr < EMPTY); 
+      return reverse_int(_addr); 
     }
   };
 
@@ -122,13 +131,21 @@ struct Octree
 
     public:
       Leaf() : _nb(0) {}
-      Leaf(const Body &body) : _nb(0) {push(body);}
-      void push(const Body &body) 
+      Leaf(const Body &body) : _nb(0) {insert(body);}
+      void insert(const Body &body) 
       {
         assert(_nb < NLEAF);
         _list[_nb++] = body;
       }
-      bool isFull() const {return _nb == NLEAF;}
+      void remove(const int idx)
+      {
+        assert(idx < _nb);
+        _nb--;
+        for (int i = idx; i < _nb; i++)
+          _list[i] = _list[i+1];
+      }
+      bool  isFull() const {return NLEAF == _nb;}
+      bool isEmpty() const {return     0 == _nb;}
       const Body& operator[](const int i) const { return _list[i];}
       int nb() const {return _nb;}
   };
@@ -141,10 +158,11 @@ struct Octree
   int nnode;         /* number of tree nodes */
   int ncell;         /* number of tree cells: node + leaf */
   bool treeReady;    /* this is a flag if tree is ready for walks */
-  Cell    ::Vector cellList;
-  Leaf    ::Vector leafList;
-  std::stack<int> leafPool;
-  boundary::Vector cellBnd;
+  Cell    ::Vector cellList;    /* list of tree cells (node+leaf) */
+  Leaf    ::Vector leafList;    /* list of leaves */
+  std::stack<int>  leafPool;    /* pool of available leaves */
+  boundary::Vector innerBnd;    /* list of cell inner boundaries */
+  boundary::Vector outerBnd;    /* list of cell outer boundaries */
 
   public:
 
@@ -172,7 +190,7 @@ struct Octree
     cellList.resize(nsize);
     leafList.clear();
     leafPool = std::stack<int>();
-    cellBnd.clear();
+    innerBnd.clear();
   }
 
   bool isTreeReady() const {return treeReady;}
@@ -230,7 +248,7 @@ struct Octree
     if (leafPool.empty())
     {
       leafList.push_back(WITHBODY ? Leaf(body) : Leaf());
-      return Cell(reverse_int(leafList.size()  - 1), ncell++);
+      return Cell(reverse_int(leafList.size() - 1), ncell++);
     }
     else
     {
@@ -241,7 +259,7 @@ struct Octree
     }
   }
 
-  void push(const Body &new_body)
+  void insert(const Body &new_body)
   {
     int  child_idx = 0;                      /* child idx inside a node */
     Cell child     = Cell(Cell::ROOT);       /* child */
@@ -262,7 +280,7 @@ struct Octree
       child_idx  = Octant(centre, new_body.pos());
       centre     = child_centre(centre, new_body.pos());
 
-      locked = node.addr + child_idx;
+      locked = node.addr() + child_idx;
       assert(locked < n_nodes_max);
       child  = cellList[locked];
     }
@@ -285,7 +303,7 @@ struct Octree
         nnode++;
         const int cfirst = nnode<<3;
         assert(cfirst+7 < n_nodes_max);
-        cellList[locked].addr = cfirst;
+        cellList[locked].set_addr(cfirst);
 
         assert(leaf_idx >= 0);
         assert(leaf_idx < get_nleaf());
@@ -305,7 +323,7 @@ struct Octree
           {
             assert(cell.isLeaf());
             assert(!leafList[cell.leafIdx()].isFull());
-            leafList[cell.leafIdx()].push(body);
+            leafList[cell.leafIdx()].insert(body);
           }
         }
 
@@ -319,11 +337,67 @@ struct Octree
         assert(child.isLeaf());
         leaf_idx = child.leafIdx();
       }
-      leafList[leaf_idx].push(new_body);  /* push particle into a leaf */
+      leafList[leaf_idx].insert(new_body);  /* push particle into a leaf */
     }
 
     this->depth = __max(this->depth, depth);
   }
+
+  /**************/
+
+  bool remove(const Body &body)
+  {
+    float4 centre =  root_centre;
+    
+#ifndef NDEBUG
+    const int n_nodes_max = cellList.size();
+#endif
+    std::stack<int> path;
+
+    Cell child     = Cell(Cell::ROOT);       /* child */
+    int locked     = 0;                      /* cell that needs to be updated */
+    int child_idx  = 0;
+    while (child.isNode()) 
+    {
+      cellList[child.addr()].setTouched();
+      path.push(locked);
+      const Cell node = child;
+      depth++;
+
+      child_idx  = Octant(centre, body.pos());
+      centre     = child_centre(centre, body.pos());
+
+      locked = node.addr() + child_idx;
+      assert(locked < n_nodes_max);
+      child  = cellList[locked];
+    }
+
+    assert(!child.isEmpty());
+    if (child.isEmpty()) return false;
+
+    assert(child.isLeaf());
+    const int leaf_idx = child.leafIdx();
+    assert(leaf_idx < (int)leafList.size());
+    Leaf &leaf = leafList[leaf_idx];
+    int idx = 0;
+    for (idx = 0; idx < leaf.nb(); idx++)
+      if (body.idx() == leaf[idx].idx())
+        break;
+
+    assert(idx < leaf.nb());
+    if (idx == leaf.nb()) return false;
+    leaf.remove(idx);
+
+    if (!leaf.isEmpty()) 
+    {
+      while(!path.empty())
+      {
+        path.pop();
+      }
+    }
+
+    return true;
+  } 
 
   /**************/
 
@@ -343,7 +417,7 @@ struct Octree
         if (cell.isNode())
         {
           for (int k = 0; k < 8; k++)
-            tree_dump<false>(list, cell.addr+k);
+            tree_dump<false>(list, cell.addr()+k);
         }
         else
         {
@@ -365,27 +439,27 @@ struct Octree
       boundary bnd;
       if (ROOT)
       {
-        cellBnd.resize(ncell);
+        innerBnd.resize(ncell);
         for (int k = 0; k < 8; k++)
-          if (!cellList[k].isEmpty())
-            bnd.merge(cellBnd[cellList[k].id] = inner_boundary<false>(k));
+          if (!cellList[k].isEmpty() && cellList[k].isTouched())
+            bnd.merge(innerBnd[cellList[k].id()] = inner_boundary<false>(k));
         treeReady = true;
         return bnd;
       }
       else
       {
         assert(addr < (int)cellList.size());
-        const Cell &cell = cellList[addr];
+        Cell &cell = cellList[addr];
         assert (!cell.isEmpty());
-        assert(cell.id >= 0);
+        assert(cell.id() >= 0);
 
-        cellBnd[cell.id] = bnd;
+        innerBnd[cell.id()] = bnd;
 
         if (cell.isNode())
         {
-          for (int k = cell.addr; k < cell.addr+8; k++)
-            if (!cellList[k].isEmpty())
-              cellBnd[cell.id].merge(inner_boundary<false>(k));
+          for (int k = cell.addr(); k < cell.addr()+8; k++)
+            if (!cellList[k].isEmpty() || cellList[k].isTouched())
+              innerBnd[cell.id()].merge(inner_boundary<false>(k));
         }
         else
         {
@@ -393,10 +467,11 @@ struct Octree
           for (int i= 0; i < leaf.nb(); i++)
           {
             const vec3 jpos = leaf[i].pos();
-            cellBnd[cell.id].merge(jpos);
+            innerBnd[cell.id()].merge(jpos);
           }
         }
-        return cellBnd[cell.id];
+        cell.unsetTouched();
+        return innerBnd[cell.id()];
       }
     }
 
@@ -410,19 +485,19 @@ struct Octree
         assert(isTreeReady());
         for (int k = 0; k < 8; k++)
           if (!cellList[k].isEmpty())
-            nb = sanity_check<false>(k, cellBnd[cellList[k].id], nb);
+            nb = sanity_check<false>(k, innerBnd[cellList[k].id()], nb);
       }
       else
       {
         assert(addr < (int)cellList.size());
         const Cell &cell = cellList[addr];
         if (cell.isEmpty()) return nb;
-        assert(cell.id >= 0);
+        assert(cell.id() >= 0);
 
         if (cell.isNode())
         {
-          for (int k = cell.addr; k < cell.addr+8; k++)
-            nb = sanity_check<false>(k, cellBnd[cell.id], nb);
+          for (int k = cell.addr(); k < cell.addr()+8; k++)
+            nb = sanity_check<false>(k, innerBnd[cell.id()], nb);
         }
         else
         {
@@ -432,7 +507,7 @@ struct Octree
           for (int i = 0; i < leaf.nb(); i++)
           {
             const vec3 jpos = leaf[i].pos();
-            assert(overlapped(cellBnd[cell.id], jpos));
+            assert(overlapped(innerBnd[cell.id()], jpos));
             assert(overlapped(parent_bnd, jpos));
             nb++;
           }
@@ -454,7 +529,7 @@ struct Octree
         const boundary ibnd(body.pos());
         for (int k = 0; k < 8; k++)
           if (!cellList[k].isEmpty())
-            if (!not_overlapped(ibnd, cellBnd[cellList[k].id]))
+            if (!not_overlapped(ibnd, innerBnd[cellList[k].id()]))
               nb = range_search<false>(body, k, ibnd, nb);
       }
       else
@@ -463,9 +538,9 @@ struct Octree
         if (cell.isNode())
         {
           for (int k = 0; k < 8; k++)
-            if (!cellList[cell.addr+k].isEmpty())
-              if (!not_overlapped(ibnd, cellBnd[cellList[cell.addr+k].id]))
-                nb = range_search<false>(body, cell.addr+k, ibnd, nb);
+            if (!cellList[cell.addr()+k].isEmpty())
+              if (!not_overlapped(ibnd, innerBnd[cellList[cell.addr()+k].id()]))
+                nb = range_search<false>(body, cell.addr()+k, ibnd, nb);
         }
         else
         {

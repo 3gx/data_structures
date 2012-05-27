@@ -58,7 +58,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, " -- Buidling octTree -- \n");
   for (int i = 0; i < n_bodies; i++)
   {
-    tree.push(octBodies[i]);
+    tree.insert(octBodies[i]);
   }
   fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
       tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
@@ -95,7 +95,7 @@ int main(int argc, char * argv[])
   tree.clear();
   for (int i = 0; i < n_bodies; i++)
   {
-    tree.push(octBodiesSorted[i]);
+    tree.insert(octBodiesSorted[i]);
   }
   fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
       tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
@@ -115,6 +115,14 @@ int main(int argc, char * argv[])
       tree.get_rootCentre().y,
       tree.get_rootCentre().z,
       tree.get_rootSize()*0.5);
+  const boundary rootBnd1 = tree.inner_boundary<true>();
+  fprintf(stderr, " bnd= %g %g %g  size= %g %g %g \n",
+      rootBnd1.center().x,
+      rootBnd1.center().y,
+      rootBnd1.center().z,
+      rootBnd1.hlen().x,
+      rootBnd1.hlen().y,
+      rootBnd1.hlen().z);
   
   const double t63 = get_wtime();
   assert(tree.sanity_check<true>() == n_bodies);
@@ -132,6 +140,16 @@ int main(int argc, char * argv[])
   }
 #endif
   const double t70 = get_wtime();
+
+  fprintf(stderr, " -- Remove ptcl -- \n");
+  int nrm = 0;
+  
+  const double t80 = get_wtime();
+  
+  fprintf(stderr, " -- Insert ptcl -- \n");
+  int nins = 0;
+  
+  const double t90 = get_wtime();
  
 
   fprintf(stderr, " Timing info: \n");
@@ -145,6 +163,8 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   Boundary: %g sec \n", t63 -t60);
   fprintf(stderr, "   Sanity:   %g sec \n", t68 -t63);
   fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t68, (real)nb/n_bodies);
+  fprintf(stderr, "   Remove:   %g sec nrm= %d \n", t80 - t70, nrm);
+  fprintf(stderr, "   Insert:   %g sec nins= %d \n", t90 - t80, nins);
 
   return 0;
 }
