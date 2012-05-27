@@ -144,20 +144,65 @@ int main(int argc, char * argv[])
 #pragma omp parallel for reduction(+:nb)
   for (int i = 0; i < n_bodies; i++)
   {
+#if 0
     nb += tree.range_search<true>(Octree::Body(ptcl[i].pos, s));
+#else
+    const vec3 pos(
+        octBodiesSorted[i].pos().x(),
+        octBodiesSorted[i].pos().y(),
+        octBodiesSorted[i].pos().z());
+    nb += tree.range_search<true>(Octree::Body(pos, s));
+#endif
   }
 #endif
   const double t70 = get_wtime();
 
   fprintf(stderr, " -- Remove ptcl -- \n");
   int nrm = 0;
+#if 1
+  for (int i = 0; i < n_bodies; i++)
+  {
+    tree.remove(Octree::Body(ptcl[i].pos, i));
+    nrm++;
+  }
+  fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
+      tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
+#endif
   
   const double t80 = get_wtime();
   
   fprintf(stderr, " -- Insert ptcl -- \n");
   int nins = 0;
+#if 1
+  for (int i = 0; i < n_bodies; i++)
+  {
+    tree.insert(octBodiesSorted[i]);
+    nins++;
+  }
+  fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
+      tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
+#endif
   
   const double t90 = get_wtime();
+  
+  fprintf(stderr, " -- Range search 1 -- \n");
+  int nb1 = 0;
+#if 1
+#pragma omp parallel for reduction(+:nb)
+  for (int i = 0; i < n_bodies; i++)
+  {
+#if 0
+    nb1 += tree.range_search<true>(Octree::Body(ptcl[i].pos, s));
+#else
+    const vec3 pos(
+        octBodiesSorted[i].pos().x(),
+        octBodiesSorted[i].pos().y(),
+        octBodiesSorted[i].pos().z());
+    nb1 += tree.range_search<true>(Octree::Body(pos, s));
+#endif
+  }
+#endif
+  const double t100 = get_wtime();
  
 
   fprintf(stderr, " Timing info: \n");
@@ -173,6 +218,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t68, (real)nb/n_bodies);
   fprintf(stderr, "   Remove:   %g sec nrm= %d \n", t80 - t70, nrm);
   fprintf(stderr, "   Insert:   %g sec nins= %d \n", t90 - t80, nins);
+  fprintf(stderr, "   RangeS1:   %g sec <nb>= %g \n", t100 -t90, (real)nb1/n_bodies);
 
   return 0;
 }

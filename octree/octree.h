@@ -161,6 +161,7 @@ struct Octree
   Cell    ::Vector cellList;    /* list of tree cells (node+leaf) */
   Leaf    ::Vector leafList;    /* list of leaves */
   std::stack<int>  leafPool;    /* pool of available leaves */
+  std::stack<int>  cellPool;    /* pool of available cells */
   boundary::Vector innerBnd;    /* list of cell inner boundaries */
   boundary::Vector outerBnd;    /* list of cell outer boundaries */
 
@@ -238,6 +239,10 @@ struct Octree
 
   /********/
 
+  void deleteCell(const int cellId)
+  {
+    cellPool.push(cellId);
+  }
   void deleteLeaf(const int leafIdx)
   {
     leafPool.push(leafIdx);
@@ -245,17 +250,20 @@ struct Octree
   template<const bool WITHBODY>
   Cell newLeaf(const Body &body = Body())
   {
+    const int cell = cellPool.empty() ? ncell++ : cellPool.top();
+    if (!cellPool.empty()) cellPool.pop();
+
     if (leafPool.empty())
     {
       leafList.push_back(WITHBODY ? Leaf(body) : Leaf());
-      return Cell(reverse_int(leafList.size() - 1), ncell++);
+      return Cell(reverse_int(leafList.size() - 1), cell);
     }
     else
     {
       const int addr = leafPool.top();
       leafPool.pop();
       leafList[addr] = WITHBODY ? Leaf(body) : Leaf();
-      return Cell(reverse_int(addr), ncell++);
+      return Cell(reverse_int(addr), cell);
     }
   }
 
@@ -388,12 +396,13 @@ struct Octree
     if (idx == leaf.nb()) return false;
     leaf.remove(idx);
 
-    if (!leaf.isEmpty()) 
+    if (leaf.isEmpty()) 
     {
       while(!path.empty())
       {
         path.pop();
       }
+      deleteLeaf(leaf_idx);
     }
 
     return true;
