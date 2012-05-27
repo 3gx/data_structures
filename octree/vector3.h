@@ -78,7 +78,7 @@ public:
   operator v4sf() const {return v;}
 #else
   REAL x, y, z, w;
-  vector3 (const float4 r) : x(r.x), y(r.y), z(r.z), w(r.w)  {}
+  vector3 (const float4 r) : x(r.x()), y(r.y()), z(r.z()), w(r.w())  {}
 #endif
 
 	vector3(){
