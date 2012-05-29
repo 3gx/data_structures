@@ -34,12 +34,16 @@ typedef float  v4sf  __attribute__((vector_size(16)));
 #endif
 
 
-#include "boundary.h"
 #include "vector3.h"
 
 typedef float real;
 typedef vector3<real> vec3;
+#if 0
+#include "boundary.h"
 typedef Boundary<real> boundary;
+#else
+#include "boundary4.h"
+#endif
 
 
 struct Particle
@@ -604,7 +608,7 @@ struct Octree
           {
             const vec3 jpos = leaf[i].vector_pos();
             assert(overlapped(bndsList[cell.id()].inner(), jpos));
-            assert(overlapped(bndsList[cell.id()].outer(), jpos));
+            assert(overlapped(bndsList[cell.id()].outer(), leaf[i].packed_pos()));
             nb++;
           }
         }

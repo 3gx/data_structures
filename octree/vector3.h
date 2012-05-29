@@ -5,59 +5,6 @@
 #include <fstream>
 #include <cmath>
 
-#if 0
-struct float4
-{
-#ifdef __mySSEX__
-  v4sf  v;
-  float4(const v4sf _v) : v(_v) {}
-  float4(const float _x, const float _y, const float _z, const float _w) 
-  {
-    v = (v4sf){_x, _y, _z, _w};
-  }
-  operator v4sf() const {return v;}
-  float4 operator-(const float4 rhs) const
-  {
-    return (v4sf)rhs - v;
-  }
-  float norm2() const
-  {
-    const v4si mask = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0};
-    const v4sf r    = __builtin_ia32_andps(v, (v4sf)mask);
-    const v4sf r2   = r*r;
-    const v4sf tmp  = __builtin_ia32_haddps(r2,  r2);
-    const v4sf res  = __builtin_ia32_haddps(tmp, tmp);
-    return __builtin_ia32_vec_ext_v4sf(res, 0);
-  }
-  float x() const {return __builtin_ia32_vec_ext_v4sf(v, 0);}
-  float y() const {return __builtin_ia32_vec_ext_v4sf(v, 1);}
-  float z() const {return __builtin_ia32_vec_ext_v4sf(v, 2);}
-  float w() const {return __builtin_ia32_vec_ext_v4sf(v, 3);}
-#else
-  float _x, _y, _z, _w;
-  float4(const float x, const float y, const float z, const float w) 
-  {
-    _x = x;
-    _y = y;
-    _z = z;
-    _w = w;
-  }
-  float4 operator-(const float4 v) const
-  {
-    return float4(_x-v._x, _y-v._y, _z-v._z, _w-v._w);
-  }
-  float norm2() const
-  {
-    return _x*_x+_y*_y+_z*_z;
-  }
-  float x() const {return _x;}
-  float y() const {return _y;}
-  float z() const {return _z;}
-  float w() const {return _w;}
-#endif
-  float4() {}
-};
-#else
 struct float4
 {
 #ifdef __mySSE__
@@ -67,10 +14,22 @@ struct float4
   {
     vec = (v4sf){_x, _y, _z, _w};
   }
+  float4(const float _x)
+  {
+    vec = (v4sf){_x, _x, _x, _x};
+  }
   operator v4sf() const {return vec;}
   float4 operator-(const float4 rhs) const
   {
     return (v4sf)rhs - vec;
+  }
+  float4 operator+(const float4 rhs) const
+  {
+    return (v4sf)rhs + vec;
+  }
+  float4 operator*(const float4 rhs) const
+  {
+    return (v4sf)rhs * vec;
   }
   float norm2() const
   {
@@ -134,9 +93,24 @@ struct float4
     _z = z;
     _w = w;
   }
+  float4(const float x)
+  {
+    _x = x;
+    _y = x;
+    _z = x;
+    _w = x;
+  }
   float4 operator-(const float4 v) const
   {
     return float4(_x-v._x, _y-v._y, _z-v._z, _w-v._w);
+  }
+  float4 operator+(const float4 v) const
+  {
+    return float4(_x+v._x, _y+v._y, _z+v._z, _w+v._w);
+  }
+  float4 operator*(const float4 v) const
+  {
+    return float4(_x*v._x, _y*v._y, _z*v._z, _w*v._w);
   }
   float norm2() const
   {
@@ -150,35 +124,24 @@ struct float4
   float y() const {return _y;}
   float z() const {return _z;}
   float w() const {return _w;}
+
+  friend const float4 maxeach (const float4 &a, const float4 &b)
+  {
+    return float4(std::max(a._x, b._x), std::max(a._y, b._y), std::max(a._z, b._z), 0.0f);
+  }
+  friend const float4 mineach (const float4 &a, const float4 &b)
+  {
+    return float4(std::min(a._x, b._x), std::min(a._y, b._y), std::min(a._z, b._z), 0.0f);
+  }
 #endif
   float4() {}
 };
 
-#endif
-
 
 template <class REAL> struct vector3{
 public:
-#ifdef __mySSE__
-  union
-  {
-    struct{ REAL x, y, z, w; };
-    v4sf v;
-  };
-  vector3 (const float4 r) 
-  {
-    assert(sizeof(float)  == sizeof(REAL));
-    x = r.x();
-    y = r.y();
-    z = r.z();
-    w = r.w();
-  }
-  vector3 (const v4sf _v) : v(_v) {}
-  operator v4sf() const {return v;}
-#else
   REAL x, y, z, w;
   vector3 (const float4 r) : x(r.x()), y(r.y()), z(r.z()), w(r.w())  {}
-#endif
 
 	vector3(){
 		x = y = z = REAL(0);
