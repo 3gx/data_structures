@@ -4,7 +4,7 @@
 #include "plummer.h"
 #include "mytimer.h"
 
-enum {NGROUP = 128};
+enum {NGROUP = 256};
 typedef Octree::GroupT<NGROUP> octGroup;
 
 int main(int argc, char * argv[])

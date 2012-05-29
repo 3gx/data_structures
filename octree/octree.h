@@ -830,6 +830,7 @@ struct Octree
 
             const v4sf imin    = __builtin_ia32_minps(__builtin_ia32_minps(ip0-h0, ip1-h1), __builtin_ia32_minps(ip2-h2,ip3-h3));
             const v4sf imax    = __builtin_ia32_maxps(__builtin_ia32_maxps(ip0+h0, ip1+h1), __builtin_ia32_maxps(ip2+h2,ip3+h3));
+
             const bool skip    = __builtin_ia32_movmskps(__builtin_ia32_orps(
                   __builtin_ia32_cmpltps(jmax, imin),
                   __builtin_ia32_cmpltps(imax, jmin))) & 7;
@@ -852,10 +853,18 @@ struct Octree
             for (int j = 0; j < nj2; j += 2)
             {
               const v4sf jp = *(jb + j);
+           
+#if 0 /*makes it slow*/
+              const bool skip    = __builtin_ia32_movmskps(__builtin_ia32_orps(
+                    __builtin_ia32_cmpltps(jp,   imin),
+                    __builtin_ia32_cmpltps(imax, jp))) & 7;
+              if (skip) continue;
+#endif
 
               const v4sf jpx = __builtin_ia32_shufps(jp, jp, 0x00);
               const v4sf jpy = __builtin_ia32_shufps(jp, jp, 0x55);
               const v4sf jpz = __builtin_ia32_shufps(jp, jp, 0xAA);
+
 
               const v4sf dx = jpx - ipx;
               const v4sf dy = jpy - ipy;
@@ -863,7 +872,12 @@ struct Octree
               const v4sf r2 = dx*dx + dy*dy + dz*dz;
 
               const v4si mask = (v4si)__builtin_ia32_cmpltps(r2, iph2);
+#if 1
+              const int imask = __builtin_ia32_movmskps((v4sf)mask);
+              if (imask == 0) continue;
+#endif
               inb += (v4si){1,1,1,1} & mask; //__builtin_ia32_andps((v4si){1,1,1,1}, mask);
+
             }
             nb[i+0] += __builtin_ia32_vec_ext_v4si(inb, 0);
             nb[i+1] += __builtin_ia32_vec_ext_v4si(inb, 1);
