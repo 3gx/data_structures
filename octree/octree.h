@@ -850,7 +850,7 @@ struct Octree
             const v4sf iph = __builtin_ia32_unpckhps(t1, t3);
             const v4sf iph2 = iph*iph;
 
-            v4si inb = {0,0,0,0};
+            v4sf inb = {0.0f,0.0f,0.0f,0.0f};
             for (int j = 0; j < nj2; j += 2)
             {
               const v4sf jp = *(jb + j);
@@ -872,18 +872,18 @@ struct Octree
               const v4sf dz = jpz - ipz;
               const v4sf r2 = dx*dx + dy*dy + dz*dz;
 
-              const v4si mask = (v4si)__builtin_ia32_cmpltps(r2, iph2);
+              const v4sf mask = __builtin_ia32_cmpltps(r2, iph2);
 #if 1
-              const int imask = __builtin_ia32_movmskps((v4sf)mask);
+              const int imask = __builtin_ia32_movmskps(mask);
               if (imask == 0) continue;
 #endif
-              inb += (v4si){1,1,1,1} & mask; //__builtin_ia32_andps((v4si){1,1,1,1}, mask);
+              inb += __builtin_ia32_andps((v4sf){1,1,1,1}, mask);
 
             }
-            nb[i+0] += __builtin_ia32_vec_ext_v4si(inb, 0);
-            nb[i+1] += __builtin_ia32_vec_ext_v4si(inb, 1);
-            nb[i+2] += __builtin_ia32_vec_ext_v4si(inb, 2);
-            nb[i+3] += __builtin_ia32_vec_ext_v4si(inb, 3);
+            nb[i+0] += (int)__builtin_ia32_vec_ext_v4sf(inb, 0);
+            nb[i+1] += (int)__builtin_ia32_vec_ext_v4sf(inb, 1);
+            nb[i+2] += (int)__builtin_ia32_vec_ext_v4sf(inb, 2);
+            nb[i+3] += (int)__builtin_ia32_vec_ext_v4sf(inb, 3);
             asm("#eg02");
           }
 #else
