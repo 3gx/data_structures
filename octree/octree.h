@@ -770,7 +770,7 @@ struct Octree
               const v4sf r2 = dx*dx + dy*dy + dz*dz;
 
               const v4si mask = (v4si)__builtin_ia32_cmpltps(r2, iph2);
-              inb += (v4si){1,1,1,1} & mask; //__builtin_ia32_andps((v4si){1,1,1,1}, mask);
+              inb += (v4si){1,1,1,1};// & mask; //__builtin_ia32_andps((v4si){1,1,1,1}, mask);
             }
             nb[i+0] += __builtin_ia32_vec_ext_v4si(inb, 0);
             nb[i+1] += __builtin_ia32_vec_ext_v4si(inb, 1);
