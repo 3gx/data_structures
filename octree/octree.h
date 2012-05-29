@@ -133,6 +133,9 @@ struct Octree
     bool isLeaf () const { return _addr < EMPTY;}
     bool isNode () const { return _addr > EMPTY;}
 
+    int operator++() {_np++; return _np;}
+    int operator--() {_np--; return _np;}
+
     void set_addr(const int addr) {_addr = addr;}
     int addr() const {return _addr;}
     int id() const {return _id & 0x7FFFFFFF;}
@@ -363,6 +366,7 @@ struct Octree
       locked = node.addr() + child_idx;
       assert(locked < n_nodes_max);
       child  = cellList[locked];
+      cellList[locked]++;
     }
 
     /* locked on the cell that needs to be updated */
