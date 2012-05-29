@@ -4,6 +4,9 @@
 #include "plummer.h"
 #include "mytimer.h"
 
+enum {NGROUP = Octree::NLEAF*2};
+typedef Octree::GroupT<NGROUP> octGroup;
+
 int main(int argc, char * argv[])
 {
   int n_bodies = 10240;
@@ -134,6 +137,11 @@ int main(int argc, char * argv[])
   const double t65 = get_wtime();
   tree.buildLeafList<true>();
   const double t68 = get_wtime();
+ 
+  octGroup::Vector groupList;
+  groupList.reserve(tree.nLeaf());
+  tree.buildGroupList<true>(groupList);
+  const double t69 = get_wtime();
 
   fprintf(stderr, " -- Range search -- \n");
   int nb = 0;
@@ -149,17 +157,17 @@ int main(int argc, char * argv[])
   }
 #endif
   const double t70 = get_wtime();
-  const int nleaf = tree.nLeaf();
-  fprintf(stderr, " -- Range search Leaf-Leaf : nleaf=%d  nbody= %d-- \n", nleaf, n_bodies);
+  const int ngroup = groupList.size();
+  fprintf(stderr, " -- Range search Group-Leaf : ngroup=%d  nbody= %d-- \n", ngroup, n_bodies);
   int nbL = 0;
 #if 1
 #pragma omp parallel for reduction(+:nbL)
-  for (int i = 0; i < nleaf; i++)
+  for (int i = 0; i < ngroup; i++)
   {
-    int nb[Octree::NLEAF];
-    const Octree::Leaf& leaf = tree.getLeaf(i);
-    tree.range_search<true>(nb, leaf);
-    for (int j = 0; j < leaf.nb(); j++)
+    int nb[NGROUP];
+    const octGroup &group = groupList[i];
+    tree.range_search<true>(nb, group);
+    for (int j = 0; j < group.nb(); j++)
       nbL += nb[j];
   }
 #endif
@@ -222,7 +230,8 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   Boundary: %g sec \n", t63 -t60);
   fprintf(stderr, "   Sanity:   %g sec \n", t65 -t63);
   fprintf(stderr, "   LeafList: %g sec \n", t68 -t65);
-  fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t68, (real)nb /n_bodies);
+  fprintf(stderr, "   GroupLst: %g sec \n", t69 -t68);
+  fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t69, (real)nb /n_bodies);
   fprintf(stderr, "   RangeL:   %g sec <nb>= %g \n", t75 -t70, (real)nbL/n_bodies);
 #if 0
   fprintf(stderr, "   Remove:   %g sec nrm= %d \n", t80 - t70, nrm);

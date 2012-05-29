@@ -65,7 +65,7 @@ struct Particle
 
 struct Octree
 {
-  enum {NLEAF =  128};
+  enum {NLEAF  =  128};
   enum {EMPTY = -1};
   enum {BODYX = -2};
 
@@ -168,20 +168,20 @@ struct Octree
   };
 
   template<const int N>
-  struct Group
+  struct GroupT
   {
 #ifdef MEMALIGN
-    typedef std::vector<Group, __gnu_cxx::malloc_allocator<Group, 128> > Vector;
+    typedef std::vector<GroupT, __gnu_cxx::malloc_allocator<GroupT, 128> > Vector;
 #else
-    typedef std::vector<Group> Vector;
+    typedef std::vector<GroupT> Vector;
 #endif
     private:
       int _nb;           /* number of bodies in the list */
       Body _list[N];  /* idx of the body */
 
     public:
-      Group() : _nb(0) {}
-      Group(const Body &body) : _nb(0) {insert(body);}
+      GroupT() : _nb(0) {}
+      GroupT(const Body &body) : _nb(0) {insert(body);}
       void insert(const Body &body) 
       {
         assert(_nb < NLEAF);
@@ -218,9 +218,7 @@ struct Octree
         return Boundaries(innerBoundary(), outerBoundary());
       }
   };
-  typedef Group<NLEAF> Leaf;
-
-
+  typedef GroupT<NLEAF>  Leaf;
 
   private:
   float4 root_centre;  /* root's geometric centre & size */
@@ -654,6 +652,43 @@ struct Octree
     }
 
   /**************/
+  
+  template<const bool ROOT, const int N>  /* must be ROOT = true on the root node (first call) */
+    void buildGroupList(std::vector< GroupT<N> > &groupList, 
+        const int addr = 0)  const
+    {
+      if (ROOT)
+      {
+        assert(isTreeReady());
+        for (int k = 0; k < 8; k++)
+          if (!cellList[k].isEmpty())
+            buildGroupList<false>(groupList, k);
+      }
+      else
+      {
+        assert(addr < (int)cellList.size());
+        const Cell &cell = cellList[addr];
+        if (cell.isEmpty()) return;
+        assert(cell.id() >= 0);
+
+        if (cell.isNode())
+        {
+          for (int k = cell.addr(); k < cell.addr()+8; k++)
+            buildGroupList<false>(groupList, k);
+        }
+        else
+        {
+          assert(cell.isLeaf());
+          const Leaf &leaf = leafList[cell.leafIdx()];
+          groupList.push_back(GroupT<N>());
+          GroupT<N> &group = groupList.back();
+          for (int i = 0; i < leaf.nb(); i++)
+            group.insert(leaf[i]);
+        }
+      }
+    }
+
+  /**************/
 
   template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
     int range_search(const Body &ibody, const boundary &ibnd = boundary(), const int addr = 0, int nb = 0) const
@@ -698,7 +733,7 @@ struct Octree
   template<const bool ROOT, const int N>  /* must be ROOT = true on the root node (first call) */
     void range_search(
         int nb[N],
-        const Group<N> &igroup, const boundary &ibnd = boundary(), const int addr = 0) const
+        const GroupT<N> &igroup, const boundary &ibnd = boundary(), const int addr = 0) const
     {
       if (ROOT)
       {
@@ -750,6 +785,9 @@ struct Octree
             const v4sf h1  = __builtin_ia32_shufps(ip1, ip1, 0xff);
             const v4sf h2  = __builtin_ia32_shufps(ip2, ip2, 0xff);
             const v4sf h3  = __builtin_ia32_shufps(ip3, ip3, 0xff);
+
+            /*   0     1     2     3   */
+            /*  0x00 ,0x55, 0xaa, 0xff */
            
             const v4sf imin    = __builtin_ia32_minps(__builtin_ia32_minps(ip0-h0, ip1-h1), __builtin_ia32_minps(ip2-h2,ip3-h3));
             const v4sf imax    = __builtin_ia32_maxps(__builtin_ia32_maxps(ip0+h0, ip1+h1), __builtin_ia32_maxps(ip2+h2,ip3+h3));
