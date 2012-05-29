@@ -58,6 +58,7 @@ struct Particle
   real h;
   int nb;
 
+  Particle() {}
   Particle(const vec3 &_pos, const int _id, const real _h = 0.0) :
     pos(_pos), id(_id), h(_h), nb(0) {}
 };

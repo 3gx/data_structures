@@ -23,7 +23,18 @@ int main(int argc, char * argv[])
   {
     ptcl.push_back(Particle(data.pos[i], data.mass[i]));
   }
-#else
+#elif 0
+  int dummy;
+  std::cin >> dummy >> n_bodies;
+  fprintf(stderr, " -- input file: nbodies= %d\n", n_bodies);
+  for (int i = 0; i < n_bodies; i++)
+  {
+    Particle p;
+    std::cin >> p.pos.x >> p.pos.y >> p.pos.z >> p.h >> p.nb;
+    p.h *= 2.0;
+    ptcl.push_back(p);
+  }
+#elif 1
   {
     const int nb_mean = 32;
     const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
@@ -168,7 +179,13 @@ int main(int argc, char * argv[])
     const octGroup &group = groupList[i];
     tree.range_search<true>(nb, group);
     for (int j = 0; j < group.nb(); j++)
+    {
+      const int idx = group[j].idx();
+      const int nb0 = ptcl[idx].nb;
+      if (nb0 != nb[j] && nb0 > 0)
+        fprintf(stderr, "nb0= %d  nb= %d\n", nb0, nb[j]);
       nbL += nb[j];
+    }
   }
 #endif
   const double t75 = get_wtime();
