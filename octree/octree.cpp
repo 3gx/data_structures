@@ -21,14 +21,18 @@ int main(int argc, char * argv[])
     ptcl.push_back(Particle(data.pos[i], data.mass[i]));
   }
 #else
-  for (int i = 0; i < n_bodies; i++)
   {
-    ptcl.push_back(Particle(
-          vec3(drand48(), drand48(), drand48()),
-          1.0/n_bodies));
+    const int nb_mean = 32;
+    const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
+    for (int i = 0; i < n_bodies; i++)
+    {
+      ptcl.push_back(Particle(
+            vec3(drand48(), drand48(), drand48()),
+            1.0/n_bodies, s));
+    }
   }
 #endif
-  
+
   Octree::Body::Vector octBodies;
   octBodies.reserve(n_bodies);
 
@@ -63,7 +67,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
       tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
   const double t30 = get_wtime();
-  
+
   fprintf(stderr, " -- Dump morton -- \n");
   std::vector<int> morton_list;
   morton_list.reserve(n_bodies);
@@ -73,7 +77,7 @@ int main(int argc, char * argv[])
   for (std::vector<int>::iterator it = morton_list.begin(); it != morton_list.end(); it++)
     assert(*it < n_bodies);
   assert((int)morton_list.size() == n_bodies);
- 
+
   const double t40 = get_wtime();
   fprintf(stderr, " -- Shuffle octBodies -- \n");
   Octree::Body::Vector octBodiesSorted;
@@ -99,63 +103,67 @@ int main(int argc, char * argv[])
   }
   fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
       tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
- 
+
   const double t60 = get_wtime();
-  fprintf(stderr, " -- Inner boundary -- \n");
-  const boundary rootBnd = tree.inner_boundary<true>();
-  fprintf(stderr, " rootBnd= %g %g %g  size= %g %g %g \n",
-      rootBnd.center().x,
-      rootBnd.center().y,
-      rootBnd.center().z,
-      rootBnd.hlen().x,
-      rootBnd.hlen().y,
-      rootBnd.hlen().z);
-  fprintf(stderr, " c= %g %g %g size= %g\n",
+  fprintf(stderr, " -- Compute boundaries -- \n");
+  tree.computeBoundaries<true>();
+  const boundary root_innerBnd = tree.root_innerBoundary();
+  fprintf(stderr, " rootBnd_inner= %g %g %g  size= %g %g %g \n",
+      root_innerBnd.center().x,
+      root_innerBnd.center().y,
+      root_innerBnd.center().z,
+      root_innerBnd.hlen().x,
+      root_innerBnd.hlen().y,
+      root_innerBnd.hlen().z);
+  const boundary root_outerBnd = tree.root_outerBoundary();
+  fprintf(stderr, " rootBnd_outer= %g %g %g  size= %g %g %g \n",
+      root_outerBnd.center().x,
+      root_outerBnd.center().y,
+      root_outerBnd.center().z,
+      root_outerBnd.hlen().x,
+      root_outerBnd.hlen().y,
+      root_outerBnd.hlen().z);
+  fprintf(stderr, "rootCentre:= %g %g %g  rootSize= %g \n",
       tree.get_rootCentre().x,
       tree.get_rootCentre().y,
       tree.get_rootCentre().z,
-      tree.get_rootSize()*0.5);
-  const boundary rootBnd0 = tree.rootBoundary();
-  fprintf(stderr, "rootBnd0:= %g %g %g  size= %g %g %g \n",
-      rootBnd0.center().x,
-      rootBnd0.center().y,
-      rootBnd0.center().z,
-      rootBnd0.hlen().x,
-      rootBnd0.hlen().y,
-      rootBnd0.hlen().z);
-  const boundary rootBnd1 = tree.inner_boundary<true>();
-  fprintf(stderr, " rootBnd1= %g %g %g  size= %g %g %g \n",
-      rootBnd1.center().x,
-      rootBnd1.center().y,
-      rootBnd1.center().z,
-      rootBnd1.hlen().x,
-      rootBnd1.hlen().y,
-      rootBnd1.hlen().z);
-  
+      tree.get_rootSize());
+
   const double t63 = get_wtime();
   assert(tree.sanity_check<true>() == n_bodies);
+  const double t65 = get_wtime();
+  tree.buildLeafList<true>();
   const double t68 = get_wtime();
 
   fprintf(stderr, " -- Range search -- \n");
   int nb = 0;
 #if 1
-  const int nb_mean = 32;
-  const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
 #pragma omp parallel for reduction(+:nb)
   for (int i = 0; i < n_bodies; i++)
   {
 #if 0
-    nb += tree.range_search<true>(Octree::Body(ptcl[i].pos, s));
+    nb += tree.range_search<true>(octBodies[i]);
 #else
-    const vec3 pos(
-        octBodiesSorted[i].pos().x(),
-        octBodiesSorted[i].pos().y(),
-        octBodiesSorted[i].pos().z());
-    nb += tree.range_search<true>(Octree::Body(pos, s));
+    nb += tree.range_search<true>(octBodiesSorted[i]);
 #endif
   }
 #endif
   const double t70 = get_wtime();
+  const int nleaf = tree.nLeaf();
+  fprintf(stderr, " -- Range search Leaf-Leaf : nleaf=%d  nbody= %d-- \n", nleaf, n_bodies);
+  int nbL = 0;
+#if 1
+#pragma omp parallel for reduction(+:nbL)
+  for (int i = 0; i < nleaf; i++)
+  {
+    int nb[Octree::NLEAF];
+    const Octree::Leaf& leaf = tree.getLeaf(i);
+    tree.range_search<true>(nb, leaf);
+    for (int j = 0; j < leaf.nb(); j++)
+      nbL += nb[j];
+  }
+#endif
+  const double t75 = get_wtime();
 
   fprintf(stderr, " -- Remove ptcl -- \n");
   int nrm = 0;
@@ -168,9 +176,9 @@ int main(int argc, char * argv[])
   fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
       tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
 #endif
-  
+
   const double t80 = get_wtime();
-  
+
   fprintf(stderr, " -- Insert ptcl -- \n");
   int nins = 0;
 #if 1
@@ -182,9 +190,9 @@ int main(int argc, char * argv[])
   fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
       tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
 #endif
-  
+
   const double t90 = get_wtime();
-  
+
   fprintf(stderr, " -- Range search 1 -- \n");
   int nb1 = 0;
 #if 1
@@ -192,18 +200,14 @@ int main(int argc, char * argv[])
   for (int i = 0; i < n_bodies; i++)
   {
 #if 0
-    nb1 += tree.range_search<true>(Octree::Body(ptcl[i].pos, s));
+    nb1 += tree.range_search<true>(octBodies[i]);
 #else
-    const vec3 pos(
-        octBodiesSorted[i].pos().x(),
-        octBodiesSorted[i].pos().y(),
-        octBodiesSorted[i].pos().z());
-    nb1 += tree.range_search<true>(Octree::Body(pos, s));
+    nb1 += tree.range_search<true>(octBodiesSorted[i]);
 #endif
   }
 #endif
   const double t100 = get_wtime();
- 
+
 
   fprintf(stderr, " Timing info: \n");
   fprintf(stderr, " -------------\n");
@@ -214,8 +218,10 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   Shuffle:  %g sec \n", t50 -t40);
   fprintf(stderr, "   TreeSort: %g sec \n", t60 -t50);
   fprintf(stderr, "   Boundary: %g sec \n", t63 -t60);
-  fprintf(stderr, "   Sanity:   %g sec \n", t68 -t63);
-  fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t68, (real)nb/n_bodies);
+  fprintf(stderr, "   Sanity:   %g sec \n", t65 -t63);
+  fprintf(stderr, "   LeafList: %g sec \n", t68 -t65);
+  fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t68, (real)nb /n_bodies);
+  fprintf(stderr, "   RangeL:   %g sec <nb>= %g \n", t75 -t70, (real)nbL/n_bodies);
   fprintf(stderr, "   Remove:   %g sec nrm= %d \n", t80 - t70, nrm);
   fprintf(stderr, "   Insert:   %g sec nins= %d \n", t90 - t80, nins);
   fprintf(stderr, "   RangeS1:   %g sec <nb>= %g \n", t100 -t90, (real)nb1/n_bodies);
