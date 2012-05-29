@@ -21,11 +21,13 @@ int main(int argc, char * argv[])
     ptcl.push_back(Particle(data.pos[i], data.mass[i]));
   }
 #else
+  const int nb_mean = 32;
+  const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
   for (int i = 0; i < n_bodies; i++)
   {
     ptcl.push_back(Particle(
           vec3(drand48(), drand48(), drand48()),
-          1.0/n_bodies));
+          1.0/n_bodies, s));
   }
 #endif
   
@@ -101,36 +103,43 @@ int main(int argc, char * argv[])
       tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
  
   const double t60 = get_wtime();
-  fprintf(stderr, " -- Inner boundary -- \n");
-  const boundary rootBnd = tree.inner_boundary<true>();
-  fprintf(stderr, " rootBnd= %g %g %g  size= %g %g %g \n",
-      rootBnd.center().x,
-      rootBnd.center().y,
-      rootBnd.center().z,
-      rootBnd.hlen().x,
-      rootBnd.hlen().y,
-      rootBnd.hlen().z);
+  fprintf(stderr, " -- Compute boundary -- \n");
+  const Octree::cellBoundary rootBnd = tree.compute_boundary<true>();
+  fprintf(stderr, " rootBnd_inner= %g %g %g  size= %g %g %g \n",
+      rootBnd.inner().center().x,
+      rootBnd.inner().center().y,
+      rootBnd.inner().center().z,
+      rootBnd.inner().hlen().x,
+      rootBnd.inner().hlen().y,
+      rootBnd.inner().hlen().z);
+  fprintf(stderr, " rootBnd_outer= %g %g %g  size= %g %g %g \n",
+      rootBnd.outer().center().x,
+      rootBnd.outer().center().y,
+      rootBnd.outer().center().z,
+      rootBnd.outer().hlen().x,
+      rootBnd.outer().hlen().y,
+      rootBnd.outer().hlen().z);
   fprintf(stderr, " c= %g %g %g size= %g\n",
       tree.get_rootCentre().x,
       tree.get_rootCentre().y,
       tree.get_rootCentre().z,
       tree.get_rootSize()*0.5);
-  const boundary rootBnd0 = tree.rootBoundary();
-  fprintf(stderr, "rootBnd0:= %g %g %g  size= %g %g %g \n",
+  const boundary rootBnd0 = tree.root_innerBoundary();
+  fprintf(stderr, "rootBnd_inner:= %g %g %g  size= %g %g %g \n",
       rootBnd0.center().x,
       rootBnd0.center().y,
       rootBnd0.center().z,
       rootBnd0.hlen().x,
       rootBnd0.hlen().y,
       rootBnd0.hlen().z);
-  const boundary rootBnd1 = tree.inner_boundary<true>();
-  fprintf(stderr, " rootBnd1= %g %g %g  size= %g %g %g \n",
-      rootBnd1.center().x,
-      rootBnd1.center().y,
-      rootBnd1.center().z,
-      rootBnd1.hlen().x,
-      rootBnd1.hlen().y,
-      rootBnd1.hlen().z);
+  const boundary rootBndO = tree.root_outerBoundary();
+  fprintf(stderr, "rootBnd_outer:= %g %g %g  size= %g %g %g \n",
+      rootBndO.center().x,
+      rootBndO.center().y,
+      rootBndO.center().z,
+      rootBndO.hlen().x,
+      rootBndO.hlen().y,
+      rootBnd0.hlen().z);
   
   const double t63 = get_wtime();
   assert(tree.sanity_check<true>() == n_bodies);
@@ -139,19 +148,13 @@ int main(int argc, char * argv[])
   fprintf(stderr, " -- Range search -- \n");
   int nb = 0;
 #if 1
-  const int nb_mean = 32;
-  const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
 #pragma omp parallel for reduction(+:nb)
   for (int i = 0; i < n_bodies; i++)
   {
 #if 0
-    nb += tree.range_search<true>(Octree::Body(ptcl[i].pos, s));
+    nb += tree.range_search<true>(octBodies[i]);
 #else
-    const vec3 pos(
-        octBodiesSorted[i].pos().x(),
-        octBodiesSorted[i].pos().y(),
-        octBodiesSorted[i].pos().z());
-    nb += tree.range_search<true>(Octree::Body(pos, s));
+    nb += tree.range_search<true>(octBodiesSorted[i]);
 #endif
   }
 #endif
@@ -192,13 +195,9 @@ int main(int argc, char * argv[])
   for (int i = 0; i < n_bodies; i++)
   {
 #if 0
-    nb1 += tree.range_search<true>(Octree::Body(ptcl[i].pos, s));
+    nb += tree.range_search<true>(octBodies[i]);
 #else
-    const vec3 pos(
-        octBodiesSorted[i].pos().x(),
-        octBodiesSorted[i].pos().y(),
-        octBodiesSorted[i].pos().z());
-    nb1 += tree.range_search<true>(Octree::Body(pos, s));
+    nb += tree.range_search<true>(octBodiesSorted[i]);
 #endif
   }
 #endif
