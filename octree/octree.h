@@ -781,10 +781,10 @@ struct Octree
 
             /* check if these i-particles overlap with the leaf */
 
-            const v4sf h0  = __builtin_ia32_shufps(ip0, ip0, 0xff);
-            const v4sf h1  = __builtin_ia32_shufps(ip1, ip1, 0xff);
-            const v4sf h2  = __builtin_ia32_shufps(ip2, ip2, 0xff);
-            const v4sf h3  = __builtin_ia32_shufps(ip3, ip3, 0xff);
+            const v4sf h0  = __builtin_ia32_shufps(ip0, ip0, 0xFF);
+            const v4sf h1  = __builtin_ia32_shufps(ip1, ip1, 0xFF);
+            const v4sf h2  = __builtin_ia32_shufps(ip2, ip2, 0xFF);
+            const v4sf h3  = __builtin_ia32_shufps(ip3, ip3, 0xFF);
 
             /*   0     1     2     3   */
             /*  0x00 ,0x55, 0xaa, 0xff */
@@ -814,14 +814,9 @@ struct Octree
             {
               const v4sf jp = *(jb + j);
 
-              const v4sf t0 = __builtin_ia32_unpcklps(jp, jp);
-              const v4sf t1 = __builtin_ia32_unpckhps(jp, jp);
-              const v4sf t2 = __builtin_ia32_unpcklps(jp, jp);
-              const v4sf t3 = __builtin_ia32_unpckhps(jp, jp);
-
-              const v4sf jpx = __builtin_ia32_unpcklps(t0, t2);
-              const v4sf jpy = __builtin_ia32_unpckhps(t0, t2);
-              const v4sf jpz = __builtin_ia32_unpcklps(t1, t3);
+              const v4sf jpx = __builtin_ia32_shufps(jp, jp, 0x00);
+              const v4sf jpy = __builtin_ia32_shufps(jp, jp, 0x55);
+              const v4sf jpz = __builtin_ia32_shufps(jp, jp, 0xAA);
 
               const v4sf dx = jpx - ipx;
               const v4sf dy = jpy - ipy;
