@@ -120,11 +120,13 @@ struct Octree
     private:
     int _addr;
     int _id;
+    int _np;
+    int iPad;
 
     public:
-    Cell() : _addr(EMPTY), _id(EMPTY) {}
-    Cell(const CellType type) : _addr(EMPTY+1), _id(EMPTY) {}
-    Cell(const int addr, const int id) : _addr(addr), _id(id) {setTouched();}
+    Cell() : _addr(EMPTY), _id(EMPTY), _np(0) {}
+    Cell(const CellType type) : _addr(EMPTY+1), _id(EMPTY), _np(0) {}
+    Cell(const int addr, const int id, const int np = 0) : _addr(addr), _id(id), _np(np) {setTouched();}
     bool operator==(const Cell &v) const {return _addr == v._addr && _id == v._id;}
     bool isClean() const { return _addr == EMPTY && _id == EMPTY;}
     bool isEmpty() const { return _addr == EMPTY;}
@@ -777,8 +779,6 @@ struct Octree
             const v4sf ip2 = *(ib + i2 + 4);
             const v4sf ip3 = *(ib + i2 + 6);
 
-
-
             /* check if these i-particles overlap with the leaf */
 
             const v4sf h0  = __builtin_ia32_shufps(ip0, ip0, 0xff);
@@ -796,7 +796,7 @@ struct Octree
               __builtin_ia32_cmpltps(imax, jmin))) & 7;
             if (skip && i+4 < ni) continue;
 
-            /* they do overlap, no proceed to interaction part */
+            /* they do overlap, now proceed to the interaction part */
 
             const v4sf t0 = __builtin_ia32_unpcklps(ip0, ip2);
             const v4sf t1 = __builtin_ia32_unpckhps(ip0, ip2);
