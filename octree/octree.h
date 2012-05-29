@@ -65,9 +65,9 @@ struct Particle
 
 struct Octree
 {
-  enum {NLEAF  =  128};
-  enum {EMPTY = -1};
-  enum {BODYX = -2};
+  enum {NLEAF =  64};
+  enum {EMPTY =  -1};
+  enum {BODYX =  -2};
 
   struct Body
   {
@@ -133,8 +133,9 @@ struct Octree
     bool isLeaf () const { return _addr < EMPTY;}
     bool isNode () const { return _addr > EMPTY;}
 
-    int operator++() {_np++; return _np;}
-    int operator--() {_np--; return _np;}
+    int operator++(const int) {_np++; return _np;}
+    int operator--(const int) {_np--; return _np;}
+    int np() const {return _np;}
 
     void set_addr(const int addr) {_addr = addr;}
     int addr() const {return _addr;}
@@ -189,7 +190,7 @@ struct Octree
       GroupT(const Body &body) : _nb(0) {insert(body);}
       void insert(const Body &body) 
       {
-        assert(_nb < NLEAF);
+        assert(_nb < N);
         _list[_nb++] = body;
       }
       void remove(const int idx)
@@ -199,8 +200,8 @@ struct Octree
         for (int i = idx; i < _nb; i++)
           _list[i] = _list[i+1];
       }
-      bool  isFull() const {return NLEAF == _nb;}
-      bool isEmpty() const {return     0 == _nb;}
+      bool  isFull() const {return N == _nb;}
+      bool isEmpty() const {return 0 == _nb;}
       const Body& operator[](const int i) const { return _list[i];}
       int nb() const {return _nb;}
 
@@ -330,16 +331,25 @@ struct Octree
 
     if (leafPool.empty())
     {
+      const int addr = leafList.size();
       leafList.push_back(WITHBODY ? Leaf(body) : Leaf());
-      return Cell(reverse_int(leafList.size() - 1), cell);
+      return Cell(reverse_int(addr), cell, WITHBODY ? 1 : 0);
     }
     else
     {
       const int addr = leafPool.top();
       leafPool.pop();
       leafList[addr] = WITHBODY ? Leaf(body) : Leaf();
-      return Cell(reverse_int(addr), cell);
+      return Cell(reverse_int(addr), cell, WITHBODY ? 1 : 0);
     }
+  }
+
+  int get_np() const 
+  {
+    int np = 0;
+    for (int k = 0; k < 8; k++)
+      np += cellList[k].np();
+    return np;
   }
 
   void insert(const Body &new_body)
@@ -375,6 +385,7 @@ struct Octree
     {
       assert(child.isClean());
       cellList[locked] = newLeaf<true>(new_body);
+      assert(cellList[locked].np() == leafList[cellList[locked].leafIdx()].nb());
     }
     else          /* this is already a leaf */
     {
@@ -399,6 +410,7 @@ struct Octree
           const Body &body = leaf[i];
           child_idx  = Octant(centre, body.packed_pos());
           Cell &cell = cellList[cfirst + child_idx];
+          cell++;
           if (cell.isEmpty())
           {
             cell = newLeaf<true>(body);
@@ -418,10 +430,12 @@ struct Octree
         Cell &child  = cellList[locked];
         if (child.isEmpty())
           child = newLeaf<false>();
+        child++;
         assert(child.isLeaf());
         leaf_idx = child.leafIdx();
       }
       leafList[leaf_idx].insert(new_body);  /* push particle into a leaf */
+      assert(leafList[leaf_idx].nb() == cellList[locked].np());
     }
 
     this->depth = __max(this->depth, depth);
@@ -600,11 +614,13 @@ struct Octree
 
         if (cell.isNode())
         {
+          assert(cell.np() > NLEAF);
           for (int k = cell.addr(); k < cell.addr()+8; k++)
             nb += sanity_check<false>(k);
         }
         else
         {
+          assert(cell.np() <= NLEAF);
           assert(cell.isLeaf());
           assert(cell.leafIdx() < get_nleaf());
           const Leaf &leaf = leafList[cell.leafIdx()];
@@ -661,8 +677,9 @@ struct Octree
   
   template<const bool ROOT, const int N>  /* must be ROOT = true on the root node (first call) */
     void buildGroupList(std::vector< GroupT<N> > &groupList, 
-        const int addr = 0)  const
+        const int addr = 0) const
     {
+      assert(NLEAF <= N);
       if (ROOT)
       {
         assert(isTreeReady());
@@ -677,20 +694,38 @@ struct Octree
         if (cell.isEmpty()) return;
         assert(cell.id() >= 0);
 
-        if (cell.isNode())
+        if (cell.np() <= N)
         {
-          for (int k = cell.addr(); k < cell.addr()+8; k++)
-            buildGroupList<false>(groupList, k);
+          groupList.push_back(GroupT<N>());
+          extractBodies(groupList.back(), addr);
         }
         else
         {
-          assert(cell.isLeaf());
-          const Leaf &leaf = leafList[cell.leafIdx()];
-          groupList.push_back(GroupT<N>());
-          GroupT<N> &group = groupList.back();
-          for (int i = 0; i < leaf.nb(); i++)
-            group.insert(leaf[i]);
+          assert(!cell.isLeaf());
+          for (int k = cell.addr(); k < cell.addr()+8; k++)
+            buildGroupList<false>(groupList, k);
         }
+      }
+    }
+
+  template<const int N>
+    void extractBodies(GroupT<N> &group, const int addr) const
+    {
+      assert(addr < (int)cellList.size());
+      const Cell &cell = cellList[addr];
+      if (cell.isEmpty()) return;
+
+      if (cell.isNode())
+      {
+        for (int k = 0; k < 8; k++)
+          extractBodies(group, cell.addr() + k);
+      }
+      else
+      {
+        assert(cell.isLeaf());
+        const Leaf &leaf = leafList[cell.leafIdx()];
+        for (int i = 0; i < leaf.nb(); i++)
+          group.insert(leaf[i]);
       }
     }
 
@@ -735,7 +770,7 @@ struct Octree
 
       return nb;
     }
-  
+
   template<const bool ROOT, const int N>  /* must be ROOT = true on the root node (first call) */
     void range_search(
         int nb[N],
@@ -792,12 +827,12 @@ struct Octree
 
             /*   0     1     2     3   */
             /*  0x00 ,0x55, 0xaa, 0xff */
-           
+
             const v4sf imin    = __builtin_ia32_minps(__builtin_ia32_minps(ip0-h0, ip1-h1), __builtin_ia32_minps(ip2-h2,ip3-h3));
             const v4sf imax    = __builtin_ia32_maxps(__builtin_ia32_maxps(ip0+h0, ip1+h1), __builtin_ia32_maxps(ip2+h2,ip3+h3));
             const bool skip    = __builtin_ia32_movmskps(__builtin_ia32_orps(
-              __builtin_ia32_cmpltps(jmax, imin),
-              __builtin_ia32_cmpltps(imax, jmin))) & 7;
+                  __builtin_ia32_cmpltps(jmax, imin),
+                  __builtin_ia32_cmpltps(imax, jmin))) & 7;
             if (skip && i+4 < ni) continue;
 
             /* they do overlap, now proceed to the interaction part */
@@ -812,7 +847,7 @@ struct Octree
             const v4sf ipz = __builtin_ia32_unpcklps(t1, t3);
             const v4sf iph = __builtin_ia32_unpckhps(t1, t3);
             const v4sf iph2 = iph*iph;
-            
+
             v4si inb = {0,0,0,0};
             for (int j = 0; j < nj2; j += 2)
             {

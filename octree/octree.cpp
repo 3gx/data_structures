@@ -4,7 +4,7 @@
 #include "plummer.h"
 #include "mytimer.h"
 
-enum {NGROUP = Octree::NLEAF*2};
+enum {NGROUP = 128};
 typedef Octree::GroupT<NGROUP> octGroup;
 
 int main(int argc, char * argv[])
@@ -67,8 +67,8 @@ int main(int argc, char * argv[])
   {
     tree.insert(octBodies[i]);
   }
-  fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
-      tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
+  fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d np= %d\n",
+      tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth(), tree.get_np());
   const double t30 = get_wtime();
 
   fprintf(stderr, " -- Dump morton -- \n");
