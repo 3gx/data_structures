@@ -165,6 +165,7 @@ int main(int argc, char * argv[])
 #endif
   const double t75 = get_wtime();
 
+#if 0
   fprintf(stderr, " -- Remove ptcl -- \n");
   int nrm = 0;
 #if 1
@@ -207,6 +208,7 @@ int main(int argc, char * argv[])
   }
 #endif
   const double t100 = get_wtime();
+#endif
 
 
   fprintf(stderr, " Timing info: \n");
@@ -222,9 +224,11 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   LeafList: %g sec \n", t68 -t65);
   fprintf(stderr, "   RangeS:   %g sec <nb>= %g \n", t70 -t68, (real)nb /n_bodies);
   fprintf(stderr, "   RangeL:   %g sec <nb>= %g \n", t75 -t70, (real)nbL/n_bodies);
+#if 0
   fprintf(stderr, "   Remove:   %g sec nrm= %d \n", t80 - t70, nrm);
   fprintf(stderr, "   Insert:   %g sec nins= %d \n", t90 - t80, nins);
   fprintf(stderr, "   RangeS1:   %g sec <nb>= %g \n", t100 -t90, (real)nb1/n_bodies);
+#endif
 
   return 0;
 }

@@ -65,7 +65,7 @@ struct Particle
 
 struct Octree
 {
-  enum {NLEAF = 32};
+  enum {NLEAF =  128};
   enum {EMPTY = -1};
   enum {BODYX = -2};
 
@@ -723,6 +723,62 @@ struct Octree
         }
         else
         {
+#ifdef __mySSE__
+          const Leaf &leaf = leafList[cell.leafIdx()];
+          const int   ni = igroup.nb();
+          const int   nj =   leaf.nb();
+          const v4sf *ib = (const v4sf*)&igroup[0];
+          const v4sf *jb = (const v4sf*)&  leaf[0];
+          const int nj2 = nj<<1;
+          for (int i = 0; i < ni; i += 4)
+          {
+            asm("#eg01");
+            const int i2 = i<<1;
+            const v4sf ip0 = *(ib + i2 + 0);
+            const v4sf ip1 = *(ib + i2 + 2);
+            const v4sf ip2 = *(ib + i2 + 4);
+            const v4sf ip3 = *(ib + i2 + 6);
+
+            const v4sf t0 = __builtin_ia32_unpcklps(ip0, ip2);
+            const v4sf t1 = __builtin_ia32_unpckhps(ip0, ip2);
+            const v4sf t2 = __builtin_ia32_unpcklps(ip1, ip3);
+            const v4sf t3 = __builtin_ia32_unpckhps(ip1, ip3);
+
+            const v4sf ipx = __builtin_ia32_unpcklps(t0, t2);
+            const v4sf ipy = __builtin_ia32_unpckhps(t0, t2);
+            const v4sf ipz = __builtin_ia32_unpcklps(t1, t3);
+            const v4sf iph = __builtin_ia32_unpckhps(t1, t3);
+            const v4sf iph2 = iph*iph;
+            
+            v4si inb = {0,0,0,0};
+            for (int j = 0; j < nj2; j += 2)
+            {
+              const v4sf jp = *(jb + j);
+
+              const v4sf t0 = __builtin_ia32_unpcklps(jp, jp);
+              const v4sf t1 = __builtin_ia32_unpckhps(jp, jp);
+              const v4sf t2 = __builtin_ia32_unpcklps(jp, jp);
+              const v4sf t3 = __builtin_ia32_unpckhps(jp, jp);
+
+              const v4sf jpx = __builtin_ia32_unpcklps(t0, t2);
+              const v4sf jpy = __builtin_ia32_unpckhps(t0, t2);
+              const v4sf jpz = __builtin_ia32_unpcklps(t1, t3);
+
+              const v4sf dx = jpx - ipx;
+              const v4sf dy = jpy - ipy;
+              const v4sf dz = jpz - ipz;
+              const v4sf r2 = dx*dx + dy*dy + dz*dz;
+
+              const v4si mask = (v4si)__builtin_ia32_cmpltps(r2, iph2);
+              inb += (v4si){1,1,1,1} & mask; //__builtin_ia32_andps((v4si){1,1,1,1}, mask);
+            }
+            nb[i+0] += __builtin_ia32_vec_ext_v4si(inb, 0);
+            nb[i+1] += __builtin_ia32_vec_ext_v4si(inb, 1);
+            nb[i+2] += __builtin_ia32_vec_ext_v4si(inb, 2);
+            nb[i+3] += __builtin_ia32_vec_ext_v4si(inb, 3);
+            asm("#eg02");
+          }
+#else
           const Leaf     &leaf    = leafList[cell.leafIdx()];
           const boundary &leafBnd = bndsList[cell.     id()].inner();
           for (int i = 0; i < igroup.nb(); i++)
@@ -740,6 +796,7 @@ struct Octree
                   nb[i]++;
               }
           }
+#endif
         }
       }
     }
