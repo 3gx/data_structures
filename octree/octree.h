@@ -724,7 +724,10 @@ struct Octree
         else
         {
 #ifdef __mySSE__
-          const Leaf &leaf = leafList[cell.leafIdx()];
+          const Leaf &leaf        = leafList[cell.leafIdx()];
+          const boundary &leafBnd = bndsList[cell.     id()].inner();
+          const v4sf  jmin = leafBnd.min;
+          const v4sf  jmax = leafBnd.max;
           const int   ni = igroup.nb();
           const int   nj =   leaf.nb();
           const v4sf *ib = (const v4sf*)&igroup[0];
@@ -738,6 +741,24 @@ struct Octree
             const v4sf ip1 = *(ib + i2 + 2);
             const v4sf ip2 = *(ib + i2 + 4);
             const v4sf ip3 = *(ib + i2 + 6);
+
+
+
+            /* check if these i-particles overlap with the leaf */
+
+            const v4sf h0  = __builtin_ia32_shufps(ip0, ip0, 0xff);
+            const v4sf h1  = __builtin_ia32_shufps(ip1, ip1, 0xff);
+            const v4sf h2  = __builtin_ia32_shufps(ip2, ip2, 0xff);
+            const v4sf h3  = __builtin_ia32_shufps(ip3, ip3, 0xff);
+           
+            const v4sf imin    = __builtin_ia32_minps(__builtin_ia32_minps(ip0-h0, ip1-h1), __builtin_ia32_minps(ip2-h2,ip3-h3));
+            const v4sf imax    = __builtin_ia32_maxps(__builtin_ia32_maxps(ip0+h0, ip1+h1), __builtin_ia32_maxps(ip2+h2,ip3+h3));
+            const bool skip    = __builtin_ia32_movmskps(__builtin_ia32_orps(
+              __builtin_ia32_cmpltps(jmax, imin),
+              __builtin_ia32_cmpltps(imax, jmin))) & 7;
+            if (skip && i+4 < ni) continue;
+
+            /* they do overlap, no proceed to interaction part */
 
             const v4sf t0 = __builtin_ia32_unpcklps(ip0, ip2);
             const v4sf t1 = __builtin_ia32_unpckhps(ip0, ip2);
@@ -770,7 +791,7 @@ struct Octree
               const v4sf r2 = dx*dx + dy*dy + dz*dz;
 
               const v4si mask = (v4si)__builtin_ia32_cmpltps(r2, iph2);
-              inb += (v4si){1,1,1,1};// & mask; //__builtin_ia32_andps((v4si){1,1,1,1}, mask);
+              inb += (v4si){1,1,1,1} & mask; //__builtin_ia32_andps((v4si){1,1,1,1}, mask);
             }
             nb[i+0] += __builtin_ia32_vec_ext_v4si(inb, 0);
             nb[i+1] += __builtin_ia32_vec_ext_v4si(inb, 1);
