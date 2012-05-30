@@ -37,7 +37,7 @@ int main(int argc, char * argv[])
   }
 #elif 1
   {
-    const int nb_mean = 32;
+    const int nb_mean = 128;
     const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
     for (int i = 0; i < n_bodies; i++)
     {
