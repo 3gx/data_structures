@@ -873,7 +873,7 @@ struct Octree
               const v4sf r2 = dx*dx + dy*dy + dz*dz;
 
               const v4sf mask = __builtin_ia32_cmpltps(r2, iph2);
-#if 1
+#if 0
               const int imask = __builtin_ia32_movmskps(mask);
               if (imask == 0) continue;
 #endif
