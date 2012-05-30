@@ -91,8 +91,9 @@ namespace __gnu_cxx
 #ifdef __MACOSX__
             pointer __ret = static_cast<_Tp*>(valloc(__n * sizeof(_Tp)));
 #else
-            void *ptr;
+            void *ptr = NULL;
             int err = posix_memalign(&ptr, Ialign, __n * sizeof(_Tp));
+            err *= 1;
             assert(err == 0);
             pointer __ret = static_cast<_Tp*>(ptr);
 #endif

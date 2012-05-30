@@ -48,15 +48,12 @@ typedef Boundary<real> boundary;
 
 struct Particle
 {
-#ifdef MEMALIGN
-  typedef std::vector<Particle, __gnu_cxx::malloc_allocator<Particle, 64> > Vector;
-#else
   typedef std::vector<Particle> Vector;
-#endif
   vec3 pos;
   int  id;
   real h;
   int nb;
+  int iPad1, iPad2;
 
   Particle() {}
   Particle(const vec3 &_pos, const int _id, const real _h = 0.0) :
@@ -177,11 +174,7 @@ struct Octree
   template<const int N>
   struct GroupT
   {
-#ifdef MEMALIGN
-    typedef std::vector<GroupT, __gnu_cxx::malloc_allocator<GroupT, 128> > Vector;
-#else
     typedef std::vector<GroupT> Vector;
-#endif
     private:
       int _nb;           /* number of bodies in the list */
       Body _list[N];  /* idx of the body */
@@ -677,7 +670,8 @@ struct Octree
   /**************/
   
   template<const bool ROOT, const int N>  /* must be ROOT = true on the root node (first call) */
-    void buildGroupList(std::vector< GroupT<N> > &groupList, 
+    void buildGroupList(
+        std::vector< GroupT<N> > &groupList,
         const int addr = 0) const
     {
       assert(NLEAF <= N);
@@ -854,7 +848,7 @@ struct Octree
             for (int j = 0; j < nj2; j += 2)
             {
               const v4sf jp = *(jb + j);
-           
+
 #if 0 /*makes it slow*/
               const bool skip    = __builtin_ia32_movmskps(__builtin_ia32_orps(
                     __builtin_ia32_cmpltps(jp,   imin),
