@@ -895,24 +895,23 @@ struct Octree
           for (int i = 0; i < ni; i += 8)
           {
             asm("#eg01");
-            const v8sf ip01 = __mergelo(*(ib+i+0), *(ib+i+1));
-            const v8sf ip23 = __mergelo(*(ib+i+2), *(ib+i+3));
-            const v8sf ip45 = __mergelo(*(ib+i+4), *(ib+i+5));
-            const v8sf ip67 = __mergelo(*(ib+i+6), *(ib+i+7));
+            const v8sf ip04 = __mergelo(*(ib+i+0), *(ib+i+4));
+            const v8sf ip15 = __mergelo(*(ib+i+1), *(ib+i+5));
+            const v8sf ip26 = __mergelo(*(ib+i+2), *(ib+i+6));
+            const v8sf ip37 = __mergelo(*(ib+i+3), *(ib+i+7));
 
             /* check if these i-particles overlap with the leaf */
 
-#if 1
-            const v8sf  h01 = __bcast2<3>(ip01);
-            const v8sf  h23 = __bcast2<3>(ip23);
-            const v8sf  h45 = __bcast2<3>(ip45);
-            const v8sf  h67 = __bcast2<3>(ip67);
+            const v8sf  h04 = __bcast2<3>(ip04);
+            const v8sf  h15 = __bcast2<3>(ip15);
+            const v8sf  h26 = __bcast2<3>(ip26);
+            const v8sf  h37 = __bcast2<3>(ip37);
             const v8sf imint = __builtin_ia32_minps256(
-                __builtin_ia32_minps256(ip01-h01, ip23-h23),
-                __builtin_ia32_minps256(ip45-h45, ip67-h67));
+                __builtin_ia32_minps256(ip04-h04, ip15-h15),
+                __builtin_ia32_minps256(ip26-h26, ip37-h37));
             const v8sf imaxt = __builtin_ia32_maxps256(
-                __builtin_ia32_maxps256(ip01+h01, ip23+h23),
-                __builtin_ia32_maxps256(ip45+h45, ip67+h67));
+                __builtin_ia32_maxps256(ip04+h04, ip15+h15),
+                __builtin_ia32_maxps256(ip26+h26, ip37+h37));
             const v8sf imin = __builtin_ia32_minps256(
                 __merge<0,0>(imint, imint), __merge<1,1>(imint, imint));
             const v8sf imax = __builtin_ia32_maxps256(
@@ -923,22 +922,24 @@ struct Octree
                   __builtin_ia32_cmpps256(jmax, imin, 1),
                   __builtin_ia32_cmpps256(imax, jmin, 1))) & 7;
             if (skip && i+7 < ni) continue;
-#endif
 
             /* they do overlap, now proceed to the interaction part */
 
-            const v8sf t0 = __builtin_ia32_unpcklps256(ip01, ip45);
-            const v8sf t1 = __builtin_ia32_unpckhps256(ip01, ip45);
-            const v8sf t2 = __builtin_ia32_unpcklps256(ip23, ip67);
-            const v8sf t3 = __builtin_ia32_unpckhps256(ip23, ip67);
-
-            const v8sf ipx = __builtin_ia32_unpcklps256(t0, t2);
-            const v8sf ipy = __builtin_ia32_unpckhps256(t0, t2);
-            const v8sf ipz = __builtin_ia32_unpcklps256(t1, t3);
-            const v8sf iph = __builtin_ia32_unpckhps256(t1, t3);
+            const v8sf xy02 = __builtin_ia32_unpcklps256(ip04, ip26);
+            const v8sf xy13 = __builtin_ia32_unpcklps256(ip15, ip37);
+            const v8sf zw02 = __builtin_ia32_unpckhps256(ip04, ip26);
+            const v8sf zw13 = __builtin_ia32_unpckhps256(ip15, ip37);
+            const v8sf xxxx = __builtin_ia32_unpcklps256(xy02, xy13);
+            const v8sf yyyy = __builtin_ia32_unpckhps256(xy02, xy13);
+            const v8sf zzzz = __builtin_ia32_unpcklps256(zw02, zw13);
+            const v8sf wwww = __builtin_ia32_unpckhps256(zw02, zw13);
+            const v8sf ipx = xxxx;
+            const v8sf ipy = yyyy;
+            const v8sf ipz = zzzz;
+            const v8sf iph = wwww;
             const v8sf iph2 = iph*iph;
             
-            v8sf inb = fill_v8sf(0.0f);
+            v8sf fnb = fill_v8sf(0.0f);
             for (int j = 0; j < nj; j++)
             {
               const v8sf jp = *(jb + j);
@@ -946,7 +947,6 @@ struct Octree
               const v8sf jpx = __bcast<0>(jp);
               const v8sf jpy = __bcast<1>(jp);
               const v8sf jpz = __bcast<2>(jp);
-           
 
               const v8sf dx = jpx - ipx;
               const v8sf dy = jpy - ipy;
@@ -958,13 +958,10 @@ struct Octree
               const int imask = __builtin_ia32_movmskps256(mask);
               if (imask == 0) continue;
 #endif
-              inb += __builtin_ia32_andps256(fill_v8sf(1.0f), mask);
+              fnb += __builtin_ia32_andps256(fill_v8sf(1.0f), mask);
             }
-            __m256 x;
-            x.v = inb;
-            for (int k = 0; k < 8; k++)
-              nb[i+k] += (int)x.r[k];
-//            *(v8si*)&nb[i] += (v8si)inb;
+            const v8si inb = __builtin_ia32_cvtps2dq256(fnb);
+            *(v8si*)&nb[i] += inb;
             asm("#eg02");
           }
 #elif defined __mySSE__
