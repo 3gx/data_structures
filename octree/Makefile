@@ -21,6 +21,9 @@ CXXFLAGS = $(OFLAGS) -Wstrict-aliasing=2 $(OMPFLAGS)
 ifeq ($(SSE), 1)
 	CXXFLAGS += -D__mySSE__ -msse4.1
 endif
+ifeq ($(AVX), 1)
+	CXXFLAGS += -D__myAVX__ -mavx -mtune=corei7-avx -march=corei7-avx
+endif
 ifeq ($(SSE1), 1)
 	CXXFLAGS += -D__mySSE1__ -msse4.1
 endif
@@ -56,7 +59,7 @@ clean:
 clean_all:
 	/bin/rm -rf *.o $(PROG) plummer.dat *~
 
-$(OBJ): octree.h plummer.h mytimer.h boundary.h vector3.h boundary4.h memalign_allocator.h Makefile
+$(OBJ): octree.h plummer.h mytimer.h boundary.h vector3.h boundary4.h
 
 
 

@@ -33,7 +33,7 @@ struct float4
   }
   float norm2() const
   {
-    const v4si mask = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0};
+    const v4si mask = (v4si){0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0};
     const v4sf r    = __builtin_ia32_andps(vec, (v4sf)mask);
     const v4sf r2   = r*r;
     const v4sf tmp  = __builtin_ia32_haddps(r2,  r2);

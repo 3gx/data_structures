@@ -27,11 +27,91 @@ static inline T __max(const T &a, const T &b) {return a > b ? a : b;}
 #endif
 #endif
 
+#ifdef __myAVX__
+#ifndef __mySSE__
+#define __mySSE__
+#endif
+#endif
 
 #ifdef __mySSE__
 typedef int    v4si  __attribute__((vector_size(16)));
 typedef float  v4sf  __attribute__((vector_size(16)));
 #endif
+
+#ifdef __myAVX__
+typedef int    v8si  __attribute__((vector_size(32)));
+typedef float  v8sf  __attribute__((vector_size(32)));
+typedef double v4df  __attribute__((vector_size(32)));
+
+inline v8sf fill_v8sf(const float x)
+{
+  return (v8sf){x,x,x,x,x,x,x,x};
+}
+
+
+union __m256
+{
+  float r[8];
+  v8sf v;
+};
+
+
+inline v8sf pack_2xmm(const v4sf x0, const v4sf x1)
+{
+  v8sf ymm = {};
+  ymm = __builtin_ia32_vinsertf128_ps256(ymm, x0, 0);
+  ymm = __builtin_ia32_vinsertf128_ps256(ymm, x1, 1);
+  return ymm;
+}
+template<const bool hi1, const bool hi2>
+inline v8sf __merge(const v8sf x, const v8sf y)
+{
+  const int mask = 
+    hi1 ? 
+    (hi2 ? 0x31 : 0x21) :
+    (hi2 ? 0x30 : 0x20);
+  return __builtin_ia32_vperm2f128_ps256(x, y, mask);
+}
+inline v8sf __mergelo(const v8sf x, const v8sf y)
+{
+  return __builtin_ia32_vperm2f128_ps256(x, y, 0x20);
+}
+inline v8sf __mergehi(const v8sf x, const v8sf y)
+{
+  return __builtin_ia32_vperm2f128_ps256(x, y, 0x31);
+}
+#include <cassert>
+template<const int N>
+inline v8sf __bcast(const v8sf x)
+{
+  assert(N < 8);
+  const int NN = N & 3;
+  const int mask = 
+    NN == 0 ? 0 :
+    NN == 1 ? 0x55 :
+    NN == 2 ? 0xAA  : 0xFF;
+    
+  const v8sf tmp = __builtin_ia32_shufps256(x, x, mask);
+
+  return N < 4 ? __mergelo(tmp, tmp) : __mergehi(tmp,tmp);
+}
+template<const int N>
+inline v8sf __bcast2(const v8sf x)
+{
+  assert(N < 4);
+  const int mask = 
+    N == 0 ? 0 :
+    N == 1 ? 0x55 :
+    N == 2 ? 0xAA  : 0xFF;
+    
+  return __builtin_ia32_shufps256(x, x, mask);
+}
+
+#endif
+
+
+
+
 
 
 #include "vector3.h"
@@ -48,12 +128,15 @@ typedef Boundary<real> boundary;
 
 struct Particle
 {
+#ifdef MEMALIGN
+  typedef std::vector<Particle, __gnu_cxx::malloc_allocator<Particle, 64> > Vector;
+#else
   typedef std::vector<Particle> Vector;
+#endif
   vec3 pos;
   int  id;
   real h;
   int nb;
-  int iPad1, iPad2;
 
   Particle() {}
   Particle(const vec3 &_pos, const int _id, const real _h = 0.0) :
@@ -80,7 +163,10 @@ struct Octree
     int iPad1, iPad2, iPad3; /* padding */
 
     public:
-    Body() {}
+    Body() 
+    {
+      assert(sizeof(Body) == sizeof(float)*8);
+    }
     Body(const vec3 &pos, const int idx, const float h = 0.0f) : Packed_pos(float4(pos.x, pos.y, pos.z, h)), _idx(idx) {}
     Body(const Particle &p, const int idx) : Packed_pos(float4(p.pos.x, p.pos.y, p.pos.z, p.h)), _idx(idx) {}
     Body(const vec3 &pos, const float h, const int idx = -1) : Packed_pos(pos.x, pos.y, pos.z, h), _idx(idx) {};
@@ -172,15 +258,18 @@ struct Octree
   };
 
   template<const int N>
-  struct GroupT
+  struct GroupT 
   {
     typedef std::vector<GroupT> Vector;
     private:
-      int _nb;           /* number of bodies in the list */
       Body _list[N];  /* idx of the body */
+      int _nb;           /* number of bodies in the list */
+      int iPad[7];       /* alignment */
 
     public:
-      GroupT() : _nb(0) {}
+      GroupT() : _nb(0) {
+//        assert(8*(N+1)*sizeof(float) == sizeof(GroupT));
+      }
       GroupT(const Body &body) : _nb(0) {insert(body);}
       void insert(const Body &body) 
       {
@@ -217,7 +306,7 @@ struct Octree
       {
         return Boundaries(innerBoundary(), outerBoundary());
       }
-  };
+  } __attribute__ ((aligned(32)));
   typedef GroupT<NLEAF>  Leaf;
 
   private:
@@ -670,8 +759,7 @@ struct Octree
   /**************/
   
   template<const bool ROOT, const int N>  /* must be ROOT = true on the root node (first call) */
-    void buildGroupList(
-        std::vector< GroupT<N> > &groupList,
+    void buildGroupList(std::vector< GroupT<N> > &groupList, 
         const int addr = 0) const
     {
       assert(NLEAF <= N);
@@ -794,9 +882,92 @@ struct Octree
         }
         else
         {
-#ifdef __mySSE__
-          const Leaf &leaf        = leafList[cell.leafIdx()];
+          const Leaf      leaf  = leafList[cell.leafIdx()];
           const boundary &leafBnd = bndsList[cell.     id()].inner();
+#ifdef __myAVX__
+          const GroupT<N> group = igroup;
+          const v8sf  jmin = pack_2xmm(leafBnd.min, leafBnd.min);
+          const v8sf  jmax = pack_2xmm(leafBnd.max, leafBnd.max);
+          const int   ni = igroup.nb();
+          const int   nj =   leaf.nb();
+          const v8sf *ib = (const v8sf*)& group[0];
+          const v8sf *jb = (const v8sf*)&  leaf[0];
+          for (int i = 0; i < ni; i += 8)
+          {
+            asm("#eg01");
+            const v8sf ip01 = __mergelo(*(ib+i+0), *(ib+i+1));
+            const v8sf ip23 = __mergelo(*(ib+i+2), *(ib+i+3));
+            const v8sf ip45 = __mergelo(*(ib+i+4), *(ib+i+5));
+            const v8sf ip67 = __mergelo(*(ib+i+6), *(ib+i+7));
+
+            /* check if these i-particles overlap with the leaf */
+
+#if 1
+            const v8sf  h01 = __bcast2<3>(ip01);
+            const v8sf  h23 = __bcast2<3>(ip23);
+            const v8sf  h45 = __bcast2<3>(ip45);
+            const v8sf  h67 = __bcast2<3>(ip67);
+            const v8sf imint = __builtin_ia32_minps256(
+                __builtin_ia32_minps256(ip01-h01, ip23-h23),
+                __builtin_ia32_minps256(ip45-h45, ip67-h67));
+            const v8sf imaxt = __builtin_ia32_maxps256(
+                __builtin_ia32_maxps256(ip01+h01, ip23+h23),
+                __builtin_ia32_maxps256(ip45+h45, ip67+h67));
+            const v8sf imin = __builtin_ia32_minps256(
+                __merge<0,0>(imint, imint), __merge<1,1>(imint, imint));
+            const v8sf imax = __builtin_ia32_maxps256(
+                __merge<0,0>(imaxt, imaxt), __merge<1,1>(imaxt, imaxt));
+
+            const bool skip    = 
+              __builtin_ia32_movmskps256(__builtin_ia32_orps256(
+                  __builtin_ia32_cmpps256(jmax, imin, 1),
+                  __builtin_ia32_cmpps256(imax, jmin, 1))) & 7;
+            if (skip && i+7 < ni) continue;
+#endif
+
+            /* they do overlap, now proceed to the interaction part */
+
+            const v8sf t0 = __builtin_ia32_unpcklps256(ip01, ip45);
+            const v8sf t1 = __builtin_ia32_unpckhps256(ip01, ip45);
+            const v8sf t2 = __builtin_ia32_unpcklps256(ip23, ip67);
+            const v8sf t3 = __builtin_ia32_unpckhps256(ip23, ip67);
+
+            const v8sf ipx = __builtin_ia32_unpcklps256(t0, t2);
+            const v8sf ipy = __builtin_ia32_unpckhps256(t0, t2);
+            const v8sf ipz = __builtin_ia32_unpcklps256(t1, t3);
+            const v8sf iph = __builtin_ia32_unpckhps256(t1, t3);
+            const v8sf iph2 = iph*iph;
+            
+            v8sf inb = fill_v8sf(0.0f);
+            for (int j = 0; j < nj; j++)
+            {
+              const v8sf jp = *(jb + j);
+
+              const v8sf jpx = __bcast<0>(jp);
+              const v8sf jpy = __bcast<1>(jp);
+              const v8sf jpz = __bcast<2>(jp);
+           
+
+              const v8sf dx = jpx - ipx;
+              const v8sf dy = jpy - ipy;
+              const v8sf dz = jpz - ipz;
+              const v8sf r2 = dx*dx + dy*dy + dz*dz;
+
+              const v8sf mask = __builtin_ia32_cmpps256(r2, iph2, 1);
+#if 0
+              const int imask = __builtin_ia32_movmskps256(mask);
+              if (imask == 0) continue;
+#endif
+              inb += __builtin_ia32_andps256(fill_v8sf(1.0f), mask);
+            }
+            __m256 x;
+            x.v = inb;
+            for (int k = 0; k < 8; k++)
+              nb[i+k] += (int)x.r[k];
+//            *(v8si*)&nb[i] += (v8si)inb;
+            asm("#eg02");
+          }
+#elif defined __mySSE__
           const v4sf  jmin = leafBnd.min;
           const v4sf  jmax = leafBnd.max;
           const int   ni = igroup.nb();
@@ -848,7 +1019,7 @@ struct Octree
             for (int j = 0; j < nj2; j += 2)
             {
               const v4sf jp = *(jb + j);
-
+           
 #if 0 /*makes it slow*/
               const bool skip    = __builtin_ia32_movmskps(__builtin_ia32_orps(
                     __builtin_ia32_cmpltps(jp,   imin),
@@ -874,16 +1045,13 @@ struct Octree
               inb += __builtin_ia32_andps((v4sf){1,1,1,1}, mask);
 
             }
-            const float4 fnb(inb);
-            nb[i+0] += (int)fnb.x();
-            nb[i+1] += (int)fnb.y();
-            nb[i+2] += (int)fnb.z();
-            nb[i+3] += (int)fnb.w();
+            nb[i+0] += (int)__builtin_ia32_vec_ext_v4sf(inb, 0);
+            nb[i+1] += (int)__builtin_ia32_vec_ext_v4sf(inb, 1);
+            nb[i+2] += (int)__builtin_ia32_vec_ext_v4sf(inb, 2);
+            nb[i+3] += (int)__builtin_ia32_vec_ext_v4sf(inb, 3);
             asm("#eg02");
           }
 #else
-          const Leaf     &leaf    = leafList[cell.leafIdx()];
-          const boundary &leafBnd = bndsList[cell.     id()].inner();
           for (int i = 0; i < igroup.nb(); i++)
           {
             const Body &ibody = igroup[i];
