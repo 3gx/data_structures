@@ -874,10 +874,11 @@ struct Octree
               inb += __builtin_ia32_andps((v4sf){1,1,1,1}, mask);
 
             }
-            nb[i+0] += (int)__builtin_ia32_vec_ext_v4sf(inb, 0);
-            nb[i+1] += (int)__builtin_ia32_vec_ext_v4sf(inb, 1);
-            nb[i+2] += (int)__builtin_ia32_vec_ext_v4sf(inb, 2);
-            nb[i+3] += (int)__builtin_ia32_vec_ext_v4sf(inb, 3);
+            const float4 fnb(inb);
+            nb[i+0] += (int)fnb.x();
+            nb[i+1] += (int)fnb.y();
+            nb[i+2] += (int)fnb.z();
+            nb[i+3] += (int)fnb.w();
             asm("#eg02");
           }
 #else
