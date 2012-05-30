@@ -18,12 +18,13 @@ int main(int argc, char * argv[])
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
 #if 0
+#define PLUMMER
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
     ptcl.push_back(Particle(data.pos[i], data.mass[i]));
   }
-#elif 0
+#elif 0  /* reads IC */
   int dummy;
   std::cin >> dummy >> n_bodies;
   fprintf(stderr, " -- input file: nbodies= %d\n", n_bodies);
@@ -156,7 +157,7 @@ int main(int argc, char * argv[])
 
   fprintf(stderr, " -- Range search -- \n");
   int nb = 0;
-#if 1
+#ifndef PLUMMER
 #pragma omp parallel for reduction(+:nb)
   for (int i = 0; i < n_bodies; i++)
   {
@@ -171,7 +172,7 @@ int main(int argc, char * argv[])
   const int ngroup = groupList.size();
   fprintf(stderr, " -- Range search Group-Leaf : ngroup=%d  nbody= %d-- \n", ngroup, n_bodies);
   int nbL = 0;
-#if 1
+#ifndef PLUMMER
 #pragma omp parallel for reduction(+:nbL)
   for (int i = 0; i < ngroup; i++)
   {
