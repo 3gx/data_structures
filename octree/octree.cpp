@@ -152,8 +152,10 @@ int main(int argc, char * argv[])
  
   octGroup::Vector groupList;
   groupList.reserve(tree.nLeaf());
+  
   const bool SORT = 0 ? true : false;  /* use peano-sort inside the group */
   tree.buildGroupList<SORT, true>(groupList);
+
   const double t69 = get_wtime();
 
   fprintf(stderr, " -- Range search -- \n");
