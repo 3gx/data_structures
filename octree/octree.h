@@ -57,16 +57,22 @@ union __m256
 };
 
 
-inline v8sf pack_2xmm(const v4sf x0, const v4sf x1)
-{
+inline v8sf pack2ymm(const v4sf x0, const v4sf x1)
+{ /* merges two xmm  into one ymm */
   v8sf ymm = {};
   ymm = __builtin_ia32_vinsertf128_ps256(ymm, x0, 0);
   ymm = __builtin_ia32_vinsertf128_ps256(ymm, x1, 1);
   return ymm;
 }
+template<const int ch>
+inline v4sf __extract(const v8sf x)
+{  /* extracts xmm from ymm */
+  assert(ch >= 0 && ch < 2);
+  return __builtin_ia32_vextractf128_ps256(x, ch);
+}
 template<const bool hi1, const bool hi2>
 inline v8sf __merge(const v8sf x, const v8sf y)
-{
+{ /* merges two ymm into one ymm(x[k1],y[k2]), k = hi ? 0-127:128-255 */
   const int mask = 
     hi1 ? 
     (hi2 ? 0x31 : 0x21) :
@@ -74,17 +80,17 @@ inline v8sf __merge(const v8sf x, const v8sf y)
   return __builtin_ia32_vperm2f128_ps256(x, y, mask);
 }
 inline v8sf __mergelo(const v8sf x, const v8sf y)
-{
+{ /* merges [0-127] of two ymm into one ymm(x[0-127],y[0-127]) */
   return __builtin_ia32_vperm2f128_ps256(x, y, 0x20);
 }
 inline v8sf __mergehi(const v8sf x, const v8sf y)
-{
+{ /* merges [128-255] of two ymm into one ymm(x[128-255],y[128-255]) */
   return __builtin_ia32_vperm2f128_ps256(x, y, 0x31);
 }
 #include <cassert>
 template<const int N>
 inline v8sf __bcast(const v8sf x)
-{
+{ /* broadcast a Nth channel of ymm into all channels */
   assert(N < 8);
   const int NN = N & 3;
   const int mask = 
@@ -98,7 +104,7 @@ inline v8sf __bcast(const v8sf x)
 }
 template<const int N>
 inline v8sf __bcast2(const v8sf x)
-{
+{ /* broadcast n<4 challen of 0-127 & 128-255 into each channels of 0-127&128-255 respectively */
   assert(N < 4);
   const int mask = 
     N == 0 ? 0 :
@@ -910,8 +916,8 @@ struct Octree
           const boundary &leafBnd = bndsList[cell.     id()].inner();
 #ifdef __myAVX__
           const GroupT<N> group = igroup;
-          const v8sf  jmin = pack_2xmm(leafBnd.min, leafBnd.min);
-          const v8sf  jmax = pack_2xmm(leafBnd.max, leafBnd.max);
+          const v4sf  jmin = leafBnd.min;
+          const v4sf  jmax = leafBnd.max;
           const int   ni = igroup.nb();
           const int   nj =   leaf.nb();
           const v8sf *ib = (const v8sf*)& group[0];
@@ -936,15 +942,16 @@ struct Octree
             const v8sf imaxt = __builtin_ia32_maxps256(
                 __builtin_ia32_maxps256(ip04+h04, ip15+h15),
                 __builtin_ia32_maxps256(ip26+h26, ip37+h37));
-            const v8sf imin = __builtin_ia32_minps256(
-                __merge<0,0>(imint, imint), __merge<1,1>(imint, imint));
-            const v8sf imax = __builtin_ia32_maxps256(
-                __merge<0,0>(imaxt, imaxt), __merge<1,1>(imaxt, imaxt));
+
+            const v4sf imin = __builtin_ia32_minps(
+                __extract<0>(imint), __extract<1>(imint));
+            const v4sf imax = __builtin_ia32_maxps(
+                __extract<0>(imaxt), __extract<1>(imaxt));
 
             const bool skip    = 
-              __builtin_ia32_movmskps256(__builtin_ia32_orps256(
-                    __builtin_ia32_cmpps256(jmax, imin, 1),
-                    __builtin_ia32_cmpps256(imax, jmin, 1))) & 7;
+              __builtin_ia32_movmskps(__builtin_ia32_orps(
+                    __builtin_ia32_cmpltps(jmax, imin),
+                    __builtin_ia32_cmpltps(imax, jmin))) & 7;
             if (skip && i+7 < ni) continue;
 
             /* they do overlap, now proceed to the interaction part */
