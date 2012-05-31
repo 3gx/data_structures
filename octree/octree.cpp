@@ -152,7 +152,8 @@ int main(int argc, char * argv[])
  
   octGroup::Vector groupList;
   groupList.reserve(tree.nLeaf());
-  tree.buildGroupList<true>(groupList);
+  const bool SORT = 0 ? true : false;  /* use peano-sort inside the group */
+  tree.buildGroupList<SORT, true>(groupList);
   const double t69 = get_wtime();
 
   fprintf(stderr, " -- Range search -- \n");
@@ -181,10 +182,12 @@ int main(int argc, char * argv[])
     tree.range_search<true>(nb, group);
     for (int j = 0; j < group.nb(); j++)
     {
+#if 1
       const int idx = group[j].idx();
       const int nb0 = ptcl[idx].nb;
       if (nb0 != nb[j] && nb0 > 0)
         fprintf(stderr, "nb0= %d  nb= %d\n", nb0, nb[j]);
+#endif
       nbL += nb[j];
     }
   }

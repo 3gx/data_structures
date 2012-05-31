@@ -59,7 +59,7 @@ clean:
 clean_all:
 	/bin/rm -rf *.o $(PROG) plummer.dat *~
 
-$(OBJ): octree.h plummer.h mytimer.h boundary.h vector3.h boundary4.h
+$(OBJ): octree.h plummer.h mytimer.h boundary.h vector3.h boundary4.h peano.h
 
 
 

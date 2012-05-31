@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cassert>
 #include <stack>
+#include <algorithm>
 #ifdef MEMALIGN
 #include "memalign_allocator.h"
 #endif
@@ -115,6 +116,7 @@ inline v8sf __bcast2(const v8sf x)
 
 
 #include "vector3.h"
+#include "peano.h"
 
 typedef float real;
 typedef vector3<real> vec3;
@@ -262,7 +264,7 @@ struct Octree
   {
     typedef std::vector<GroupT> Vector;
     private:
-      Body _list[N];  /* idx of the body */
+      Body _list[N];     /* idx of the body */
       int _nb;           /* number of bodies in the list */
       int iPad[7];       /* alignment */
 
@@ -305,6 +307,26 @@ struct Octree
       Boundaries computeBoundaries() const
       {
         return Boundaries(innerBoundary(), outerBoundary());
+      }
+
+      boundary sort()   /* does peano-hilbert sort and returns outer boundary */
+      {
+        const boundary bnd = outerBoundary();
+        const vec3    hlen = bnd.hlen();
+        const float   size = __max(hlen.x, __max(hlen.y, hlen.z)) * 2.0f;
+        const int     dfac = 1.0f / size * (PeanoHilbert::Key(1) << PeanoHilbert::BITS_PER_DIMENSION);
+        const vec3     min = bnd.min;
+        PeanoHilbert::PH  key_list[N];
+        Body             body_list[N];
+        for (int i = 0; i < _nb; i++)
+        {
+          key_list [i] = PeanoHilbert::PH(_list[i].vector_pos() - min, dfac, i);
+          body_list[i] = _list[i];
+        }
+        std::sort(key_list, key_list+_nb, PeanoHilbert::PH());
+        for (int i = 0; i < _nb; i++)
+          _list[i] = body_list[key_list[i].idx];
+        return bnd;
       }
   } __attribute__ ((aligned(32)));
   typedef GroupT<NLEAF>  Leaf;
@@ -354,7 +376,7 @@ struct Octree
   }
 
   bool isTreeReady() const {return treeReady;}
-  
+
   static inline int reverse_int(const int a) {return BODYX-a;}
 
   inline int Octant(const float4 lhs, const float4 rhs) 
@@ -407,25 +429,25 @@ struct Octree
     leafPool.push(leafIdx);
   }
   template<const bool WITHBODY>
-  Cell newLeaf(const Body &body = Body())
-  {
-    const int cell = cellPool.empty() ? ncell++ : cellPool.top();
-    if (!cellPool.empty()) cellPool.pop();
+    Cell newLeaf(const Body &body = Body())
+    {
+      const int cell = cellPool.empty() ? ncell++ : cellPool.top();
+      if (!cellPool.empty()) cellPool.pop();
 
-    if (leafPool.empty())
-    {
-      const int addr = leafList.size();
-      leafList.push_back(WITHBODY ? Leaf(body) : Leaf());
-      return Cell(reverse_int(addr), cell, WITHBODY ? 1 : 0);
+      if (leafPool.empty())
+      {
+        const int addr = leafList.size();
+        leafList.push_back(WITHBODY ? Leaf(body) : Leaf());
+        return Cell(reverse_int(addr), cell, WITHBODY ? 1 : 0);
+      }
+      else
+      {
+        const int addr = leafPool.top();
+        leafPool.pop();
+        leafList[addr] = WITHBODY ? Leaf(body) : Leaf();
+        return Cell(reverse_int(addr), cell, WITHBODY ? 1 : 0);
+      }
     }
-    else
-    {
-      const int addr = leafPool.top();
-      leafPool.pop();
-      leafList[addr] = WITHBODY ? Leaf(body) : Leaf();
-      return Cell(reverse_int(addr), cell, WITHBODY ? 1 : 0);
-    }
-  }
 
   int get_np() const 
   {
@@ -529,7 +551,7 @@ struct Octree
   bool remove(const Body &body)
   {
     float4 centre =  root_centre;
-    
+
 #ifndef NDEBUG
     const int n_nodes_max = cellList.size();
 #endif
@@ -757,8 +779,8 @@ struct Octree
     }
 
   /**************/
-  
-  template<const bool ROOT, const int N>  /* must be ROOT = true on the root node (first call) */
+
+  template<const bool SORT, const bool ROOT, const int N>  /* must be ROOT = true on the root node (first call) */
     void buildGroupList(std::vector< GroupT<N> > &groupList, 
         const int addr = 0) const
     {
@@ -768,7 +790,7 @@ struct Octree
         assert(isTreeReady());
         for (int k = 0; k < 8; k++)
           if (!cellList[k].isEmpty())
-            buildGroupList<false>(groupList, k);
+            buildGroupList<SORT, false>(groupList, k);
       }
       else
       {
@@ -781,12 +803,14 @@ struct Octree
         {
           groupList.push_back(GroupT<N>());
           extractBodies(groupList.back(), addr);
+          if (SORT)
+            groupList.back().sort();
         }
         else
         {
           assert(!cell.isLeaf());
           for (int k = cell.addr(); k < cell.addr()+8; k++)
-            buildGroupList<false>(groupList, k);
+            buildGroupList<SORT, false>(groupList, k);
         }
       }
     }
@@ -862,7 +886,7 @@ struct Octree
       if (ROOT)
       {
         assert(isTreeReady());
-        const boundary ibnd(igroup.outerBoundary());
+        const boundary ibnd = igroup.outerBoundary();
         for (int i = 0; i < N; i++)
           nb[i] = 0;
         for (int k = 0; k < 8; k++)
@@ -919,8 +943,8 @@ struct Octree
 
             const bool skip    = 
               __builtin_ia32_movmskps256(__builtin_ia32_orps256(
-                  __builtin_ia32_cmpps256(jmax, imin, 1),
-                  __builtin_ia32_cmpps256(imax, jmin, 1))) & 7;
+                    __builtin_ia32_cmpps256(jmax, imin, 1),
+                    __builtin_ia32_cmpps256(imax, jmin, 1))) & 7;
             if (skip && i+7 < ni) continue;
 
             /* they do overlap, now proceed to the interaction part */
@@ -938,7 +962,7 @@ struct Octree
             const v8sf ipz = zzzz;
             const v8sf iph = wwww;
             const v8sf iph2 = iph*iph;
-            
+
             v8sf fnb = fill_v8sf(0.0f);
             for (int j = 0; j < nj; j++)
             {
@@ -958,7 +982,11 @@ struct Octree
               const int imask = __builtin_ia32_movmskps256(mask);
               if (imask == 0) continue;
 #endif
+#if 0 
+              fnb += fill_v8sf(1.0f);   /* this is to count number of ptcl processed */
+#else
               fnb += __builtin_ia32_andps256(fill_v8sf(1.0f), mask);
+#endif
             }
             const v8si inb = __builtin_ia32_cvtps2dq256(fnb);
             *(v8si*)&nb[i] += inb;
@@ -1016,7 +1044,7 @@ struct Octree
             for (int j = 0; j < nj2; j += 2)
             {
               const v4sf jp = *(jb + j);
-           
+
 #if 0 /*makes it slow*/
               const bool skip    = __builtin_ia32_movmskps(__builtin_ia32_orps(
                     __builtin_ia32_cmpltps(jp,   imin),
