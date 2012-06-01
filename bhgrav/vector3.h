@@ -42,8 +42,8 @@ struct float4
   }
   friend const float4 fabs(const float4 x)
   {
-    const _v4sf mask = (_v4sf){0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
-    return float4(__builtin_ia32_andps(x.vec, mask));
+    const _v4si mask = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
+    return float4(__builtin_ia32_andps(x.vec, (_v4sf)mask));
   }
 
   /* accessor methods */
