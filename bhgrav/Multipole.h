@@ -29,6 +29,7 @@ struct Monopole
 struct Quadrupole
 {
   typedef std::vector<Quadrupole> Vector;
+  enum TYPE {UNIT};
 
   private:
   double _xx, _yy, _zz;
@@ -36,6 +37,7 @@ struct Quadrupole
 
   public:
   Quadrupole() : _xx(0.0), _yy(0.0), _zz(0.0), _xy(0.0), _xz(0.0), _yz(0.0) {}
+  Quadrupole(const double x, const TYPE type) : _xx(x), _yy(x), _zz(x), _xy(0.0), _xz(0.0), _yz(0.0) {}
   Quadrupole(const dvec3 &pos, const double mass) :
     _xx(mass*pos.x*pos.x),
     _yy(mass*pos.y*pos.y),
@@ -50,6 +52,12 @@ struct Quadrupole
     _xy += q._xy; _xz += q._xz; _yz += q._yz;
     return *this;
   }
+  const Quadrupole& operator*=(const double x)
+  {
+    _xx *= x; _yy *= x; _zz *= x;
+    _xy *= x; _xz *= x; _yz *= x;
+    return *this;
+  }
 
   double xx() const {return _xx;}
   double yy() const {return _yy;}
@@ -58,6 +66,7 @@ struct Quadrupole
   double xz() const {return _xz;}
   double yz() const {return _yz;}
   double trace() const {return _xx + _yy + _zz;}
+
 };
 
 struct Multipole
@@ -91,12 +100,16 @@ struct Multipole
 
   const Multipole& complete()
   {
-    const double _mass = _monopole.mass();
-    const dvec3   _pos = _monopole. pos();
-    _quadrupole += Quadrupole(_pos, -_mass);  /* q = q - Mrr */
+    const double _mass =   _monopole. mass();
+    const dvec3   _pos =   _monopole.  pos();
+    const double trace = _quadrupole.trace();
+    const double P     = trace - _mass*_pos.norm2();
+    _quadrupole += Quadrupole(_pos, -_mass);
+    _quadrupole *= 3.0;
+    _quadrupole += Quadrupole(-P, Quadrupole::UNIT);
+
     return *this;
   }
-
 };
 
   template<const bool ROOT>
@@ -109,7 +122,12 @@ Multipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
     multipoleList.resize(ncell);
     for (int k = 0; k < 8; k++)
       if (!cellList[k].isEmpty() && cellList[k].isTouched())
-        multipole += computeMultipole<false>(ptcl, k);
+      {
+        computeMultipole<false>(ptcl, k);
+        multipole +=  multipoleList[cellList[k].id()];
+                      multipoleList[cellList[k].id()].complete();
+      }
+    multipole.complete();
   }
   else
   {
@@ -123,6 +141,7 @@ Multipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
         {
           computeMultipole<false>(ptcl, i+k);
           multipole += multipoleList[cellList[i+k].id()];
+                       multipoleList[cellList[i+k].id()].complete();
         }
     }
     else
@@ -135,7 +154,7 @@ Multipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
         multipole += Multipole(ptcl[idx].pos, ptcl[idx].mass);
       }
     }
-    multipoleList[cell.id()] = multipole.complete();
+    multipoleList[cell.id()] = multipole;
     cell.unsetTouched();
   }
   return multipole;
