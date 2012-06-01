@@ -19,8 +19,8 @@ void gForce(const GroupT<Ng> &group, float4 force[Ng]) const
 {
   const int Ncell = NLEAF;
   const int Nptcl = NLEAF*16;
-  float4 ptcl_list[Nptcl ];
-  int    cell_list[Ncell ];
+  float4 ptcl_list[Nptcl*2];
+  int    cell_list[Ncell*2];
   int nc = 0, np = 0;
 
   gForce<true, Ncell, Nptcl>(group, force, cell_list, nc, ptcl_list, np);
