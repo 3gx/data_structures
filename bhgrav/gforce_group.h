@@ -59,15 +59,31 @@ void gforce(
         ptcl_list[np++] = leaf[i].pos_mass();
     }
 
-    if (nc >= Nc)
-    {
-      nc -= Nc;
-    }
-    if (np >= Np)
-    {
-      np -= Np;
-    }
+    if (np >= Np) np = particle_particle<Ng, Np>(force, ptcl_list, np, group);
+    if (nc >= Nc) nc = particle_cell    <Ng, Nc>(force, cell_list, nc, group);
   }
 }
+
+template<const int Ng, const int Np>
+int particle_particle(
+    float4     force[Ng  ],       
+    float4 ptcl_list[Np*2], int np,
+    const  GroupT<Ng> &group)
+{
+
+  return __max(np - Np, 0);
+}
+
+  template<const int Ng, const int Nc>
+int particle_cell(
+    float4    force[Ng  ],       
+    int   cell_list[Nc*2], int nc,
+    const GroupT<Ng> &group)
+{
+
+  return __max(nc - Nc, 0);
+}
+    
+    
 
 #endif /* __GFORCE_GROUP_H__ */
