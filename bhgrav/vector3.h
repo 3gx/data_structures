@@ -40,6 +40,11 @@ struct float4
     const _v4sf res  = __builtin_ia32_haddps(tmp, tmp);
     return __builtin_ia32_vec_ext_v4sf(res, 0);
   }
+  friend const float4 fabs(const float4 x)
+  {
+    const _v4sf mask = (_v4sf){0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
+    return float4(__builtin_ia32_andps(x.vec, mask));
+  }
 
   /* accessor methods */
 
