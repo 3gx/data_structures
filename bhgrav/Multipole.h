@@ -146,7 +146,10 @@ Multipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
         const int idx = leaf[i].idx();
         assert(idx < (int)ptcl.size());
         multipole += Multipole(ptcl[idx].pos, ptcl[idx].mass);
+        assert(overlapped(bndsList[cell.id()].inner(), leaf[i ].vector_pos()));
+        assert(overlapped(bndsList[cell.id()].inner(), ptcl[idx].pos));
       }
+      const vec3 com = multipole.monopole().pos();
     }
     multipoleList[cell.id()] = multipole.complete();
 
@@ -159,7 +162,18 @@ Multipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
     const vec3 len =  bndsList[id].inner().  hlen();
     const float  l = __max(len.x, __max(len.y, len.z)) * 2.0f;
     cellCoM[id] = float4(com.x, com.y, com.z, SQR(l*inv_theta + s));
-    
+
+#if 0
+    fprintf(stderr, "dcom= %f %f %f  c= %f %f %f  l=%G\n",
+        com.x, com.y, com.z,
+        bndsList[id].inner().center().x,
+        bndsList[id].inner().center().y,
+        bndsList[id].inner().center().z, l);
+
+    static int cnt = 0;
+    if (cnt++ > 1000) exit(0);
+#endif
+
     /* now the physical properties of the cell have been updated, unTouch it */
 
     cell.unsetTouched();

@@ -239,7 +239,7 @@ int main(int argc, char * argv[])
 #if 1
   {
     fprintf(stderr, " Computing multipole \n");
-    const Octree::Multipole rootM = tree.computeMultipole<true>(ptcl);
+    const Octree::Multipole rootM = tree.computeMultipole<true>(sortedPtcl);
     fprintf(stderr,  " Mass= %g \n", rootM.monopole().mass());
     const vec3 mpos = rootM.monopole().mpos();
     fprintf(stderr, " Monopole= %g %g %g  \n", mpos.x, mpos.y, mpos.z);
@@ -253,11 +253,11 @@ int main(int argc, char * argv[])
         rootM.quadrupole().yz());
   }
 #endif
-  const double t110 = get_wtime();
+  double t110 = get_wtime();
   {
     Octree::Multipole M;
     for (int i = 0; i < n_bodies; i++)
-      M += Octree::Multipole(ptcl[i].pos, ptcl[i].mass);
+      M += Octree::Multipole(sortedPtcl[i].pos, ptcl[i].mass);
     M = M.complete();
     fprintf(stderr,  " Mass= %g \n", M.monopole().mass());
     const vec3 mpos = M.monopole().mpos();
@@ -271,6 +271,39 @@ int main(int argc, char * argv[])
         M.quadrupole().xz(),
         M.quadrupole().yz());
   }
+  t110 = get_wtime();
+
+#if 1
+  {
+    fprintf(stderr, " Computing gForce \n");
+    real   gpot = 0.0;
+    real   mtot = 0.0;
+    double fx = 0, fy = 0, fz = 0;
+#pragma omp parallel for reduction(+:mtot, gpot_tot, fc, fy, fz);
+    for (int i = 0; i < ngroup; i++)
+    {
+      const octGroup &group = groupList[i];
+      float4 force[NGROUP];
+
+      tree.gForce(group, force);
+
+      for (int j = 0; j < group.nb(); j++)
+      {
+        const int idx = group[j].idx();
+        const Particle &p = ptcl[idx];
+        mtot += p.mass;
+        fx += p.mass * force[j].x();
+        fy += p.mass * force[j].y();
+        fz += p.mass * force[j].z();
+        gpot += 0.5*p.mass*force[j].w();
+      }
+    }
+    assert(mtot > 0.0);
+    fprintf(stderr, " mtot= %g  ftot= %g %g %g  gpot= %g\n",
+        mtot, fx/mtot, fy/mtot, fz/mtot, gpot/mtot);
+  }
+#endif
+  double t120 = get_wtime();
 
 
   fprintf(stderr, " Timing info: \n");
@@ -293,6 +326,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   RangeS1:   %g sec <nb>= %g \n", t100 -t90, (real)nb1/n_bodies);
 #endif
   fprintf(stderr, "   MultiP:   %g sec \n", t110 -t100);
+  fprintf(stderr, "   gForce:   %g sec \n", t120 -t110);
 
   return 0;
 }

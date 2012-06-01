@@ -21,7 +21,7 @@ struct float4
   operator _v4sf() const {return vec;}
   float4 operator-(const float4 rhs) const
   {
-    return (_v4sf)rhs - vec;
+    return vec - (_v4sf)rhs;
   }
   float4 operator+(const float4 rhs) const
   {
@@ -179,6 +179,7 @@ template <class REAL> struct vector3{
     operator REAL *(){
       return &x;
     }
+    float4 to_float4() const {return float4(x,y,z,0.0f);}
     REAL (*toPointer())[3]{
       return (REAL (*)[3])&x;
     }

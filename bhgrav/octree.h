@@ -38,9 +38,9 @@ struct Particle
 
 struct Octree
 {
-  private:
-
   enum {NLEAF =  64};
+
+  private:
   enum {EMPTY =  -1};
   enum {BODYX =  -2};
   

@@ -19,10 +19,10 @@ struct Body
     packed_pos(p.pos.x, p.pos.y, p.pos.z, p.h), packed_mass((float)idx, 0.0f, 0.0f, p.mass) {}
   Body(const vec3 &pos, const float h, const int idx = -1, const float mass = 0.0f) : 
     packed_pos(pos.x, pos.y, pos.z, h), packed_mass((float)idx, 0.0f, 0.0f, mass) {}
-  int           idx() const {return packed_mass.x();}
-  float        mass() const {return packed_mass.w();}
-  float           h() const {return packed_pos .w();}
-  float4      pos_h() const {return packed_pos;     }
+  int           idx() const {return (int)packed_mass.x();}
+  float        mass() const {return      packed_mass.w();}
+  float           h() const {return      packed_pos .w();}
+  float4      pos_h() const {return      packed_pos;     }
   vec3   vector_pos() const {return vec3(packed_pos.x(), packed_pos.y(), packed_pos.z());}
 #ifdef __SSE_H__
   Body& operator=(const Body &rhs)

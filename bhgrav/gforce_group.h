@@ -14,12 +14,24 @@ inline bool split_node(
   return ds2 <= cellCoM.w();
 }
 
-template<const bool ROOT, const int Ng, const int Nc, const int Np>
-void gforce(
+  template<const int Ng>
+void gForce(const GroupT<Ng> &group, float4 force[Ng]) const
+{
+  const int Ncell = NLEAF;
+  const int Nptcl = NLEAF*16;
+  float4 ptcl_list[Nptcl ];
+  int    cell_list[Ncell ];
+  int nc = 0, np = 0;
+
+  gForce<true, Ncell, Nptcl>(group, force, cell_list, nc, ptcl_list, np);
+}
+
+template<const bool ROOT, const int Nc, const int Np, const int Ng>
+void gForce(
+    const GroupT<Ng> &group,
     float4     force[Ng  ],         /* maximal number of particles in a group  */
     int    cell_list[Nc*2], int &nc, /* list for particle-cell interactions     */
     float4 ptcl_list[Np*2], int &np, /* list for particle-particle interactions */
-    const  GroupT<Ng> &group, 
     const  float4 &groupCentre = 0.0, const float4 &groupSize = 0.0, const int addr = 0) const
 {
   if (ROOT)
@@ -28,15 +40,15 @@ void gforce(
     assert(Np >= 8*NLEAF);
     assert(Nc >  8);
     const boundary bnd = group.outerBoundary();
-    const float4 groupCentre = bnd.center();
-    const float4 groupSize   = bnd.hlen()*(real)2.0;
+    const float4 groupCentre =  bnd.center().           to_float4();
+    const float4 groupSize   = (bnd.hlen  ()*(real)2.0).to_float4();
     nc = np = 0;
     for (int i = 0; i < Ng; i++)
       force[i] = 0.0f;
     for (int k = 0; k < 8; k++)
       if (!cellList[k].isEmpty())
         if (split_node(cellCoM[cellList[k].id()], groupCentre, groupSize))
-          gforce<false>(force, cell_list, nc, ptcl_list, np,  group, groupCentre, groupSize, k);
+          gForce<false, Nc, Np>(group, force, cell_list, nc, ptcl_list, np, groupCentre, groupSize, k);
   }
   else
   {
@@ -47,7 +59,7 @@ void gforce(
         if (!cellList[cell.addr()+k].isEmpty())
         {
           if (split_node(cellCoM[cellList[cell.addr()+k].id()], groupCentre, groupSize))
-            gforce<false>(force, cell_list, nc, ptcl_list, np, group, groupCentre, groupSize, cell.addr()+k);
+            gForce<false, Nc, Np>(group, force, cell_list, nc, ptcl_list, np, groupCentre, groupSize, cell.addr()+k);
         }
         else
           cell_list[nc++] = cell.addr() + k;
@@ -59,26 +71,26 @@ void gforce(
         ptcl_list[np++] = leaf[i].pos_mass();
     }
 
-    if (np >= Np) np = particle_particle<Ng, Np>(force, ptcl_list, np, group);
-    if (nc >= Nc) nc = particle_cell    <Ng, Nc>(force, cell_list, nc, group);
+    if (np >= Np) np = particle_particle<Np>(group, force, ptcl_list, np);
+    if (nc >= Nc) nc = particle_cell    <Nc>(group, force, cell_list, nc);
   }
 }
 
-template<const int Ng, const int Np>
+template<const int Np, const int Ng>
 int particle_particle(
+    const  GroupT<Ng> &group,
     float4     force[Ng  ],       
-    float4 ptcl_list[Np*2], int np,
-    const  GroupT<Ng> &group)
+    float4 ptcl_list[Np*2], int np) const
 {
 
   return __max(np - Np, 0);
 }
 
-  template<const int Ng, const int Nc>
+  template<const int Nc, const int Ng>
 int particle_cell(
+    const GroupT<Ng> &group,
     float4    force[Ng  ],       
-    int   cell_list[Nc*2], int nc,
-    const GroupT<Ng> &group)
+    int   cell_list[Nc*2], int nc) const
 {
 
   return __max(nc - Nc, 0);
