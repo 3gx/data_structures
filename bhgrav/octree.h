@@ -398,7 +398,10 @@ struct Octree
         bndsList.resize(ncell);
         for (int k = 0; k < 8; k++)
           if (!cellList[k].isEmpty() && cellList[k].isTouched())
-            bnds.merge(bndsList[cellList[k].id()] = computeBoundaries<false>(k));
+          {
+            computeBoundaries<false>(k);
+            bnds.merge(bndsList[cellList[k].id()]);
+          }
         treeReady = true;
       }
       else
@@ -413,7 +416,10 @@ struct Octree
         {
           for (int k = cell.addr(); k < cell.addr()+8; k++)
             if (!cellList[k].isEmpty() && cellList[k].isTouched())
-              bnds.merge(computeBoundaries<false>(k));
+            {
+              computeBoundaries<false>(k);
+              bnds.merge(bndsList[cellList[k].id()]);
+            }
         }
         else
         {
