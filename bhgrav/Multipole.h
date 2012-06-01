@@ -21,6 +21,12 @@ struct Monopole
     return *this;
   }
 
+  void complete()
+  {
+    assert(_mass > 0.0);
+    _mpos *= 1.0/_mass;
+  }
+
   const dvec3& mpos() const {return _mpos;}
   dvec3   pos() const {return _mpos*(1.0/_mass);}
   double mass() const {return _mass;}
@@ -108,6 +114,8 @@ struct Multipole
     m._quadrupole += Quadrupole(_pos, -_mass);
     m._quadrupole *= 3.0;
     m._quadrupole += Quadrupole(-P, Quadrupole::UNIT);
+
+    m._monopole.complete();
 
     return m;
   }

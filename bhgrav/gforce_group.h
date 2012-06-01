@@ -72,7 +72,7 @@ void gForce(
                 groupCentre, groupSize, cell.addr()+k);
           else
           {
-            cell_list[nc++] = cell.addr() + k;
+            cell_list[nc++] = cellList[cell.addr() + k].id();
             nc_tot++;
           }
         }
@@ -96,9 +96,6 @@ int particle_particle(
     float4     force[Ng  ],       
     float4 ptcl_list[Np*2], int np) const
 {
-  const float eps = 0.1;
-  const float eps2 = eps*eps;
-
   const int ni = group.nb();
   const int nj = np;
 
@@ -132,7 +129,56 @@ int particle_cell(
     float4    force[Ng  ],       
     int   cell_list[Nc*2], int nc) const
 {
-  return __max(nc - Nc, 0);
+  const int ni = group.nb();
+  const int nj = nc;
+
+  for (int i = 0; i < ni; i++)
+  {
+    const float4 ip = group[i].pos_mass();
+    for (int j = 0; j < nj; j++)
+    {
+      const Multipole &multipole = multipoleList[cell_list[j]];
+      const Monopole   &m =   multipole.monopole();
+      const Quadrupole &q = multipole.quadrupole();
+
+      const float4 jp = float4(m.mpos().x, m.mpos().y, m.mpos().z, m.mass());
+      const float4 dr = jp - ip;
+      const float  r2 = dr.norm2() + eps2;
+      assert(r2 > 0.0f);
+      const float  mj = jp.w();
+
+      const float  rinv  = 1.0f/std::sqrt(r2);
+      const float mrinv  = rinv*mj;
+      const float mrinv3 = rinv*rinv*mrinv;
+
+      float4 acc = dr * v4sf(mrinv3);
+      acc.w() = -mrinv;
+
+      const int rinv2 = rinv*rinv;
+      const int rinv4 = rinv2*rinv2;
+      const int rinv5 = rinv4*rinv;
+      const int rinv7 = rinv5*rinv2;
+
+      const double dx = dr.x();
+      const double dy = dr.y();
+      const double dz = dr.z();
+
+      const double Qrx = q.xx()*dx + q.xy()*dy + q.xz()*dz;
+      const double Qry = q.xy()*dx + q.yy()*dy + q.yz()*dz;
+      const double Qrz = q.xz()*dx + q.yz()*dy + q.zz()*dz;
+
+      const double rQr = Qrx*dx + Qry*dy + Qrz*dz;
+      float4 qacc1 = float4(2.5f*rinv7*rQr)*dr;
+      qacc1.w() = (-0.5f)*rinv5*rQr;
+
+      qacc1 = qacc1 - v4sf(rinv5)*(_v4sf){Qrx, Qry, Qrz, 0.0f};
+      acc = acc +  qacc1;
+
+      force[i] = force[i] + acc;
+    }
+  }
+
+  return 0;
 }
 
 
