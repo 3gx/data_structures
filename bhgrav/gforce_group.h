@@ -121,12 +121,9 @@ int particle_particle(
 
       force[i] = force[i] + acc;
     }
-     
-    return 0; 
   }
 
-
-  return __max(np - Np, 0);
+  return 0;
 }
 
 template<const int Nc, const int Ng>
