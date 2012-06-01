@@ -204,13 +204,13 @@ void range_search(
       for (int i = 0; i < igroup.nb(); i++)
       {
         const Body &ibody = igroup[i];
-        const float4 ipos = ibody.packed_pos();
+        const float4 ipos = ibody.pos_h();
         const real     h  = ibody.h();
         const real     h2 = h*h;
         if (overlapped(boundary(ipos), leafBnd))
           for (int j = 0; j < leaf.nb(); j++)
           {
-            const float4 jpos = leaf[j].packed_pos();
+            const float4 jpos = leaf[j].pos_h();
             const float  r2   = (ipos - jpos).norm2();
             if (r2 < h2)
               nb[i]++;

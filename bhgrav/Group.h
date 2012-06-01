@@ -44,7 +44,7 @@ struct GroupT
   {
     boundary bnd;
     for (int i = 0; i < _nb; i++)
-      bnd.merge(_list[i].packed_pos());
+      bnd.merge(_list[i].pos_h());
     return bnd;
   }
   Boundaries computeBoundaries() const

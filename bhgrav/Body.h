@@ -5,22 +5,25 @@ struct Body
 {
   typedef std::vector<Body> Vector;
   private:
-  float4 Packed_pos;
+  float4 packed_pos;
   int _idx;
-  int iPad1, iPad2, iPad3; /* padding */
+  float _mass;
+  int   iPad2, iPad3; /* padding */
 
   public:
   Body() 
   {
     assert(sizeof(Body) == sizeof(float)*8);
   }
-  Body(const vec3 &pos, const int idx, const float h = 0.0f) : Packed_pos(float4(pos.x, pos.y, pos.z, h)), _idx(idx) {}
-  Body(const Particle &p, const int idx) : Packed_pos(float4(p.pos.x, p.pos.y, p.pos.z, p.h)), _idx(idx) {}
-  Body(const vec3 &pos, const float h, const int idx = -1) : Packed_pos(pos.x, pos.y, pos.z, h), _idx(idx) {};
-  int idx() const {return _idx;}
-  float4 packed_pos() const {return Packed_pos;}
-  float          h()  const {return Packed_pos.w();}
-  vec3   vector_pos() const {return vec3(Packed_pos.x(), Packed_pos.y(), Packed_pos.z());}
+  Body(const vec3 &pos, const int idx, const float h = 0.0f, const float m = 0.0f) : packed_pos(float4(pos.x, pos.y, pos.z, h)), _idx(idx), _mass(m) {}
+  Body(const Particle &p, const int idx) : packed_pos(float4(p.pos.x, p.pos.y, p.pos.z, p.h)), _idx(idx), _mass(p.mass) {}
+  Body(const vec3 &pos, const float h, const int idx = -1, const float mass = 0.0f) : packed_pos(pos.x, pos.y, pos.z, h), _idx(idx), _mass(mass) {};
+  int           idx() const {return _idx;}
+  float        mass() const {return _mass;}
+  float4      pos_h() const {return packed_pos;}
+  float           h() const {return packed_pos.w();}
+  float4   pos_mass() const {return float4(packed_pos.x(), packed_pos.y(), packed_pos.z(), _mass); }
+  vec3   vector_pos() const {return vec3(packed_pos.x(), packed_pos.y(), packed_pos.z());}
 #ifdef __SSE_H__
   Body& operator=(const Body &rhs)
   {

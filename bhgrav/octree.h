@@ -69,14 +69,17 @@ struct Octree
   std::stack<int>    cellPool;    /* pool of available cells */
   Boundaries::Vector bndsList;    /* list of cell  boundaries */
 
+  real theta;                              /* theta opening criterion */
+  std::vector<float4> cellCoM; /* precomputed criterio tree-cells */
+
   Multipole::Vector multipoleList;
 
   std::vector<int> leafList_addr;
 
   public:
 
-  Octree(const vec3 &_centre, const real _size, const int n_nodes) :
-    depth(0), nnode(0), ncell(0), treeReady(false)
+  Octree(const vec3 &_centre, const real _size, const int n_nodes, const int _theta = 0.75) :
+    depth(0), nnode(0), ncell(0), treeReady(false), theta(_theta)
   {
     root_centre = float4(_centre.x, _centre.y, _centre.z, _size);
     cellList.resize(n_nodes<<3);
@@ -100,6 +103,7 @@ struct Octree
     leafList.clear();
     bndsList.clear();
     leafList_addr.clear();
+    cellCoM.clear();
     leafPool = std::stack<int>();
   }
   bool isTreeReady() const {return treeReady;}
@@ -206,8 +210,8 @@ struct Octree
       const Cell node = child;
       depth++;
 
-      child_idx  =       Octant(centre, new_body.packed_pos());
-      centre     = child_centre(centre, new_body.packed_pos());
+      child_idx  =       Octant(centre, new_body.pos_h());
+      centre     = child_centre(centre, new_body.pos_h());
 
       locked = node.addr() + child_idx;
       assert(locked < n_nodes_max);
@@ -244,7 +248,7 @@ struct Octree
         for (int i = 0; i < leaf.nb(); i++)
         {
           const Body &body = leaf[i];
-          child_idx  = Octant(centre, body.packed_pos());
+          child_idx  = Octant(centre, body.pos_h());
           Cell &cell = cellList[cfirst + child_idx];
           cell++;
           if (cell.isEmpty())
@@ -259,8 +263,8 @@ struct Octree
           }
         }
 
-        child_idx =       Octant(centre, new_body.packed_pos());
-        centre    = child_centre(centre, new_body.packed_pos());
+        child_idx =       Octant(centre, new_body.pos_h());
+        centre    = child_centre(centre, new_body.pos_h());
 
         locked = cfirst + child_idx;
         Cell &child  = cellList[locked];
@@ -296,8 +300,8 @@ struct Octree
       const Cell node = child;
       depth++;
 
-      child_idx  =       Octant(centre, body.packed_pos());
-      centre     = child_centre(centre, body.packed_pos());
+      child_idx  =       Octant(centre, body.pos_h());
+      centre     = child_centre(centre, body.pos_h());
 
       locked = node.addr() + child_idx;
       assert(locked < n_nodes_max);
@@ -468,7 +472,7 @@ struct Octree
           {
             const vec3 jpos = leaf[i].vector_pos();
             assert(overlapped(bndsList[cell.id()].inner(), jpos));
-            assert(overlapped(bndsList[cell.id()].outer(), leaf[i].packed_pos()));
+            assert(overlapped(bndsList[cell.id()].outer(), leaf[i].pos_h()));
             nb++;
           }
         }

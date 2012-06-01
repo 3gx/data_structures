@@ -7,7 +7,7 @@ int range_search(const Body &ibody, const boundary &ibnd = boundary(), const int
   if (ROOT)
   {
     assert(isTreeReady());
-    const boundary ibnd(ibody.packed_pos());
+    const boundary ibnd(ibody.pos_h());
     for (int k = 0; k < 8; k++)
       if (!cellList[k].isEmpty())
         if (!not_overlapped(ibnd, bndsList[cellList[k].id()].inner()))
@@ -26,11 +26,11 @@ int range_search(const Body &ibody, const boundary &ibnd = boundary(), const int
     else
     {
       const Leaf &leaf  = leafList[cell.leafIdx()];
-      const float4 ipos = ibody.packed_pos();
+      const float4 ipos = ibody.pos_h();
       const real     h2 = ibody.h()*ibody.h();
       for (int i = 0; i < leaf.nb(); i++)
       {
-        const float4 jpos = leaf[i].packed_pos();
+        const float4 jpos = leaf[i].pos_h();
         const float  r2   = (ipos - jpos).norm2();
         if (r2 < h2)
           nb++;

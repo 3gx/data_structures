@@ -17,7 +17,7 @@ int main(int argc, char * argv[])
   const double t00 = get_wtime();
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
-#if 1
+#if 0
 #define PLUMMER
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
