@@ -17,7 +17,7 @@ int main(int argc, char * argv[])
   const double t00 = get_wtime();
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
-#if 0
+#if 1
 #define PLUMMER
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
@@ -279,13 +279,16 @@ int main(int argc, char * argv[])
     real   gpot = 0.0;
     real   mtot = 0.0;
     double fx = 0, fy = 0, fz = 0;
-#pragma omp parallel for reduction(+:mtot, gpot_tot, fc, fy, fz);
+    unsigned long long npc = 0, npp = 0;
+#pragma omp parallel for reduction(+:mtot, gpot_tot, fc, fy, fz, npc, ncc)
     for (int i = 0; i < ngroup; i++)
     {
       const octGroup &group = groupList[i];
       float4 force[NGROUP];
 
       tree.gForce(group, force);
+      npp += (int)force[0].x();
+      npc += (int)force[1].x();
 
       for (int j = 0; j < group.nb(); j++)
       {
@@ -299,6 +302,8 @@ int main(int argc, char * argv[])
       }
     }
     assert(mtot > 0.0);
+    fprintf(stderr, " Npp= %g  Npc= %g\n",
+        (double)npp/n_bodies, (double)npc/n_bodies);
     fprintf(stderr, " mtot= %g  ftot= %g %g %g  gpot= %g\n",
         mtot, fx/mtot, fy/mtot, fz/mtot, gpot/mtot);
   }

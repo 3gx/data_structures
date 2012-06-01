@@ -49,6 +49,9 @@ void gForce(
       if (!cellList[k].isEmpty())
         if (split_node(cellCoM[cellList[k].id()], groupCentre, groupSize))
           gForce<false, Nc, Np>(group, force, cell_list, nc, ptcl_list, np, groupCentre, groupSize, k);
+
+    np = particle_particle<Np>(group, force, ptcl_list, np);
+    nc = particle_cell    <Nc>(group, force, cell_list, nc);
   }
   else
   {
@@ -60,13 +63,13 @@ void gForce(
         {
           if (split_node(cellCoM[cellList[cell.addr()+k].id()], groupCentre, groupSize))
             gForce<false, Nc, Np>(group, force, cell_list, nc, ptcl_list, np, groupCentre, groupSize, cell.addr()+k);
+          else
+            cell_list[nc++] = cell.addr() + k;
         }
-        else
-          cell_list[nc++] = cell.addr() + k;
     }
     else
     {
-      const Leaf  leaf = leafList[cell.leafIdx()];
+      const Leaf &leaf = leafList[cell.leafIdx()];
       for (int i = 0; i < leaf.nb(); i++)
         ptcl_list[np++] = leaf[i].pos_mass();
     }
@@ -82,20 +85,24 @@ int particle_particle(
     float4     force[Ng  ],       
     float4 ptcl_list[Np*2], int np) const
 {
+  force[0].x() = force[0].x() + np*group.nb();
+  return 0;
 
   return __max(np - Np, 0);
 }
 
-  template<const int Nc, const int Ng>
+template<const int Nc, const int Ng>
 int particle_cell(
     const GroupT<Ng> &group,
     float4    force[Ng  ],       
     int   cell_list[Nc*2], int nc) const
 {
+  force[1].x() = force[1].x() + nc*group.nb();
+  return 0;
 
   return __max(nc - Nc, 0);
 }
-    
-    
+
+
 
 #endif /* __GFORCE_GROUP_H__ */
