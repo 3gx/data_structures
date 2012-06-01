@@ -35,6 +35,7 @@ endif
 
 LDFLAGS = 
 
+
 SRCPATH = ./
 SRC = octree.cpp
 OBJ = $(SRC:%.cpp=%.o) 
@@ -59,7 +60,10 @@ clean:
 clean_all:
 	/bin/rm -rf *.o $(PROG) plummer.dat *~
 
-$(OBJ): octree.h plummer.h mytimer.h vector3.h boundary4.h peano.h
+$(OBJ): mytimer.h sse.h avx.h vector3.h boundary4.h peano.h primitives.h \
+	octree.h Body.h Cell.h Boundaries.h Group.h \
+	range_search_ptcl.h range_search_group.h \
+	Multipole.h
 
 
 

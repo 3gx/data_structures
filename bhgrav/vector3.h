@@ -140,24 +140,20 @@ struct float4
 
 template <class REAL> struct vector3{
 public:
-  REAL x, y, z, w;
-  vector3 (const float4 r) : x(r.x()), y(r.y()), z(r.z()), w(r.w())  {}
+  REAL x, y, z;
+  vector3 (const float4 r) : x(r.x()), y(r.y()), z(r.z()) {}
 
 	vector3(){
 		x = y = z = REAL(0);
-    w = REAL(0);
 	}
 	vector3(const REAL &r){
 		x = y = z = r;
-    w = REAL(0);
 	}
 	vector3(const REAL &_x, const REAL &_y, const REAL &_z){
 		x = _x;  y = _y;  z = _z;
-    w = REAL(0);
 	}
 	vector3(const REAL *p){
 		x = p[0]; y = p[1]; z = p[2];
-    w = REAL(0);
 	}
 	~vector3(){}
 

@@ -22,7 +22,7 @@ int main(int argc, char * argv[])
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
-    ptcl.push_back(Particle(data.pos[i], data.mass[i]));
+    ptcl.push_back(Particle(data.mass[i], data.pos[i], data.vel[i], i));
   }
 #elif 0  /* reads IC */
   int dummy;
@@ -41,9 +41,10 @@ int main(int argc, char * argv[])
     const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
     for (int i = 0; i < n_bodies; i++)
     {
-      ptcl.push_back(Particle(
+      ptcl.push_back(Particle(1.0/n_bodies,
             vec3(drand48(), drand48(), drand48()),
-            1.0/n_bodies, s));
+            vec3(0.0, 0.0, 0.0),
+            1, s));
     }
   }
 #endif
@@ -95,18 +96,12 @@ int main(int argc, char * argv[])
 
   const double t40 = get_wtime();
   fprintf(stderr, " -- Shuffle octBodies -- \n");
-  Octree::Body::Vector octBodiesSorted;
-  octBodiesSorted.reserve(n_bodies);
+  Particle::Vector sortedPtcl;
+  sortedPtcl.reserve(n_bodies);
   for (std::vector<int>::iterator it = morton_list.begin(); it != morton_list.end(); it++)
   {
     assert(*it < n_bodies);
-    octBodiesSorted.push_back(octBodies[*it]);
-#if 0
-    fprintf(stdout, "%g %g %g \n", 
-        octBodiesSorted.back().pos().x,
-        octBodiesSorted.back().pos().y,
-        octBodiesSorted.back().pos().z);
-#endif
+    sortedPtcl.push_back(ptcl[octBodies[*it].idx()]);
   }
 
   const double t50 = get_wtime();
@@ -114,7 +109,7 @@ int main(int argc, char * argv[])
   tree.clear();
   for (int i = 0; i < n_bodies; i++)
   {
-    tree.insert(octBodiesSorted[i]);
+    tree.insert(Octree::Body(sortedPtcl[i], i));
   }
   fprintf(stderr, "ncell= %d nnode= %d nleaf= %d n_nodes= %d  depth= %d\n",
       tree.get_ncell(), tree.get_nnode(), tree.get_nleaf(), n_nodes, tree.get_depth());
@@ -149,10 +144,10 @@ int main(int argc, char * argv[])
   const double t65 = get_wtime();
   tree.buildLeafList<true>();
   const double t68 = get_wtime();
- 
+
   octGroup::Vector groupList;
   groupList.reserve(tree.nLeaf());
-  
+
   const bool SORT = 0 ? true : false;  /* use peano-sort inside the group */
   tree.buildGroupList<SORT, true>(groupList);
 
@@ -167,7 +162,7 @@ int main(int argc, char * argv[])
 #if 0
     nb += tree.range_search<true>(octBodies[i]);
 #else
-    nb += tree.range_search<true>(octBodiesSorted[i]);
+    nb += tree.range_search<true>(Octree::Body(sortedPtcl[i], i));
 #endif
   }
 #endif
@@ -238,8 +233,28 @@ int main(int argc, char * argv[])
 #endif
   }
 #endif
-  const double t100 = get_wtime();
 #endif
+  const double t100 = get_wtime();
+
+#if 1
+  {
+    fprintf(stderr, " Computing multipole \n");
+    const Octree::Multipole rootM = tree.computeMultipole<true>(ptcl);
+    fprintf(stderr,  " Mass= %g \n", rootM.monopole().mass());
+    const vec3 mpos = rootM.monopole().mpos();
+    fprintf(stderr, " Monopole= %g %g %g  \n", mpos.x, mpos.y, mpos.z);
+    fprintf(stderr, " Quadrupole: xx= %g yy= %g zz= %g trace= %g  xy= %g xz= %g zz= %g \n",
+        rootM.quadrupole().xx(),
+        rootM.quadrupole().yy(),
+        rootM.quadrupole().zz(),
+        rootM.quadrupole().trace(),
+        rootM.quadrupole().xy(),
+        rootM.quadrupole().xz(),
+        rootM.quadrupole().yz());
+  }
+#endif
+
+  const double t110 = get_wtime();
 
 
   fprintf(stderr, " Timing info: \n");
@@ -261,6 +276,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   Insert:   %g sec nins= %d \n", t90 - t80, nins);
   fprintf(stderr, "   RangeS1:   %g sec <nb>= %g \n", t100 -t90, (real)nb1/n_bodies);
 #endif
+  fprintf(stderr, "   MultiP:   %g sec \n", t110 -t100);
 
   return 0;
 }

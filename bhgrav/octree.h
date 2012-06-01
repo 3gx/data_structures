@@ -23,14 +23,16 @@
 struct Particle
 {
   typedef std::vector<Particle> Vector;
+  real mass;
   vec3 pos;
+  vec3 vel;
   int  id;
   real h;
   int nb;
 
   Particle() {}
-  Particle(const vec3 &_pos, const int _id, const real _h = 0.0) :
-    pos(_pos), id(_id), h(_h), nb(0) {}
+  Particle(const real _mass, const vec3 &_pos, const vec3 &_vel, const int _id, const real _h = 0.0) :
+    mass(_mass), pos(_pos), vel(_vel), id(_id), h(_h), nb(0) {}
 };
 
 
@@ -50,6 +52,7 @@ struct Octree
 #include "Cell.h"
 #include "Boundaries.h"
 #include "Group.h"
+#include "Multipole.h"
 
   typedef GroupT<NLEAF> Leaf;
 
@@ -65,6 +68,8 @@ struct Octree
   std::stack<int>    leafPool;    /* pool of available leaves */
   std::stack<int>    cellPool;    /* pool of available cells */
   Boundaries::Vector bndsList;    /* list of cell  boundaries */
+
+  Multipole::Vector multipoleList;
 
   std::vector<int> leafList_addr;
 
@@ -369,7 +374,6 @@ struct Octree
     for (int k = 0; k < 8; k++)
       if (!cellList[k].isEmpty())
       {
-        assert(!cellList[k].isTouched());
         bnd.merge(bndsList[cellList[k].id()].inner());
       }
     return bnd;
@@ -380,7 +384,6 @@ struct Octree
     for (int k = 0; k < 8; k++)
       if (!cellList[k].isEmpty())
       {
-        assert(!cellList[k].isTouched());
         bnd.merge(bndsList[cellList[k].id()].outer());
       }
     return bnd;
@@ -418,7 +421,7 @@ struct Octree
           bnds.merge(leaf.computeBoundaries());
         }
         bndsList[cell.id()] = bnds;
-        cell.unsetTouched();
+//        cell.unsetTouched();
       }
       return bnds;
     }
