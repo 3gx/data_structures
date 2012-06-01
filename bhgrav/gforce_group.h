@@ -96,6 +96,35 @@ int particle_particle(
     float4     force[Ng  ],       
     float4 ptcl_list[Np*2], int np) const
 {
+  const float eps = 0.1;
+  const float eps2 = eps*eps;
+
+  const int ni = group.nb();
+  const int nj = np;
+
+  for (int i = 0; i < ni; i++)
+  {
+    const float4 ip = group[i].pos_mass();
+    for (int j = 0; j < nj; j++)
+    {
+      const float4 jp = ptcl_list[j];
+      const float4 dr = jp - ip;
+      const float  r2 = dr.norm2() + eps2;
+      const float  mj = jp.w();
+
+      const float  rinv  = 1.0f/std::sqrt(r2);
+      const float mrinv  = rinv*mj;
+      const float mrinv3 = rinv*rinv*mrinv;
+
+      float4 acc = dr * v4sf(mrinv3);
+      acc.w() = -mrinv;
+
+      force[i] = force[i] + acc;
+    }
+     
+    return 0; 
+  }
+
 
   return __max(np - Np, 0);
 }
@@ -106,7 +135,6 @@ int particle_cell(
     float4    force[Ng  ],       
     int   cell_list[Nc*2], int nc) const
 {
-
   return __max(nc - Nc, 0);
 }
 

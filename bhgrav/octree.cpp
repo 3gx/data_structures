@@ -277,7 +277,7 @@ int main(int argc, char * argv[])
   {
     fprintf(stderr, " Computing gForce \n");
     real   gpot = 0.0;
-    real   mtot = 0.0;
+    double mtot = 0.0;
     double fx = 0, fy = 0, fz = 0;
     unsigned long long npc = 0, npp = 0;
 #pragma omp parallel for reduction(+:mtot, gpot, fx, fy, fz, npc, npp)
