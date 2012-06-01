@@ -573,9 +573,12 @@ struct Octree
 
   /**************/
 
-
 #include "range_search_ptcl.h"
 #include "range_search_group.h"
+  
+  /**************/
+
+#include "gforce_group.h"
 
 };
 

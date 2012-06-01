@@ -63,7 +63,7 @@ clean_all:
 $(OBJ): mytimer.h sse.h avx.h vector3.h boundary4.h peano.h primitives.h \
 	octree.h Body.h Cell.h Boundaries.h Group.h \
 	range_search_ptcl.h range_search_group.h \
-	Multipole.h
+	Multipole.h gforce_group.h
 
 
 
