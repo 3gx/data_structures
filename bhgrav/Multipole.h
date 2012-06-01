@@ -165,7 +165,7 @@ Multipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
 
     const int id = cell.id();
     const Multipole &m = multipoleList[id];
-    const vec3 com = m.monopole().pos();
+    const vec3 com = m.monopole().mpos();
     const float  s = (bndsList[id].inner().center() - com).abs();
     const vec3 len =  bndsList[id].inner().  hlen();
     const float  l = __max(len.x, __max(len.y, len.z)) * 2.0f;

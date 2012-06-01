@@ -62,27 +62,29 @@ void gForce(
   else
   {
     const Cell cell = cellList[addr];
-    if (cell.isNode())
+    if (split_node(cellCoM[cell.id()], groupCentre, groupSize))
     {
-      for (int k = 0; k < 8; k++)
-        if (!cellList[cell.addr()+k].isEmpty())
-        {
-          if (split_node(cellCoM[cellList[cell.addr()+k].id()], groupCentre, groupSize))
+      if (cell.isNode())
+      {
+        for (int k = 0; k < 8; k++)
+          if (!cellList[cell.addr()+k].isEmpty())
             gForce<false, Nc, Np>(group, force, cell_list, nc, ptcl_list, np, np_tot, nc_tot,
                 groupCentre, groupSize, cell.addr()+k);
-          else
-          {
-            cell_list[nc++] = cellList[cell.addr() + k].id();
-            nc_tot++;
-          }
-        }
+      }
+      else
+      {
+        const Leaf &leaf = leafList[cell.leafIdx()];
+        for (int i = 0; i < leaf.nb(); i++)
+          ptcl_list[np++] = leaf[i].pos_mass();
+        assert(np <= 2*Np);
+        np_tot += leaf.nb();
+      }
     }
     else
     {
-      const Leaf &leaf = leafList[cell.leafIdx()];
-      for (int i = 0; i < leaf.nb(); i++)
-        ptcl_list[np++] = leaf[i].pos_mass();
-      np_tot += leaf.nb();
+      cell_list[nc++] = cell.id();
+      nc_tot++;
+      assert(nc <= 2*Nc);
     }
 
     if (np >= Np) np = particle_particle<Np>(group, force, ptcl_list, np);
@@ -139,7 +141,6 @@ int particle_cell(
     {
       const Multipole &multipole = multipoleList[cell_list[j]];
       const Monopole   &m =   multipole.monopole();
-      const Quadrupole &q = multipole.quadrupole();
 
       const float4 jp = float4(m.mpos().x, m.mpos().y, m.mpos().z, m.mass());
       const float4 dr = jp - ip;
@@ -154,6 +155,8 @@ int particle_cell(
       float4 acc = dr * v4sf(mrinv3);
       acc.w() = -mrinv;
 
+#if 0
+      const Quadrupole &q = multipole.quadrupole();
       const int rinv2 = rinv*rinv;
       const int rinv4 = rinv2*rinv2;
       const int rinv5 = rinv4*rinv;
@@ -171,8 +174,9 @@ int particle_cell(
       float4 qacc1 = float4(2.5f*rinv7*rQr)*dr;
       qacc1.w() = (-0.5f)*rinv5*rQr;
 
-      qacc1 = qacc1 - v4sf(rinv5)*(_v4sf){Qrx, Qry, Qrz, 0.0f};
+      qacc1 = qacc1 - v4sf(rinv5)*(_v4sf){(float)Qrx, (float)Qry, (float)Qrz, 0.0f};
       acc = acc +  qacc1;
+#endif
 
       force[i] = force[i] + acc;
     }
