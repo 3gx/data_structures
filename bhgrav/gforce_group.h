@@ -2,9 +2,9 @@
 #define __GFORCE_GROUP_H__
 
 inline bool split_node(
-    const float4 cellCoM,
-    const float4 groupCentre,
-    const float4 groupSize)
+    const float4 &cellCoM,
+    const float4 &groupCentre,
+    const float4 &groupSize) const
 
 {
   const float4  dr = fabs(groupCentre - cellCoM) - groupSize;
