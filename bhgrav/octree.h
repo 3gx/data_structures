@@ -69,7 +69,7 @@ struct Octree
   std::stack<int>    cellPool;    /* pool of available cells */
   Boundaries::Vector bndsList;    /* list of cell  boundaries */
 
-  real theta;                              /* theta opening criterion */
+  real inv_theta;                 /* 1/theta opening criterion */
   std::vector<float4> cellCoM; /* precomputed criterio tree-cells */
 
   Multipole::Vector multipoleList;
@@ -78,8 +78,8 @@ struct Octree
 
   public:
 
-  Octree(const vec3 &_centre, const real _size, const int n_nodes, const int _theta = 0.75) :
-    depth(0), nnode(0), ncell(0), treeReady(false), theta(_theta)
+  Octree(const vec3 &_centre, const real _size, const int n_nodes, const real _theta = 0.75) :
+    depth(0), nnode(0), ncell(0), treeReady(false), inv_theta(1.0/__max(_theta, (real)1.0e-3))
   {
     root_centre = float4(_centre.x, _centre.y, _centre.z, _size);
     cellList.resize(n_nodes<<3);
@@ -105,6 +105,8 @@ struct Octree
     leafList_addr.clear();
     cellCoM.clear();
     leafPool = std::stack<int>();
+    multipoleList.clear();
+    cellCoM.clear();
   }
   bool isTreeReady() const {return treeReady;}
 

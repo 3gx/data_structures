@@ -98,17 +98,18 @@ struct Multipole
   const   Monopole   monopole() const {return   _monopole;}
   const Quadrupole quadrupole() const {return _quadrupole;}
 
-  const Multipole& complete()
+  Multipole complete() const 
   {
+    Multipole m(*this);
     const double _mass =   _monopole. mass();
     const dvec3   _pos =   _monopole.  pos();
     const double trace = _quadrupole.trace();
     const double P     = trace - _mass*_pos.norm2();
-    _quadrupole += Quadrupole(_pos, -_mass);
-    _quadrupole *= 3.0;
-    _quadrupole += Quadrupole(-P, Quadrupole::UNIT);
+    m._quadrupole += Quadrupole(_pos, -_mass);
+    m._quadrupole *= 3.0;
+    m._quadrupole += Quadrupole(-P, Quadrupole::UNIT);
 
-    return *this;
+    return m;
   }
 };
 
@@ -120,14 +121,11 @@ Multipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
   {
     assert(isTreeReady());
     multipoleList.resize(ncell);
+    cellCoM      .resize(ncell);
     for (int k = 0; k < 8; k++)
       if (!cellList[k].isEmpty() && cellList[k].isTouched())
-      {
-        computeMultipole<false>(ptcl, k);
-        multipole +=  multipoleList[cellList[k].id()];
-                      multipoleList[cellList[k].id()].complete();
-      }
-    multipole.complete();
+        multipole += computeMultipole<false>(ptcl, k);
+    multipole = multipole.complete();
   }
   else
   {
@@ -138,11 +136,7 @@ Multipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
       const int i = cell.addr();
       for (int k = 0; k < 8; k++)
         if (!cellList[i+k].isEmpty() && cellList[i+k].isTouched())
-        {
-          computeMultipole<false>(ptcl, i+k);
-          multipole += multipoleList[cellList[i+k].id()];
-                       multipoleList[cellList[i+k].id()].complete();
-        }
+          multipole += computeMultipole<false>(ptcl, i+k);
     }
     else
     {
@@ -154,7 +148,20 @@ Multipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
         multipole += Multipole(ptcl[idx].pos, ptcl[idx].mass);
       }
     }
-    multipoleList[cell.id()] = multipole;
+    multipoleList[cell.id()] = multipole.complete();
+
+    /* compute opening criterion for this cell */
+
+    const int id = cell.id();
+    const Multipole &m = multipoleList[id];
+    const vec3 com = m.monopole().pos();
+    const float  s = (bndsList[id].inner().center() - com).abs();
+    const vec3 len =  bndsList[id].inner().  hlen();
+    const float  l = __max(len.x, __max(len.y, len.z)) * 2.0f;
+    cellCoM[id] = float4(com.x, com.y, com.z, SQR(l*inv_theta + s));
+    
+    /* now the physical properties of the cell have been updated, unTouch it */
+
     cell.unsetTouched();
   }
   return multipole;

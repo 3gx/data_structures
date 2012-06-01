@@ -258,7 +258,7 @@ int main(int argc, char * argv[])
     Octree::Multipole M;
     for (int i = 0; i < n_bodies; i++)
       M += Octree::Multipole(ptcl[i].pos, ptcl[i].mass);
-    M.complete();
+    M = M.complete();
     fprintf(stderr,  " Mass= %g \n", M.monopole().mass());
     const vec3 mpos = M.monopole().mpos();
     fprintf(stderr, " Monopole= %g %g %g  \n", mpos.x, mpos.y, mpos.z);
