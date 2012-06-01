@@ -280,7 +280,7 @@ int main(int argc, char * argv[])
     real   mtot = 0.0;
     double fx = 0, fy = 0, fz = 0;
     unsigned long long npc = 0, npp = 0;
-#pragma omp parallel for reduction(+:mtot, gpot_tot, fc, fy, fz, npc, ncc)
+#pragma omp parallel for reduction(+:mtot, gpot, fx, fy, fz, npc, npp)
     for (int i = 0; i < ngroup; i++)
     {
       const octGroup &group = groupList[i];
