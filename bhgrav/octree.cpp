@@ -286,9 +286,9 @@ int main(int argc, char * argv[])
       const octGroup &group = groupList[i];
       float4 force[NGROUP];
 
-      tree.gForce(group, force);
-      npp += (int)force[0].x();
-      npc += (int)force[1].x();
+      const std::pair<int, int> ninter = tree.gForce(group, force);
+      npp += ninter.first;
+      npc += ninter.second;
 
       for (int j = 0; j < group.nb(); j++)
       {
