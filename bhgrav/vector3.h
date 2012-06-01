@@ -7,37 +7,37 @@
 
 struct float4
 {
-#ifdef __mySSE__
-  v4sf vec;
-  float4(const v4sf _vec) : vec(_vec){}
+#ifdef __SSE_H__
+  _v4sf vec;
+  float4(const _v4sf _vec) : vec(_vec){}
   float4(const float _x, const float _y, const float _z, const float _w) 
   {
-    vec = (v4sf){_x, _y, _z, _w};
+    vec = (_v4sf){_x, _y, _z, _w};
   }
   float4(const float _x)
   {
-    vec = (v4sf){_x, _x, _x, _x};
+    vec = (_v4sf){_x, _x, _x, _x};
   }
-  operator v4sf() const {return vec;}
+  operator _v4sf() const {return vec;}
   float4 operator-(const float4 rhs) const
   {
-    return (v4sf)rhs - vec;
+    return (_v4sf)rhs - vec;
   }
   float4 operator+(const float4 rhs) const
   {
-    return (v4sf)rhs + vec;
+    return (_v4sf)rhs + vec;
   }
   float4 operator*(const float4 rhs) const
   {
-    return (v4sf)rhs * vec;
+    return (_v4sf)rhs * vec;
   }
   float norm2() const
   {
-    const v4si mask = (v4si){-1, -1, -1, 0}; //0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0};
-    const v4sf r    = __builtin_ia32_andps(vec, (v4sf)mask);
-    const v4sf r2   = r*r;
-    const v4sf tmp  = __builtin_ia32_haddps(r2,  r2);
-    const v4sf res  = __builtin_ia32_haddps(tmp, tmp);
+    const _v4si mask = (_v4si){-1, -1, -1, 0}; //0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0};
+    const _v4sf r    = __builtin_ia32_andps(vec, (_v4sf)mask);
+    const _v4sf r2   = r*r;
+    const _v4sf tmp  = __builtin_ia32_haddps(r2,  r2);
+    const _v4sf res  = __builtin_ia32_haddps(tmp, tmp);
     return __builtin_ia32_vec_ext_v4sf(res, 0);
   }
 
@@ -46,8 +46,8 @@ struct float4
   template<int e>
     struct Accessor
     {
-      v4sf &vec;
-      Accessor(v4sf &_vec) : vec(_vec) {}
+      _v4sf &vec;
+      Accessor(_v4sf &_vec) : vec(_vec) {}
       operator float() 
       {
         return __builtin_ia32_vec_ext_v4sf(vec, e);
@@ -62,8 +62,8 @@ struct float4
   template<int e>
     struct ConstAccessor
     {
-      const v4sf &vec;
-      ConstAccessor(const v4sf &_vec) : vec(_vec) {}
+      const _v4sf &vec;
+      ConstAccessor(const _v4sf &_vec) : vec(_vec) {}
       operator float() 
       {
         return __builtin_ia32_vec_ext_v4sf(vec, e);
