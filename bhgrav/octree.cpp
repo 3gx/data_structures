@@ -4,7 +4,7 @@
 #include "plummer.h"
 #include "mytimer.h"
 
-enum {NGROUP = 64};
+enum {NGROUP = 96};
 typedef Octree::GroupT<NGROUP> octGroup;
 
 int main(int argc, char * argv[])
@@ -302,6 +302,7 @@ int main(int argc, char * argv[])
       }
     }
     assert(mtot > 0.0);
+    fprintf(stderr , "<Ng>= %g\n", (double)n_bodies/ngroup);
     fprintf(stderr, " Npp= %g  Npc= %g\n",
         (double)npp/n_bodies, (double)npc/n_bodies);
     fprintf(stderr, " mtot= %g  ftot= %g %g %g  gpot= %g\n",

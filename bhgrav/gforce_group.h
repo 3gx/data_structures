@@ -101,72 +101,147 @@ int particle_particle(
     float4 ptcl_list[Np*2], const int np) const
 {
 #ifdef __AVX_H__
-  const GroupT<Ng> group = igroup;
-  const int ni = group.nb();
-  const int nj = np & (-8);
-
-  const _v8sf *ib = (const _v8sf*)&group[0];
-  const _v4sf *jb = (const _v4sf*)&ptcl_list[np - nj];
-  
-  const _v8sf veps2 = v8sf(eps2);
-  for (int i = 0; i < ni; i++)
+#if 0
   {
-    const _v8sf ip  = *(ib + i);
-    const _v8sf ipx = __bcast<0>(ip);
-    const _v8sf ipy = __bcast<1>(ip);
-    const _v8sf ipz = __bcast<2>(ip);
+    const GroupT<Ng> group = igroup;
+    const int ni = group.nb();
+    const int nj = np & (-8);
 
-    _v8sf fx   = v8sf(0.0f);
-    _v8sf fy   = v8sf(0.0f);
-    _v8sf fz   = v8sf(0.0f);
-    _v8sf gpot = v8sf(0.0f);
-    assert((nj&7) == 0);
-    for (int j = 0; j < nj; j += 8)
+    const _v8sf *ib = (const _v8sf*)&group[0];
+    const _v4sf *jb = (const _v4sf*)&ptcl_list[np - nj];
+
+    const _v8sf veps2 = v8sf(eps2);
+    for (int i = 0; i < ni; i++)
     {
-      const _v8sf jp04 = pack2ymm(*(jb+j+0), *(jb+j+4));
-      const _v8sf jp15 = pack2ymm(*(jb+j+1), *(jb+j+5));
-      const _v8sf jp26 = pack2ymm(*(jb+j+2), *(jb+j+6));
-      const _v8sf jp37 = pack2ymm(*(jb+j+3), *(jb+j+7));
-       
-      const _v8sf xy02 = __builtin_ia32_unpcklps256(jp04, jp26);
-      const _v8sf xy13 = __builtin_ia32_unpcklps256(jp15, jp37);
-      const _v8sf zw02 = __builtin_ia32_unpckhps256(jp04, jp26);
-      const _v8sf zw13 = __builtin_ia32_unpckhps256(jp15, jp37);
-      const _v8sf  jpx = __builtin_ia32_unpcklps256(xy02, xy13);
-      const _v8sf  jpy = __builtin_ia32_unpckhps256(xy02, xy13);
-      const _v8sf  jpz = __builtin_ia32_unpcklps256(zw02, zw13);
-      const _v8sf  jpm = __builtin_ia32_unpckhps256(zw02, zw13);
-      
-      const _v8sf dx = jpx - ipx;
-      const _v8sf dy = jpy - ipy;
-      const _v8sf dz = jpz - ipz;
-      const _v8sf r2 = dx*dx + dy*dy + dz*dz + veps2;
+      const _v8sf ip  = *(ib + i);
+      const _v8sf ipx = __bcast<0>(ip);
+      const _v8sf ipy = __bcast<1>(ip);
+      const _v8sf ipz = __bcast<2>(ip);
 
-      const _v8sf  rinv  = __builtin_ia32_rsqrtps256(r2);
-      const _v8sf mrinv  = rinv  *  jpm;
-      const _v8sf  rinv2 = rinv  *  rinv;
-      const _v8sf mrinv3 = rinv2 * mrinv;
+      _v8sf fx   = v8sf(0.0f);
+      _v8sf fy   = v8sf(0.0f);
+      _v8sf fz   = v8sf(0.0f);
+      _v8sf gpot = v8sf(0.0f);
+      assert((nj&7) == 0);
+      for (int j = 0; j < nj; j += 8)
+      {
+        const _v8sf jp04 = pack2ymm(*(jb+j+0), *(jb+j+4));
+        const _v8sf jp15 = pack2ymm(*(jb+j+1), *(jb+j+5));
+        const _v8sf jp26 = pack2ymm(*(jb+j+2), *(jb+j+6));
+        const _v8sf jp37 = pack2ymm(*(jb+j+3), *(jb+j+7));
 
-      fx   += mrinv3 * dx;
-      fy   += mrinv3 * dy;
-      fz   += mrinv3 * dz;
-      gpot += mrinv;
+        const _v8sf xy02 = __builtin_ia32_unpcklps256(jp04, jp26);
+        const _v8sf xy13 = __builtin_ia32_unpcklps256(jp15, jp37);
+        const _v8sf zw02 = __builtin_ia32_unpckhps256(jp04, jp26);
+        const _v8sf zw13 = __builtin_ia32_unpckhps256(jp15, jp37);
+        const _v8sf  jpx = __builtin_ia32_unpcklps256(xy02, xy13);
+        const _v8sf  jpy = __builtin_ia32_unpckhps256(xy02, xy13);
+        const _v8sf  jpz = __builtin_ia32_unpcklps256(zw02, zw13);
+        const _v8sf  jpm = __builtin_ia32_unpckhps256(zw02, zw13);
+
+        const _v8sf dx = jpx - ipx;
+        const _v8sf dy = jpy - ipy;
+        const _v8sf dz = jpz - ipz;
+        const _v8sf r2 = dx*dx + dy*dy + dz*dz + veps2;
+
+        const _v8sf  rinv  = __builtin_ia32_rsqrtps256(r2);
+        const _v8sf mrinv  = rinv  *  jpm;
+        const _v8sf  rinv2 = rinv  *  rinv;
+        const _v8sf mrinv3 = rinv2 * mrinv;
+
+        fx   += mrinv3 * dx;
+        fy   += mrinv3 * dy;
+        fz   += mrinv3 * dz;
+        gpot += mrinv;
+      }
+      gpot = -gpot;
+
+      const _v4sf f4x = __reduce_v8sf(fx);
+      const _v4sf f4y = __reduce_v8sf(fz);
+      const _v4sf f4z = __reduce_v8sf(fy);
+      const _v4sf f4w = __reduce_v8sf(gpot);
+
+      force[i] = force[i] + float4(
+          __builtin_ia32_vec_ext_v4sf(f4x, 0),
+          __builtin_ia32_vec_ext_v4sf(f4y, 1),
+          __builtin_ia32_vec_ext_v4sf(f4z, 2),
+          __builtin_ia32_vec_ext_v4sf(f4w, 3));
     }
-    gpot = -gpot;
-
-    const _v4sf f4x = __reduce_v8sf(fx);
-    const _v4sf f4y = __reduce_v8sf(fz);
-    const _v4sf f4z = __reduce_v8sf(fy);
-    const _v4sf f4w = __reduce_v8sf(gpot);
-
-    force[i] = force[i] + float4(
-        __builtin_ia32_vec_ext_v4sf(f4x, 0),
-        __builtin_ia32_vec_ext_v4sf(f4y, 1),
-        __builtin_ia32_vec_ext_v4sf(f4z, 2),
-        __builtin_ia32_vec_ext_v4sf(f4w, 3));
+    return np - nj;
   }
-  return np - nj;
 #else
+  {
+    const GroupT<Ng> group = igroup;
+    const _v8sf *ib = (const _v8sf*)&group[0];
+    const _v4sf *jb = (const _v4sf*)ptcl_list;
+
+    const int ni = group.nb();
+    const int nj = np;
+
+    const _v8sf veps2 = v8sf(eps2);
+    for (int i = 0; i < ni; i += 8)
+    {
+      const _v8sf ip04 = __mergelo(*(ib+i+0), *(ib+i+4));
+      const _v8sf ip15 = __mergelo(*(ib+i+1), *(ib+i+5));
+      const _v8sf ip26 = __mergelo(*(ib+i+2), *(ib+i+6));
+      const _v8sf ip37 = __mergelo(*(ib+i+3), *(ib+i+7));
+
+      const _v8sf xy02 = __builtin_ia32_unpcklps256(ip04, ip26);
+      const _v8sf xy13 = __builtin_ia32_unpcklps256(ip15, ip37);
+      const _v8sf zw02 = __builtin_ia32_unpckhps256(ip04, ip26);
+      const _v8sf zw13 = __builtin_ia32_unpckhps256(ip15, ip37);
+      const _v8sf  ipx = __builtin_ia32_unpcklps256(xy02, xy13);
+      const _v8sf  ipy = __builtin_ia32_unpckhps256(xy02, xy13);
+      const _v8sf  ipz = __builtin_ia32_unpcklps256(zw02, zw13);
+
+      _v8sf fx   = v8sf(0.0f);
+      _v8sf fy   = v8sf(0.0f);
+      _v8sf fz   = v8sf(0.0f);
+      _v8sf gpot = v8sf(0.0f);
+      for (int j = 0; j < nj; j++)
+      {
+        const _v8sf jp  = pack2ymm(*(jb+j), *(jb+j));
+        const _v8sf jpx = __bcast<0>(jp);
+        const _v8sf jpy = __bcast<1>(jp);
+        const _v8sf jpz = __bcast<2>(jp);
+        const _v8sf jpm = __bcast<3>(jp);
+
+        const _v8sf dx = jpx - ipx;
+        const _v8sf dy = jpy - ipy;
+        const _v8sf dz = jpz - ipz;
+        const _v8sf r2 = dx*dx + dy*dy + dz*dz + veps2;
+
+        const _v8sf  rinv  = __builtin_ia32_rsqrtps256(r2);
+        const _v8sf mrinv  = rinv  *  jpm;
+        const _v8sf  rinv2 = rinv  *  rinv;
+        const _v8sf mrinv3 = rinv2 * mrinv;
+
+        fx   += mrinv3 * dx;
+        fy   += mrinv3 * dy;
+        fz   += mrinv3 * dz;
+        gpot += mrinv;
+      }
+      gpot = -gpot;
+
+      const _v8sf t0  = __builtin_ia32_unpcklps256(fx,   fz);
+      const _v8sf t1  = __builtin_ia32_unpcklps256(fy, gpot);
+      const _v8sf t2  = __builtin_ia32_unpckhps256(fx,   fz);
+      const _v8sf t3  = __builtin_ia32_unpckhps256(fy, gpot);
+      const _v8sf f04 = __builtin_ia32_unpcklps256(t0, t1);
+      const _v8sf f15 = __builtin_ia32_unpckhps256(t0, t1);
+      const _v8sf f26 = __builtin_ia32_unpcklps256(t2, t3);
+      const _v8sf f37 = __builtin_ia32_unpckhps256(t2, t3);
+
+      _v8sf* vforce = (_v8sf*)&force[i];
+      *(vforce + 0) += __merge<0,0>(f04, f15);
+      *(vforce + 1) += __merge<0,0>(f26, f37);
+      *(vforce + 2) += __merge<1,1>(f04, f15);
+      *(vforce + 3) += __merge<1,1>(f26, f37);
+    }
+    return 0;
+  }
+#endif
+#else  /* !__AVX_H__ */
   return particle_particle_scalar<Np>(igroup, force, ptcl_list, np);
 #endif
 }
