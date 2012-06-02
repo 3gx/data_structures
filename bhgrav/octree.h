@@ -73,7 +73,7 @@ struct Octree
   real eps2;                      /* softening squared */
   std::vector<float4> cellCoM; /* precomputed criterio tree-cells */
 
-  Multipole::Vector multipoleList;
+  fMultipole::Vector multipoleList;
 
   std::vector<int> leafList_addr;
 

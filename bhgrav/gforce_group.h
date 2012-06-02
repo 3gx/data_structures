@@ -139,8 +139,8 @@ int particle_cell(
     const float4 ip = group[i].pos_mass();
     for (int j = 0; j < nj; j++)
     {
-      const Multipole &multipole = multipoleList[cell_list[j]];
-      const Monopole   &m =   multipole.monopole();
+      const fMultipole &multipole = multipoleList[cell_list[j]];
+      const fMonopole   &m =   multipole.monopole();
 
       const float4 jp = float4(m.mpos().x, m.mpos().y, m.mpos().z, m.mass());
       const float4 dr = jp - ip;

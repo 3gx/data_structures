@@ -239,7 +239,7 @@ int main(int argc, char * argv[])
 #if 1
   {
     fprintf(stderr, " Computing multipole \n");
-    const Octree::Multipole rootM = tree.computeMultipole<true>(sortedPtcl);
+    const Octree::dMultipole rootM = tree.computeMultipole<true>(sortedPtcl);
     fprintf(stderr,  " Mass= %g \n", rootM.monopole().mass());
     const vec3 mpos = rootM.monopole().mpos();
     fprintf(stderr, " Monopole= %g %g %g  \n", mpos.x, mpos.y, mpos.z);
@@ -255,9 +255,9 @@ int main(int argc, char * argv[])
 #endif
   double t110 = get_wtime();
   {
-    Octree::Multipole M;
+    Octree::dMultipole M;
     for (int i = 0; i < n_bodies; i++)
-      M += Octree::Multipole(sortedPtcl[i].pos, ptcl[i].mass);
+      M += Octree::dMultipole(sortedPtcl[i].pos, ptcl[i].mass);
     M = M.complete();
     fprintf(stderr,  " Mass= %g \n", M.monopole().mass());
     const vec3 mpos = M.monopole().mpos();

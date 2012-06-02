@@ -1,18 +1,23 @@
 #ifndef __MULTIPOLE_H__
 #define __MULTIPOLE_H__
 
+template<typename real>
 struct Monopole
 {
   typedef std::vector<Monopole> Vector;
+  typedef vector3<real> vec3;
   private:
-  dvec3  _mpos;
-  double _mass;
+  vec3 _mpos;
+  real _mass;
 
   public:
 
-  Monopole() : _mpos(vec3(0.0)), _mass(0.0) {}
-  Monopole(const dvec3 &pos, const double mass) :
+  Monopole() : _mpos(vec3((real)0.0)), _mass((real)0.0) {}
+  Monopole(const vec3 &pos, const real mass) :
     _mpos(pos*mass), _mass(mass) {}
+
+  template<typename fp>
+    Monopole<real>(const Monopole<fp> &m) : _mpos(m.mpos()), _mass(m.mass()) {}
 
   const Monopole& operator+=(const Monopole &m)
   {
@@ -21,30 +26,32 @@ struct Monopole
     return *this;
   }
 
-  void complete()
+  void CoM() 
   {
-    assert(_mass > 0.0);
-    _mpos *= 1.0/_mass;
+    assert(_mass > (real)0.0);
+    _mpos = _mpos/_mass;
+    _mass = _mass;
   }
 
-  const dvec3& mpos() const {return _mpos;}
-  dvec3   pos() const {return _mpos*(1.0/_mass);}
-  double mass() const {return _mass;}
+  const vec3& mpos() const {return _mpos;}
+  real        mass() const {return _mass;}
 };
 
+template<typename real>
 struct Quadrupole
 {
   typedef std::vector<Quadrupole> Vector;
+  typedef vector3<real> vec3;
   enum TYPE {UNIT};
 
   private:
-  double _xx, _yy, _zz;
-  double _xy, _xz, _yz;
+  real _xx, _yy, _zz;
+  real _xy, _xz, _yz;
 
   public:
   Quadrupole() : _xx(0.0), _yy(0.0), _zz(0.0), _xy(0.0), _xz(0.0), _yz(0.0) {}
-  Quadrupole(const double x, const TYPE type) : _xx(x), _yy(x), _zz(x), _xy(0.0), _xz(0.0), _yz(0.0) {}
-  Quadrupole(const dvec3 &pos, const double mass) :
+  Quadrupole(const real x, const TYPE type) : _xx(x), _yy(x), _zz(x), _xy(0.0), _xz(0.0), _yz(0.0) {}
+  Quadrupole(const vec3 &pos, const real mass) :
     _xx(mass*pos.x*pos.x),
     _yy(mass*pos.y*pos.y),
     _zz(mass*pos.z*pos.z),
@@ -52,47 +59,59 @@ struct Quadrupole
     _xz(mass*pos.x*pos.z),
     _yz(mass*pos.y*pos.z) {}
 
+  template<typename fp>
+    Quadrupole<real>(const Quadrupole<fp> &q) : 
+      _xx(q.xx()), _yy(q.yy()), _zz(q.zz()), 
+      _xy(q.xy()), _xz(q.xz()), _yz(q.yz()) {}
+
   const Quadrupole& operator+=(const Quadrupole &q)
   {
     _xx += q._xx; _yy += q._yy; _zz += q._zz;
     _xy += q._xy; _xz += q._xz; _yz += q._yz;
     return *this;
   }
-  const Quadrupole& operator*=(const double x)
+  const Quadrupole& operator*=(const real x)
   {
     _xx *= x; _yy *= x; _zz *= x;
     _xy *= x; _xz *= x; _yz *= x;
     return *this;
   }
 
-  double xx() const {return _xx;}
-  double yy() const {return _yy;}
-  double zz() const {return _zz;}
-  double xy() const {return _xy;}
-  double xz() const {return _xz;}
-  double yz() const {return _yz;}
-  double trace() const {return _xx + _yy + _zz;}
+  real xx() const {return _xx;}
+  real yy() const {return _yy;}
+  real zz() const {return _zz;}
+  real xy() const {return _xy;}
+  real xz() const {return _xz;}
+  real yz() const {return _yz;}
+  real trace() const {return _xx + _yy + _zz;}
 
 };
 
+template<typename real>
 struct Multipole
 {
   typedef std::vector<Multipole> Vector;
+  typedef vector3<real> vec3;
+  typedef   Monopole<real> Mono;
+  typedef Quadrupole<real> Quad;
 
   private:
 
-  Monopole     _monopole;
-  Quadrupole _quadrupole;
+  Mono   _monopole;  // +4= 4
+  Quad _quadrupole;  // +6= 10
+  real Pad1, iPad2;   // 11, 12
 
   public:
 
-  Multipole(
-      const   Monopole &m =   Monopole(),
-      const Quadrupole &q = Quadrupole()) :
-    _monopole(m), _quadrupole(q) {}
+  Multipole(const Mono &m = Mono(), const Quad& q = Quad()) : _monopole(m), _quadrupole(q) 
+  {
+    assert(sizeof(Multipole) == sizeof(real)*12);
+  }
+  Multipole(const vec3 &pos, const real mass) : _monopole(pos, mass), _quadrupole(pos, mass) {}
 
-  Multipole(const dvec3 &pos, const double mass) :
-    _monopole(pos, mass), _quadrupole(pos, mass) {}
+  template<typename fp>
+    Multipole<real>(const Multipole<fp> &m) : 
+      _monopole(m.monopole()), _quadrupole(m.quadrupole()) {}
 
   const Multipole& operator+=(const Multipole &m)
   {
@@ -101,30 +120,39 @@ struct Multipole
     return *this;
   }
 
-  const   Monopole   monopole() const {return   _monopole;}
-  const Quadrupole quadrupole() const {return _quadrupole;}
+  const Mono   monopole() const {return   _monopole;}
+  const Quad quadrupole() const {return _quadrupole;}
 
   Multipole complete() const 
   {
     Multipole m(*this);
-    const double _mass =   _monopole. mass();
-    const dvec3   _pos =   _monopole.  pos();
-    const double trace = _quadrupole.trace();
-    const double P     = trace - _mass*_pos.norm2();
-    m._quadrupole += Quadrupole(_pos, -_mass);
-    m._quadrupole *= 3.0;
-    m._quadrupole += Quadrupole(-P, Quadrupole::UNIT);
+    m._monopole.CoM();
+    const real _mass = m.  _monopole. mass();
+    const vec3  _pos = m.  _monopole. mpos();
+    const real trace = m._quadrupole.trace();
+    const real P     = trace - _mass*_pos.norm2();
+    m._quadrupole += Quadrupole<real>(_pos, -_mass);
+    m._quadrupole *= (real)3.0;
+    m._quadrupole += Quadrupole<real>(-P, Quadrupole<real>::UNIT);
 
-    m._monopole.complete();
 
     return m;
   }
 };
 
+typedef Monopole<double> dMonopole;
+typedef Monopole<float > fMonopole;
+
+typedef Quadrupole<double> dQuadrupole;
+typedef Quadrupole<float > fQuadrupole;
+
+typedef Multipole<double> dMultipole;
+typedef Multipole<float > fMultipole;
+
   template<const bool ROOT>
-Multipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
+dMultipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
 {
-  Multipole multipole;
+  dMultipole multipole;
   if (ROOT)
   {
     assert(isTreeReady());
@@ -153,18 +181,17 @@ Multipole computeMultipole(const Particle::Vector &ptcl, const int addr = 0)
       {
         const int idx = leaf[i].idx();
         assert(idx < (int)ptcl.size());
-        multipole += Multipole(ptcl[idx].pos, ptcl[idx].mass);
+        multipole += dMultipole(ptcl[idx].pos, ptcl[idx].mass);
         assert(overlapped(bndsList[cell.id()].inner(), leaf[i ].vector_pos()));
         assert(overlapped(bndsList[cell.id()].inner(), ptcl[idx].pos));
       }
-      const vec3 com = multipole.monopole().pos();
     }
-    multipoleList[cell.id()] = multipole.complete();
+    multipoleList[cell.id()] = fMultipole(multipole.complete());
 
     /* compute opening criterion for this cell */
 
     const int id = cell.id();
-    const Multipole &m = multipoleList[id];
+    const fMultipole &m = multipoleList[id];
     const vec3 com = m.monopole().mpos();
     const float  s = (bndsList[id].inner().center() - com).abs();
     const vec3 len =  bndsList[id].inner().  hlen();
