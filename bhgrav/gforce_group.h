@@ -19,8 +19,8 @@ std::pair<unsigned int, unsigned int> gForce(const GroupT<Ng> &group, float4 for
 {
   const int Ncell = NLEAF;
   const int Nptcl = NLEAF*16;
-  float4 ptcl_list[Nptcl*2];
-  int    cell_list[Ncell*2];
+  float4      ptcl_list[Nptcl*2] __attribute__ ((aligned(32)));
+  fMultipole  cell_list[Ncell*2] __attribute__ ((aligned(32)));
   int nc = 0, np = 0;
   int np_tot = 0, nc_tot = 0;
 
@@ -33,8 +33,8 @@ template<const bool ROOT, const int Nc, const int Np, const int Ng>
 void gForce(
     const GroupT<Ng> &group,
     float4     force[Ng  ],         /* maximal number of particles in a group  */
-    int    cell_list[Nc*2], int &nc, /* list for particle-cell interactions     */
-    float4 ptcl_list[Np*2], int &np, /* list for particle-particle interactions */
+    fMultipole cell_list[Nc*2], int &nc, /* list for particle-cell interactions     */
+    float4     ptcl_list[Np*2], int &np, /* list for particle-particle interactions */
     int &np_tot, int &nc_tot,
     const  float4 &groupCentre = 0.0, const float4 &groupSize = 0.0, const int addr = 0) const
 {
@@ -82,7 +82,7 @@ void gForce(
     }
     else
     {
-      cell_list[nc++] = cell.id();
+      cell_list[nc++] = multipoleList[cell.id()];
       nc_tot++;
       assert(nc <= 2*Nc);
     }
@@ -94,13 +94,82 @@ void gForce(
 
 template<const int Np, const int Ng>
 int particle_particle(
-    const  GroupT<Ng> &group,
+    const  GroupT<Ng> &igroup,
     float4     force[Ng  ],       
     float4 ptcl_list[Np*2], int np) const
 {
+#ifdef __AVX_H__
+  const GroupT<Ng> group = igroup;
+  const _v8sf *ib = (const _v8sf*)&group[0];
+  const _v4sf *jb = (const _v4sf*)ptcl_list;
+  
   const int ni = group.nb();
   const int nj = np;
 
+  const _v8sf veps2 = v8sf(eps2);
+  for (int i = 0; i < ni; i += 8)
+  {
+    const _v8sf ip04 = __mergelo(*(ib+i+0), *(ib+i+4));
+    const _v8sf ip15 = __mergelo(*(ib+i+1), *(ib+i+5));
+    const _v8sf ip26 = __mergelo(*(ib+i+2), *(ib+i+6));
+    const _v8sf ip37 = __mergelo(*(ib+i+3), *(ib+i+7));
+        
+    const _v8sf xy02 = __builtin_ia32_unpcklps256(ip04, ip26);
+    const _v8sf xy13 = __builtin_ia32_unpcklps256(ip15, ip37);
+    const _v8sf zw02 = __builtin_ia32_unpckhps256(ip04, ip26);
+    const _v8sf zw13 = __builtin_ia32_unpckhps256(ip15, ip37);
+    const _v8sf  ipx = __builtin_ia32_unpcklps256(xy02, xy13);
+    const _v8sf  ipy = __builtin_ia32_unpckhps256(xy02, xy13);
+    const _v8sf  ipz = __builtin_ia32_unpcklps256(zw02, zw13);
+
+    _v8sf fx   = v8sf(0.0f);
+    _v8sf fy   = v8sf(0.0f);
+    _v8sf fz   = v8sf(0.0f);
+    _v8sf gpot = v8sf(0.0f);
+    for (int j = 0; j < nj; j++)
+    {
+      const _v8sf jp  = pack2ymm(*(jb+j), *(jb+j));
+      const _v8sf jpx = __bcast<0>(jp);
+      const _v8sf jpy = __bcast<1>(jp);
+      const _v8sf jpz = __bcast<2>(jp);
+      const _v8sf jpm = __bcast<3>(jp);
+
+      const _v8sf dx = jpx - ipx;
+      const _v8sf dy = jpy - ipy;
+      const _v8sf dz = jpz - ipz;
+      const _v8sf r2 = dx*dx + dy*dy + dz*dz + veps2;
+
+      const _v8sf  rinv  = __builtin_ia32_rsqrtps256(r2);
+      const _v8sf mrinv  = rinv  *  jpm;
+      const _v8sf  rinv2 = rinv  *  rinv;
+      const _v8sf mrinv3 = rinv2 * mrinv;
+
+      fx   += mrinv3 * dx;
+      fy   += mrinv3 * dy;
+      fz   += mrinv3 * dz;
+      gpot += mrinv;
+    }
+    gpot = -gpot;
+
+    const _v8sf t0  = __builtin_ia32_unpcklps256(fx,   fz);
+    const _v8sf t1  = __builtin_ia32_unpcklps256(fy, gpot);
+    const _v8sf t2  = __builtin_ia32_unpckhps256(fx,   fz);
+    const _v8sf t3  = __builtin_ia32_unpckhps256(fy, gpot);
+    const _v8sf f04 = __builtin_ia32_unpcklps256(t0, t1);
+    const _v8sf f15 = __builtin_ia32_unpckhps256(t0, t1);
+    const _v8sf f26 = __builtin_ia32_unpcklps256(t2, t3);
+    const _v8sf f37 = __builtin_ia32_unpckhps256(t2, t3);
+
+    _v8sf* vforce = (_v8sf*)&force[i];
+    *(vforce + 0) += __merge<0,0>(f04, f15);
+    *(vforce + 1) += __merge<0,0>(f26, f37);
+    *(vforce + 2) += __merge<1,1>(f04, f15);
+    *(vforce + 3) += __merge<1,1>(f26, f37);
+  }
+#else
+  const  GroupT<Ng> &group = igroup;
+  const int ni = group.nb();
+  const int nj = np;
   for (int i = 0; i < ni; i++)
   {
     const float4 ip = group[i].pos_mass();
@@ -121,16 +190,88 @@ int particle_particle(
       force[i] = force[i] + acc;
     }
   }
+#endif
 
   return 0;
 }
 
 template<const int Nc, const int Ng>
 int particle_cell(
-    const GroupT<Ng> &group,
-    float4    force[Ng  ],       
-    int   cell_list[Nc*2], int nc) const
+    const GroupT<Ng> &igroup,
+    float4     force[Ng  ],       
+    fMultipole cell_list[Nc*2], int nc) const
 {
+#ifdef __AVX_H__
+  const GroupT<Ng> group = igroup;
+  const _v8sf *ib = (const _v8sf*)&group[0];
+  const _v4sf *jb = (const _v4sf*)cell_list;
+  
+  const int ni  = group.nb();
+  const int nj  = nc;
+  const int nj3 = nj * 3;
+  
+  const _v8sf veps2 = v8sf(eps2);
+  for (int i = 0; i < ni; i += 8)
+  {
+    const _v8sf ip04 = __mergelo(*(ib+i+0), *(ib+i+4));
+    const _v8sf ip15 = __mergelo(*(ib+i+1), *(ib+i+5));
+    const _v8sf ip26 = __mergelo(*(ib+i+2), *(ib+i+6));
+    const _v8sf ip37 = __mergelo(*(ib+i+3), *(ib+i+7));
+        
+    const _v8sf xy02 = __builtin_ia32_unpcklps256(ip04, ip26);
+    const _v8sf xy13 = __builtin_ia32_unpcklps256(ip15, ip37);
+    const _v8sf zw02 = __builtin_ia32_unpckhps256(ip04, ip26);
+    const _v8sf zw13 = __builtin_ia32_unpckhps256(ip15, ip37);
+    const _v8sf  ipx = __builtin_ia32_unpcklps256(xy02, xy13);
+    const _v8sf  ipy = __builtin_ia32_unpckhps256(xy02, xy13);
+    const _v8sf  ipz = __builtin_ia32_unpcklps256(zw02, zw13);
+
+    _v8sf fx   = v8sf(0.0f);
+    _v8sf fy   = v8sf(0.0f);
+    _v8sf fz   = v8sf(0.0f);
+    _v8sf gpot = v8sf(0.0f);
+    for (int j = 0; j < nj3; j += 3)
+    {
+      const _v8sf jp  = pack2ymm(*(jb+j), *(jb+j));
+      const _v8sf jpx = __bcast<0>(jp);
+      const _v8sf jpy = __bcast<1>(jp);
+      const _v8sf jpz = __bcast<2>(jp);
+      const _v8sf jpm = __bcast<3>(jp);
+
+      const _v8sf dx = jpx - ipx;
+      const _v8sf dy = jpy - ipy;
+      const _v8sf dz = jpz - ipz;
+      const _v8sf r2 = dx*dx + dy*dy + dz*dz + veps2;
+
+      const _v8sf  rinv  = __builtin_ia32_rsqrtps256(r2);
+      const _v8sf mrinv  = rinv  *  jpm;
+      const _v8sf  rinv2 = rinv  *  rinv;
+      const _v8sf mrinv3 = rinv2 * mrinv;
+
+      fx   += mrinv3 * dx;
+      fy   += mrinv3 * dy;
+      fz   += mrinv3 * dz;
+      gpot += mrinv;
+    }
+    gpot = -gpot;
+
+    const _v8sf t0  = __builtin_ia32_unpcklps256(fx,   fz);
+    const _v8sf t1  = __builtin_ia32_unpcklps256(fy, gpot);
+    const _v8sf t2  = __builtin_ia32_unpckhps256(fx,   fz);
+    const _v8sf t3  = __builtin_ia32_unpckhps256(fy, gpot);
+    const _v8sf f04 = __builtin_ia32_unpcklps256(t0, t1);
+    const _v8sf f15 = __builtin_ia32_unpckhps256(t0, t1);
+    const _v8sf f26 = __builtin_ia32_unpcklps256(t2, t3);
+    const _v8sf f37 = __builtin_ia32_unpckhps256(t2, t3);
+
+    _v8sf* vforce = (_v8sf*)&force[i];
+    *(vforce + 0) += __merge<0,0>(f04, f15);
+    *(vforce + 1) += __merge<0,0>(f26, f37);
+    *(vforce + 2) += __merge<1,1>(f04, f15);
+    *(vforce + 3) += __merge<1,1>(f26, f37);
+  }
+#else
+  const GroupT<Ng> &group = igroup;
   const int ni = group.nb();
   const int nj = nc;
 
@@ -139,7 +280,7 @@ int particle_cell(
     const float4 ip = group[i].pos_mass();
     for (int j = 0; j < nj; j++)
     {
-      const fMultipole &multipole = multipoleList[cell_list[j]];
+      const fMultipole &multipole = cell_list[j];
       const fMonopole   &m =   multipole.monopole();
 
       const float4 jp = *(float4*)&m;
@@ -181,6 +322,7 @@ int particle_cell(
       force[i] = force[i] + acc;
     }
   }
+#endif
 
   return 0;
 }
