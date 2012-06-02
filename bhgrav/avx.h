@@ -10,6 +10,11 @@ typedef double _v4df  __attribute__((vector_size(32)));
 inline _v8sf v8sf(const float x) {return (_v8sf){x,x,x,x,x,x,x,x}; }
 inline _v8si v8si(const  int  x) {return (_v8si){x,x,x,x,x,x,x,x}; }
 
+inline _v8sf __bcast0(const _v4sf *x0)
+{
+  return __builtin_ia32_vbroadcastf128_ps256(x0);
+}
+
 inline _v8sf pack2ymm(const _v4sf x0, const _v4sf x1)
 { /* merges two xmm  into one ymm */
   _v8sf ymm = {};

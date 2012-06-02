@@ -383,11 +383,11 @@ int particle_cell(
     _v8sf gpot = v8sf(0.0f);
     for (int j = 0; j < nj3; j += 3)
     {
-      const _v8sf jp  = pack2ymm(*(jb+j), *(jb+j));
-      const _v8sf jpx = __bcast<0>(jp);
-      const _v8sf jpy = __bcast<1>(jp);
-      const _v8sf jpz = __bcast<2>(jp);
-      const _v8sf jpm = __bcast<3>(jp);
+      const _v8sf jp  = __bcast0(jb+j);
+      const _v8sf jpx = __builtin_ia32_shufps256(jp, jp, 0x00);
+      const _v8sf jpy = __builtin_ia32_shufps256(jp, jp, 0x55);
+      const _v8sf jpz = __builtin_ia32_shufps256(jp, jp, 0xAA);
+      const _v8sf jpm = __builtin_ia32_shufps256(jp, jp, 0xFF);
 
       const _v8sf dx = jpx - ipx;
       const _v8sf dy = jpy - ipy;
@@ -411,13 +411,15 @@ int particle_cell(
       const _v8sf rinv5 = rinv4*rinv;
       const _v8sf rinv7 = rinv5*rinv2;
 
-      const _v8sf Q   = pack2ymm(*(jb+j+1), *(jb+j+2));
-      const _v8sf Qxx = __bcast<0>(Q);
-      const _v8sf Qyy = __bcast<1>(Q);
-      const _v8sf Qzz = __bcast<2>(Q);
-      const _v8sf Qxy = __bcast<4>(Q);
-      const _v8sf Qxz = __bcast<5>(Q);
-      const _v8sf Qyz = __bcast<6>(Q);
+      const _v8sf Q1  = __bcast0(jb+j+1);
+      const _v8sf Qxx = __builtin_ia32_shufps256(Q1, Q1, 0x00);
+      const _v8sf Qyy = __builtin_ia32_shufps256(Q1, Q1, 0x55);
+      const _v8sf Qzz = __builtin_ia32_shufps256(Q1, Q1, 0xAA);
+      
+      const _v8sf Q2  = __bcast0(jb+j+2);
+      const _v8sf Qxy = __builtin_ia32_shufps256(Q2, Q2, 0x00);
+      const _v8sf Qxz = __builtin_ia32_shufps256(Q2, Q2, 0x55);
+      const _v8sf Qyz = __builtin_ia32_shufps256(Q2, Q2, 0xAA);
 
       const _v8sf Qrx = Qxx*dx + Qxy*dy + Qxz*dz;
       const _v8sf Qry = Qyz*dx + Qyy*dy + Qyz*dz;
