@@ -284,7 +284,7 @@ int main(int argc, char * argv[])
     for (int i = 0; i < ngroup; i++)
     {
       const octGroup &group = groupList[i];
-      float4 force[NGROUP];
+      float4 force[NGROUP] __attribute__ ((aligned(64)));
 
       const std::pair<int, int> ninter = tree.gForce(group, force);
       npp += ninter.first;

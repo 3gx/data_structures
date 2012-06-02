@@ -232,11 +232,23 @@ int particle_particle(
       const _v8sf f26 = __builtin_ia32_unpcklps256(t2, t3);
       const _v8sf f37 = __builtin_ia32_unpckhps256(t2, t3);
 
+#if 0
       _v8sf* vforce = (_v8sf*)&force[i];
       *(vforce + 0) += __merge<0,0>(f04, f15);
       *(vforce + 1) += __merge<0,0>(f26, f37);
       *(vforce + 2) += __merge<1,1>(f04, f15);
       *(vforce + 3) += __merge<1,1>(f26, f37);
+#else
+      _v4sf* vforce = (_v4sf*)&force[i];
+      *(vforce + 0) += __extract<0>(f04);
+      *(vforce + 4) += __extract<1>(f04);
+      *(vforce + 1) += __extract<0>(f15);
+      *(vforce + 5) += __extract<1>(f15);
+      *(vforce + 2) += __extract<0>(f26);
+      *(vforce + 6) += __extract<1>(f26);
+      *(vforce + 3) += __extract<0>(f37);
+      *(vforce + 7) += __extract<1>(f37);
+#endif
     }
     return 0;
   }
@@ -315,11 +327,23 @@ int particle_cell(
     const _v8sf f26 = __builtin_ia32_unpcklps256(t2, t3);
     const _v8sf f37 = __builtin_ia32_unpckhps256(t2, t3);
 
+#if 0
     _v8sf* vforce = (_v8sf*)&force[i];
     *(vforce + 0) += __merge<0,0>(f04, f15);
     *(vforce + 1) += __merge<0,0>(f26, f37);
     *(vforce + 2) += __merge<1,1>(f04, f15);
     *(vforce + 3) += __merge<1,1>(f26, f37);
+#else
+    _v4sf* vforce = (_v4sf*)&force[i];
+    *(vforce + 0) += __extract<0>(f04);
+    *(vforce + 4) += __extract<1>(f04);
+    *(vforce + 1) += __extract<0>(f15);
+    *(vforce + 5) += __extract<1>(f15);
+    *(vforce + 2) += __extract<0>(f26);
+    *(vforce + 6) += __extract<1>(f26);
+    *(vforce + 3) += __extract<0>(f37);
+    *(vforce + 7) += __extract<1>(f37);
+#endif
   }
   return 0;
 #else
