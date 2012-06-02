@@ -1,6 +1,10 @@
 #ifndef __GFORCE_GROUP_H__
 #define __GFORCE_GROUP_H__
 
+#if 0
+#define DRY_RUN
+#endif
+
 inline bool split_node(
     const float4 &cellCoM,     /* contains (x,y,z,w), where w is an opening criteria distance */
     const float4 &groupCentre,
@@ -18,7 +22,7 @@ inline bool split_node(
 std::pair<unsigned int, unsigned int> gForce(const GroupT<Ng> &group, float4 force[Ng]) const
 {
   const int Ncell = NLEAF*16;
-  const int Nptcl = NLEAF*16;
+  const int Nptcl = NLEAF*64;
   float4      ptcl_list[Nptcl*2] __attribute__ ((aligned(32)));
   fMultipole  cell_list[Ncell*2] __attribute__ ((aligned(32)));
   int nc = 0, np = 0;
@@ -100,6 +104,9 @@ int particle_particle(
     float4     force[Ng  ],
     float4 ptcl_list[Np*2], const int np) const
 {
+#ifdef DRY_RUN
+  return 0;
+#endif
 #ifdef __AVX_H__
 #if 0
   {
@@ -253,6 +260,80 @@ int particle_particle(
     return 0;
   }
 #endif
+#elif defined __SSE_H__
+  {
+    const GroupT<Ng> &group = igroup;
+    const _v4sf *ib = (const _v4sf*)&group[0];
+    const _v4sf *jb = (const _v4sf*)ptcl_list;
+
+    const int ni = group.nb();
+    const int nj = np;
+
+    const _v4sf veps2 = v4sf(eps2);
+    for (int i = 0; i < ni; i += 4)
+    {
+      const int i2 = i<<1;
+      const _v4sf ip0 = *(ib + i2 + 0);
+      const _v4sf ip1 = *(ib + i2 + 2);
+      const _v4sf ip2 = *(ib + i2 + 4);
+      const _v4sf ip3 = *(ib + i2 + 6);
+
+      const _v4sf t0  = __builtin_ia32_unpcklps(ip0, ip2);
+      const _v4sf t1  = __builtin_ia32_unpckhps(ip0, ip2);
+      const _v4sf t2  = __builtin_ia32_unpcklps(ip1, ip3);
+      const _v4sf t3  = __builtin_ia32_unpckhps(ip1, ip3);
+      const _v4sf ipx = __builtin_ia32_unpcklps(t0,  t2);
+      const _v4sf ipy = __builtin_ia32_unpckhps(t0,  t2);
+      const _v4sf ipz = __builtin_ia32_unpcklps(t1,  t3);
+
+      _v4sf fx   = v4sf(0.0f);
+      _v4sf fy   = v4sf(0.0f);
+      _v4sf fz   = v4sf(0.0f);
+      _v4sf gpot = v4sf(0.0f);
+      for (int j = 0; j < nj; j++)
+      {
+        const _v4sf jp = *(jb + j);
+        const _v4sf jpx = __builtin_ia32_shufps(jp, jp, 0x00);
+        const _v4sf jpy = __builtin_ia32_shufps(jp, jp, 0x55);
+        const _v4sf jpz = __builtin_ia32_shufps(jp, jp, 0xAA);
+        const _v4sf jpm = __builtin_ia32_shufps(jp, jp, 0xFF);
+        
+        const _v4sf dx = jpx - ipx;
+        const _v4sf dy = jpy - ipy;
+        const _v4sf dz = jpz - ipz;
+        const _v4sf r2 = dx*dx + dy*dy + dz*dz + veps2;
+
+        const _v4sf  rinv  = __builtin_ia32_rsqrtps(r2);
+        const _v4sf mrinv  = rinv  *  jpm;
+        const _v4sf  rinv2 = rinv  *  rinv;
+        const _v4sf mrinv3 = rinv2 * mrinv;
+
+        fx   += mrinv3 * dx;
+        fy   += mrinv3 * dy;
+        fz   += mrinv3 * dz;
+        gpot += mrinv;
+      }
+      gpot = -gpot;
+
+      {
+        const _v4sf t0 = __builtin_ia32_unpcklps(fx,   fz);
+        const _v4sf t1 = __builtin_ia32_unpcklps(fy, gpot);
+        const _v4sf t2 = __builtin_ia32_unpckhps(fx,   fz);
+        const _v4sf t3 = __builtin_ia32_unpckhps(fy, gpot);
+        const _v4sf f0 = __builtin_ia32_unpcklps(t0, t1);
+        const _v4sf f1 = __builtin_ia32_unpckhps(t0, t1);
+        const _v4sf f2 = __builtin_ia32_unpcklps(t2, t3);
+        const _v4sf f3 = __builtin_ia32_unpckhps(t2, t3);
+
+        _v4sf *vforce = (_v4sf*)&force[i];
+        *(vforce + 0) += f0;
+        *(vforce + 1) += f1;
+        *(vforce + 2) += f2;
+        *(vforce + 3) += f3;
+      }
+    }
+    return 0;
+  }
 #else  /* !__AVX_H__ */
   return particle_particle_scalar<Np>(igroup, force, ptcl_list, np);
 #endif
@@ -264,6 +345,9 @@ int particle_cell(
     float4         force[Ng  ],       
     fMultipole cell_list[Nc*2], const int nc) const
 {
+#ifdef DRY_RUN
+  return 0;
+#endif
 #ifdef __AVX_H__
   const GroupT<Ng> group = igroup;
   const _v8sf *ib = (const _v8sf*)&group[0];
@@ -346,7 +430,82 @@ int particle_cell(
 #endif
   }
   return 0;
-#else
+#elif defined __SSE_H__
+  {
+    const GroupT<Ng> &group = igroup;
+    const _v4sf *ib = (const _v4sf*)&group[0];
+    const _v4sf *jb = (const _v4sf*)cell_list;
+
+    const int ni  = group.nb();
+    const int nj  = nc;
+    const int nj3 = nj * 3;
+
+    const _v4sf veps2 = v4sf(eps2);
+    for (int i = 0; i < ni; i += 4)
+    {
+      const int i2 = i<<1;
+      const _v4sf ip0 = *(ib + i2 + 0);
+      const _v4sf ip1 = *(ib + i2 + 2);
+      const _v4sf ip2 = *(ib + i2 + 4);
+      const _v4sf ip3 = *(ib + i2 + 6);
+
+      const _v4sf t0  = __builtin_ia32_unpcklps(ip0, ip2);
+      const _v4sf t1  = __builtin_ia32_unpckhps(ip0, ip2);
+      const _v4sf t2  = __builtin_ia32_unpcklps(ip1, ip3);
+      const _v4sf t3  = __builtin_ia32_unpckhps(ip1, ip3);
+      const _v4sf ipx = __builtin_ia32_unpcklps(t0,  t2);
+      const _v4sf ipy = __builtin_ia32_unpckhps(t0,  t2);
+      const _v4sf ipz = __builtin_ia32_unpcklps(t1,  t3);
+
+      _v4sf fx   = v4sf(0.0f);
+      _v4sf fy   = v4sf(0.0f);
+      _v4sf fz   = v4sf(0.0f);
+      _v4sf gpot = v4sf(0.0f);
+      for (int j = 0; j < nj3; j += 3)
+      {
+        const _v4sf jp = *(jb + j);
+        const _v4sf jpx = __builtin_ia32_shufps(jp, jp, 0x00);
+        const _v4sf jpy = __builtin_ia32_shufps(jp, jp, 0x55);
+        const _v4sf jpz = __builtin_ia32_shufps(jp, jp, 0xAA);
+        const _v4sf jpm = __builtin_ia32_shufps(jp, jp, 0xFF);
+
+        const _v4sf dx = jpx - ipx;
+        const _v4sf dy = jpy - ipy;
+        const _v4sf dz = jpz - ipz;
+        const _v4sf r2 = dx*dx + dy*dy + dz*dz + veps2;
+
+        const _v4sf  rinv  = __builtin_ia32_rsqrtps(r2);
+        const _v4sf mrinv  = rinv  *  jpm;
+        const _v4sf  rinv2 = rinv  *  rinv;
+        const _v4sf mrinv3 = rinv2 * mrinv;
+
+        fx   += mrinv3 * dx;
+        fy   += mrinv3 * dy;
+        fz   += mrinv3 * dz;
+        gpot += mrinv;
+      }
+      gpot = -gpot;
+
+      {
+        const _v4sf t0 = __builtin_ia32_unpcklps(fx,   fz);
+        const _v4sf t1 = __builtin_ia32_unpcklps(fy, gpot);
+        const _v4sf t2 = __builtin_ia32_unpckhps(fx,   fz);
+        const _v4sf t3 = __builtin_ia32_unpckhps(fy, gpot);
+        const _v4sf f0 = __builtin_ia32_unpcklps(t0, t1);
+        const _v4sf f1 = __builtin_ia32_unpckhps(t0, t1);
+        const _v4sf f2 = __builtin_ia32_unpcklps(t2, t3);
+        const _v4sf f3 = __builtin_ia32_unpckhps(t2, t3);
+
+        _v4sf *vforce = (_v4sf*)&force[i];
+        *(vforce + 0) += f0;
+        *(vforce + 1) += f1;
+        *(vforce + 2) += f2;
+        *(vforce + 3) += f3;
+      }
+    }
+    return 0;
+  }
+#else  /* __AVX_H__ */
   return particle_cell_scalar<Nc>(igroup, force, cell_list, nc);
 #endif
 }
