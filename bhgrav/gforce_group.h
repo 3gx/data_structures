@@ -166,33 +166,10 @@ int particle_particle(
     *(vforce + 2) += __merge<1,1>(f04, f15);
     *(vforce + 3) += __merge<1,1>(f26, f37);
   }
-#else
-  const  GroupT<Ng> &group = igroup;
-  const int ni = group.nb();
-  const int nj = np;
-  for (int i = 0; i < ni; i++)
-  {
-    const float4 ip = group[i].pos_mass();
-    for (int j = 0; j < nj; j++)
-    {
-      const float4 jp = ptcl_list[j];
-      const float4 dr = jp - ip;
-      const float  r2 = dr.norm2() + eps2;
-      const float  mj = jp.w();
-
-      const float  rinv  = 1.0f/std::sqrt(r2);
-      const float mrinv  = rinv*mj;
-      const float mrinv3 = rinv*rinv*mrinv;
-
-      float4 acc = dr * float4(mrinv3);
-      acc.w() = -mrinv;
-
-      force[i] = force[i] + acc;
-    }
-  }
-#endif
-
   return 0;
+#else
+  return particle_particle_scalar<Np>(igroup, force, ptcl_list, np);
+#endif
 }
 
 template<const int Nc, const int Ng>
@@ -270,8 +247,53 @@ int particle_cell(
     *(vforce + 2) += __merge<1,1>(f04, f15);
     *(vforce + 3) += __merge<1,1>(f26, f37);
   }
+  return 0;
 #else
-  const GroupT<Ng> &group = igroup;
+  return particle_cell_scalar<Nc>(igroup, force, cell_list, nc);
+#endif
+}
+
+/**********************/
+/*** SCALAR VERSION ***/
+/**********************/
+
+template<const int Np, const int Ng>
+int particle_particle_scalar(
+    const  GroupT<Ng> &group,
+    float4     force[Ng  ],       
+    float4 ptcl_list[Np*2], int np) const
+{
+  const int ni = group.nb();
+  const int nj = np;
+  for (int i = 0; i < ni; i++)
+  {
+    const float4 ip = group[i].pos_mass();
+    for (int j = 0; j < nj; j++)
+    {
+      const float4 jp = ptcl_list[j];
+      const float4 dr = jp - ip;
+      const float  r2 = dr.norm2() + eps2;
+      const float  mj = jp.w();
+
+      const float  rinv  = 1.0f/std::sqrt(r2);
+      const float mrinv  = rinv*mj;
+      const float mrinv3 = rinv*rinv*mrinv;
+
+      float4 acc = dr * float4(mrinv3);
+      acc.w() = -mrinv;
+
+      force[i] = force[i] + acc;
+    }
+  }
+  return 0;
+}
+
+template<const int Nc, const int Ng>
+int particle_cell_scalar(
+    const GroupT<Ng> &group,
+    float4     force[Ng  ],       
+    fMultipole cell_list[Nc*2], int nc) const
+{
   const int ni = group.nb();
   const int nj = nc;
 
@@ -322,8 +344,6 @@ int particle_cell(
       force[i] = force[i] + acc;
     }
   }
-#endif
-
   return 0;
 }
 
