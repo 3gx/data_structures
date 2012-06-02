@@ -5,6 +5,10 @@
 #define DRY_RUN
 #endif
 
+#if 1
+#define QUADRUPOLE
+#endif
+
 inline bool split_node(
     const float4 &cellCoM,     /* contains (x,y,z,w), where w is an opening criteria distance */
     const float4 &groupCentre,
@@ -399,6 +403,41 @@ int particle_cell(
       fy   += mrinv3 * dy;
       fz   += mrinv3 * dz;
       gpot += mrinv;
+
+      /* 21 flops */
+
+#ifdef QUADRUPOLE
+      const _v8sf rinv4 = rinv2*rinv2;
+      const _v8sf rinv5 = rinv4*rinv;
+      const _v8sf rinv7 = rinv5*rinv2;
+
+      const _v8sf Q   = pack2ymm(*(jb+j+1), *(jb+j+2));
+      const _v8sf Qxx = __bcast<0>(Q);
+      const _v8sf Qyy = __bcast<1>(Q);
+      const _v8sf Qzz = __bcast<2>(Q);
+      const _v8sf Qxy = __bcast<4>(Q);
+      const _v8sf Qxz = __bcast<5>(Q);
+      const _v8sf Qyz = __bcast<6>(Q);
+
+      const _v8sf Qrx = Qxx*dx + Qxy*dy + Qxz*dz;
+      const _v8sf Qry = Qyz*dx + Qyy*dy + Qyz*dz;
+      const _v8sf Qrz = Qxz*dx + Qyz*dy + Qzz*dz;
+      
+      const _v8sf rQr = Qrx*dx + Qry*dy + Qrz*dz;
+
+      const _v8sf c1 = v8sf(2.5f)*rinv7*rQr;
+      fx   += c1*dx;
+      fy   += c1*dy;
+      fz   += c1*dz;
+      gpot += v8sf(0.5f)*rinv5*rQr;
+
+      const _v8sf c2 = -rinv5;
+      fx += c2*Qrx;
+      fy += c2*Qry;
+      fz += c2*Qrz;
+
+      /* 40 flops */
+#endif
     }
     gpot = -gpot;
 
@@ -483,6 +522,40 @@ int particle_cell(
         fy   += mrinv3 * dy;
         fz   += mrinv3 * dz;
         gpot += mrinv;
+
+#ifdef QUADRUPOLE
+        const _v4sf rinv4 = rinv2*rinv2;
+        const _v4sf rinv5 = rinv4*rinv;
+        const _v4sf rinv7 = rinv5*rinv2;
+
+        const _v4sf Q1  = *(jb+j+1);
+        const _v4sf Qxx = __builtin_ia32_shufps(Q1, Q1, 0x00);
+        const _v4sf Qyy = __builtin_ia32_shufps(Q1, Q1, 0x55);
+        const _v4sf Qzz = __builtin_ia32_shufps(Q1, Q1, 0xAA);
+        const _v4sf Q2  = *(jb+j+2);
+        const _v4sf Qxy = __builtin_ia32_shufps(Q2, Q2, 0x00);
+        const _v4sf Qxz = __builtin_ia32_shufps(Q2, Q2, 0x55);
+        const _v4sf Qyz = __builtin_ia32_shufps(Q2, Q2, 0xAA);
+
+        const _v4sf Qrx = Qxx*dx + Qxy*dy + Qxz*dz;
+        const _v4sf Qry = Qyz*dx + Qyy*dy + Qyz*dz;
+        const _v4sf Qrz = Qxz*dx + Qyz*dy + Qzz*dz;
+
+        const _v4sf rQr = Qrx*dx + Qry*dy + Qrz*dz;
+
+        const _v4sf c1 = v4sf(2.5f)*rinv7*rQr;
+        fx   += c1*dx;
+        fy   += c1*dy;
+        fz   += c1*dz;
+        gpot += v4sf(0.5f)*rinv5*rQr;
+
+        const _v4sf c2 = -rinv5;
+        fx += c2*Qrx;
+        fy += c2*Qry;
+        fz += c2*Qrz;
+
+        /* 40 flops */
+#endif
       }
       gpot = -gpot;
 
@@ -577,30 +650,27 @@ int particle_cell_scalar(
       float4 acc = dr * float4(mrinv3);
       acc.w() = -mrinv;
 
-#if 0
-      const Quadrupole &q = multipole.quadrupole();
-      const int rinv2 = rinv*rinv;
-      const int rinv4 = rinv2*rinv2;
-      const int rinv5 = rinv4*rinv;
-      const int rinv7 = rinv5*rinv2;
+#ifdef QUADRUPOLE
+      const fQuadrupole &q = multipole.quadrupole();
+      const float rinv2 = rinv*rinv;
+      const float rinv4 = rinv2*rinv2;
+      const float rinv5 = rinv4*rinv;
+      const float rinv7 = rinv5*rinv2;
 
-      const double dx = dr.x();
-      const double dy = dr.y();
-      const double dz = dr.z();
+      const float Qrx = (float4(q.xx(), q.xy(), q.xz(), 0.0f)*dr).reduce();
+      const float Qry = (float4(q.xy(), q.yy(), q.yz(), 0.0f)*dr).reduce();
+      const float Qrz = (float4(q.xz(), q.yz(), q.zz(), 0.0f)*dr).reduce();
 
-      const double Qrx = q.xx()*dx + q.xy()*dy + q.xz()*dz;
-      const double Qry = q.xy()*dx + q.yy()*dy + q.yz()*dz;
-      const double Qrz = q.xz()*dx + q.yz()*dy + q.zz()*dz;
+      const float rQr = (float4(Qrx, Qry, Qrz, 0.0f)*dr).reduce();
 
-      const double rQr = Qrx*dx + Qry*dy + Qrz*dz;
       float4 qacc1 = float4(2.5f*rinv7*rQr)*dr;
       qacc1.w() = (-0.5f)*rinv5*rQr;
 
-      qacc1 = qacc1 - v4sf(rinv5)*(_v4sf){(float)Qrx, (float)Qry, (float)Qrz, 0.0f};
+      qacc1 += float4(-rinv5)*float4(Qrx, Qry, Qrz, 0.0f);
       acc = acc +  qacc1;
 #endif
 
-      force[i] = force[i] + acc;
+      force[i] += acc;
     }
   }
   return 0;

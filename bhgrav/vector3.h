@@ -31,6 +31,11 @@ struct float4
   {
     return (_v4sf)rhs * vec;
   }
+  float4& operator+=(const float4 v)
+  {
+    vec += v.vec;
+    return *this;
+  }
   float norm2() const
   {
     const _v4si mask = (_v4si){-1, -1, -1, 0}; 
@@ -44,6 +49,11 @@ struct float4
   {
     const _v4si mask = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
     return float4(__builtin_ia32_andps(x.vec, (_v4sf)mask));
+  }
+  float reduce() const
+  {
+    _v4sf v = __reduce_v4sf(vec);
+    return __builtin_ia32_vec_ext_v4sf(v, 0);
   }
 
   /* accessor methods */
@@ -121,6 +131,14 @@ struct float4
   {
     return _x*_x+_y*_y+_z*_z;
   }
+  float4& operator+=(const float4 v)
+  {
+    _x += v._x;
+    _y += v._y;
+    _z += v._z;
+    _w += v._w;
+    return *this;
+  }
   float& x() {return _x;}
   float& y() {return _y;}
   float& z() {return _z;}
@@ -141,6 +159,10 @@ struct float4
   friend const float4 fabs(const float4 &a)
   {
     return float4(std::abs(a._x), std::abs(a._y), std::abs(a._z), std::abs(a._w));
+  }
+  float reduce() const
+  {
+    return _x + _y + _z + _w;
   }
 #endif
   float4() {}
