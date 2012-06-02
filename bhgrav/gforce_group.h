@@ -15,7 +15,7 @@ inline bool split_node(
 }
 
   template<const int Ng>
-std::pair<unsigned int, unsigned int> gForce(const GroupT<Ng> &group, float4 force[2*Ng]) const
+std::pair<unsigned int, unsigned int> gForce(const GroupT<Ng> &group, float4 force[Ng]) const
 {
   const int Ncell = NLEAF*16;
   const int Nptcl = NLEAF*16;
@@ -23,9 +23,6 @@ std::pair<unsigned int, unsigned int> gForce(const GroupT<Ng> &group, float4 for
   fMultipole  cell_list[Ncell*2] __attribute__ ((aligned(32)));
   int nc = 0, np = 0;
   int np_tot = 0, nc_tot = 0;
-
-  for (int i = 0; i < group.nb(); i++)
-    force[Ng + i] = group[i].pos_h();
 
   gForce<true, Ncell, Nptcl>(group, force, cell_list, nc, ptcl_list, np, np_tot, nc_tot);
 
@@ -35,7 +32,7 @@ std::pair<unsigned int, unsigned int> gForce(const GroupT<Ng> &group, float4 for
 template<const bool ROOT, const int Nc, const int Np, const int Ng>
 void gForce(
     const GroupT<Ng> &group,
-    float4         force[Ng*2],         /* maximal number of particles in a group  */
+    float4         force[Ng  ],         /* maximal number of particles in a group  */
     fMultipole cell_list[Nc*2], int &nc, /* list for particle-cell interactions     */
     float4     ptcl_list[Np*2], int &np, /* list for particle-particle interactions */
     int &np_tot, int &nc_tot,
@@ -59,10 +56,10 @@ void gForce(
           gForce<false, Nc, Np>(group, force, cell_list, nc, ptcl_list, np, np_tot, nc_tot,
               groupCentre, groupSize, k);
 
-    np = particle_particle       <Np, Ng>(force, group.nb(), ptcl_list, np);
-    np = particle_particle_scalar<Np, Ng>(force, group.nb(), ptcl_list, np);
-    nc = particle_cell       <Nc, Ng>(group, force, cell_list, nc);
-    nc = particle_cell_scalar<Nc, Ng>(group, force, cell_list, nc);
+    np = particle_particle       <Np>(group, force, ptcl_list, np);
+    np = particle_particle_scalar<Np>(group, force, ptcl_list, np);
+    nc = particle_cell           <Nc>(group, force, cell_list, nc);
+    nc = particle_cell_scalar    <Nc>(group, force, cell_list, nc);
   }
   else
   {
@@ -92,26 +89,29 @@ void gForce(
       assert(nc <= 2*Nc);
     }
 
-    if (np >= Np) np = particle_particle<Np, Ng>(force, group.nb(), ptcl_list, np);
-    if (nc >= Nc) nc = particle_cell    <Nc, Ng>(group, force, cell_list, nc);
+    if (np >= Np) np = particle_particle<Np>(group, force, ptcl_list, np);
+    if (nc >= Nc) nc = particle_cell    <Nc>(group, force, cell_list, nc);
   }
 }
 
 template<const int Np, const int Ng>
 int particle_particle(
-    float4     force[Ng*2], const int ni,
+    const GroupT<Ng> &igroup, 
+    float4     force[Ng  ],
     float4 ptcl_list[Np*2], const int np) const
 {
 #ifdef __AVX_H__
+  const GroupT<Ng> group = igroup;
+  const int ni = group.nb();
   const int nj = np & (-8);
 
-  const _v4sf *ib = (const _v4sf*)&force[Ng];
+  const _v8sf *ib = (const _v8sf*)&group[0];
   const _v4sf *jb = (const _v4sf*)&ptcl_list[np - nj];
   
   const _v8sf veps2 = v8sf(eps2);
   for (int i = 0; i < ni; i++)
   {
-    const _v8sf ip  = pack2ymm(*(ib + i), *(ib+i));
+    const _v8sf ip  = *(ib + i);
     const _v8sf ipx = __bcast<0>(ip);
     const _v8sf ipy = __bcast<1>(ip);
     const _v8sf ipz = __bcast<2>(ip);
@@ -154,10 +154,10 @@ int particle_particle(
     }
     gpot = -gpot;
 
-    const _v4sf f4x = __reduce(fx);
-    const _v4sf f4y = __reduce(fz);
-    const _v4sf f4z = __reduce(fy);
-    const _v4sf f4w = __reduce(gpot);
+    const _v4sf f4x = __reduce_v8sf(fx);
+    const _v4sf f4y = __reduce_v8sf(fz);
+    const _v4sf f4z = __reduce_v8sf(fy);
+    const _v4sf f4w = __reduce_v8sf(gpot);
 
     force[i] = force[i] + float4(
         __builtin_ia32_vec_ext_v4sf(f4x, 0),
@@ -167,15 +167,15 @@ int particle_particle(
   }
   return np - nj;
 #else
-  return particle_particle_scalar<Np, Ng>(force, ni, ptcl_list, np);
+  return particle_particle_scalar<Np>(igroup, force, ptcl_list, np);
 #endif
 }
 
 template<const int Nc, const int Ng>
 int particle_cell(
     const GroupT<Ng> &igroup,
-    float4         force[Ng*2],       
-    fMultipole cell_list[Nc*2], int nc) const
+    float4         force[Ng  ],       
+    fMultipole cell_list[Nc*2], const int nc) const
 {
 #ifdef __AVX_H__
   const GroupT<Ng> group = igroup;
@@ -258,14 +258,16 @@ int particle_cell(
 
 template<const int Np, const int Ng>
 int particle_particle_scalar(
-    float4     force[Ng*2], const int ni,
+    const GroupT<Ng> &group, 
+    float4     force[Ng  ],
     float4 ptcl_list[Np*2], const int np) const
 {
   if (np == 0) return 0;
+  const int ni = group.nb();
   const int nj = np;
   for (int i = 0; i < ni; i++)
   {
-    const float4 ip = force[Ng + i];
+    const float4 ip = group[i].pos_h();
     for (int j = 0; j < nj; j++)
     {
       const float4 jp = ptcl_list[j];
@@ -289,8 +291,8 @@ int particle_particle_scalar(
 template<const int Nc, const int Ng>
 int particle_cell_scalar(
     const GroupT<Ng> &group,
-    float4         force[Ng*2],       
-    fMultipole cell_list[Nc*2], int nc) const
+    float4         force[Ng  ],       
+    fMultipole cell_list[Nc*2], const int nc) const
 {
   if (nc == 0) return 0;
   const int ni = group.nb();

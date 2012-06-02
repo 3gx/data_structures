@@ -67,15 +67,11 @@ inline _v8sf __bcast2(const _v8sf x)
   return __builtin_ia32_shufps256(x, x, mask);
 }
 
-inline _v4sf __reduce(const _v8sf v8)
+inline _v4sf __reduce_v8sf(const _v8sf v8)
 {
-  _v4sf a = __extract<0>(v8);
-  _v4sf b = __extract<1>(v8);
-  a = __builtin_ia32_haddps(a, a);
-  a = __builtin_ia32_haddps(a, a);
-  b = __builtin_ia32_haddps(b, b);
-  b = __builtin_ia32_haddps(b, b);
-  return a+b;
+  const _v4sf a = __extract<0>(v8);
+  const _v4sf b = __extract<1>(v8);
+  return __reduce_v4sf(a) + __reduce_v4sf(b);
 }
 
 
