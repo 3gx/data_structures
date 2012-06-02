@@ -115,7 +115,7 @@ int particle_particle(
       const float mrinv  = rinv*mj;
       const float mrinv3 = rinv*rinv*mrinv;
 
-      float4 acc = dr * v4sf(mrinv3);
+      float4 acc = dr * float4(mrinv3);
       acc.w() = -mrinv;
 
       force[i] = force[i] + acc;
@@ -142,7 +142,7 @@ int particle_cell(
       const fMultipole &multipole = multipoleList[cell_list[j]];
       const fMonopole   &m =   multipole.monopole();
 
-      const float4 jp = float4(m.mpos().x, m.mpos().y, m.mpos().z, m.mass());
+      const float4 jp = *(float4*)&m;
       const float4 dr = jp - ip;
       const float  r2 = dr.norm2() + eps2;
       assert(r2 > 0.0f);
@@ -152,7 +152,7 @@ int particle_cell(
       const float mrinv  = rinv*mj;
       const float mrinv3 = rinv*rinv*mrinv;
 
-      float4 acc = dr * v4sf(mrinv3);
+      float4 acc = dr * float4(mrinv3);
       acc.w() = -mrinv;
 
 #if 0

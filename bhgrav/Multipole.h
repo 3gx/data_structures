@@ -45,8 +45,8 @@ struct Quadrupole
   enum TYPE {UNIT};
 
   private:
-  real _xx, _yy, _zz;
-  real _xy, _xz, _yz;
+  real _xx, _yy, _zz, iPad1;
+  real _xy, _xz, _yz, iPad2;
 
   public:
   Quadrupole() : _xx(0.0), _yy(0.0), _zz(0.0), _xy(0.0), _xz(0.0), _yz(0.0) {}
@@ -98,8 +98,7 @@ struct Multipole
   private:
 
   Mono   _monopole;  // +4= 4
-  Quad _quadrupole;  // +6= 10
-  real Pad1, iPad2;   // 11, 12
+  Quad _quadrupole;  // +8= 12
 
   public:
 
