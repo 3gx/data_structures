@@ -1,5 +1,5 @@
 data_structures
 ===============
 
-Various data structructures archive
+Various data structructures & algorithm archive
 
