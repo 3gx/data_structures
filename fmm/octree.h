@@ -80,7 +80,7 @@ struct Octree
   public:
 
   Octree(const vec3 &_centre, const real _size, const int n_nodes, const real _theta = 0.75, const real eps = 0.1) :
-    depth(0), nnode(0), ncell(0), treeReady(false), inv_theta(1.0/__max(_theta, (real)1.0e-3)), eps2(eps*eps)
+    depth(0), nnode(0), ncell(0), treeReady(false), inv_theta(1.0/__max(_theta, (real)1.0e-15)), eps2(eps*eps)
   {
     root_centre = float4(_centre.x, _centre.y, _centre.z, _size);
     cellList.resize(n_nodes<<3);

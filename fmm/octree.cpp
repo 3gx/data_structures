@@ -10,9 +10,12 @@ typedef Octree::GroupT<NGROUP> octGroup;
 int main(int argc, char * argv[])
 {
   int n_bodies = 10240;
+  real theta = 0.75;
   if (argc > 1) n_bodies = atoi(argv[1]);
+  if (argc > 2) theta = atof(argv[2]);
   assert(n_bodies > 0);
   fprintf(stderr, "n_bodies= %d\n", n_bodies);
+  fprintf(stderr, "theta= %g\n", theta);
 
   const double t00 = get_wtime();
   Particle::Vector ptcl;
@@ -72,7 +75,7 @@ int main(int argc, char * argv[])
   while (size2 < size) size2 *= 2.0;
 
   const int n_nodes = n_bodies;
-  Octree tree(centre, size2, n_nodes);
+  Octree tree(centre, size2, n_nodes, theta);
 
   const double t20 = get_wtime();
   fprintf(stderr, " -- Buidling octTree -- \n");

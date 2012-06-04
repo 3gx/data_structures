@@ -422,7 +422,7 @@ int particle_cell(
       const _v8sf Qyz = __builtin_ia32_shufps256(Q2, Q2, 0xAA);
 
       const _v8sf Qrx = Qxx*dx + Qxy*dy + Qxz*dz;
-      const _v8sf Qry = Qyz*dx + Qyy*dy + Qyz*dz;
+      const _v8sf Qry = Qxy*dx + Qyy*dy + Qyz*dz;
       const _v8sf Qrz = Qxz*dx + Qyz*dy + Qzz*dz;
 
       const _v8sf rQr = Qrx*dx + Qry*dy + Qrz*dz;
@@ -540,7 +540,7 @@ int particle_cell(
         const _v4sf Qyz = __builtin_ia32_shufps(Q2, Q2, 0xAA);
 
         const _v4sf Qrx = Qxx*dx + Qxy*dy + Qxz*dz;
-        const _v4sf Qry = Qyz*dx + Qyy*dy + Qyz*dz;
+        const _v4sf Qry = Qxy*dx + Qyy*dy + Qyz*dz;
         const _v4sf Qrz = Qxz*dx + Qyz*dy + Qzz*dz;
 
         const _v4sf rQr = Qrx*dx + Qry*dy + Qrz*dz;

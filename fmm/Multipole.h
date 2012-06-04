@@ -49,20 +49,20 @@ struct Quadrupole
   real _xy, _xz, _yz, iPad2;
 
   public:
-  Quadrupole() : _xx(0.0), _yy(0.0), _zz(0.0), iPad1(0.0), _xy(0.0), _xz(0.0), _yz(0.0), iPad2(0.0) {}
-  Quadrupole(const real x, const TYPE type) : _xx(x), _yy(x), _zz(x), iPad1(0.0), _xy(0.0), _xz(0.0), _yz(0.0),  iPad2(0.0) {}
+  Quadrupole() : _xx(0.0), _yy(0.0), _zz(0.0), _xy(0.0), _xz(0.0), _yz(0.0) {}
+  Quadrupole(const real x, const TYPE type) : _xx(x), _yy(x), _zz(x), _xy(0.0), _xz(0.0), _yz(0.0) {}
   Quadrupole(const vec3 &pos, const real mass) :
     _xx(mass*pos.x*pos.x),
     _yy(mass*pos.y*pos.y),
-    _zz(mass*pos.z*pos.z), iPad1(0.0),
+    _zz(mass*pos.z*pos.z),
     _xy(mass*pos.x*pos.y),
     _xz(mass*pos.x*pos.z),
-    _yz(mass*pos.y*pos.z), iPad2(0.0) {}
+    _yz(mass*pos.y*pos.z) {}
 
   template<typename fp>
     Quadrupole<real>(const Quadrupole<fp> &q) : 
-      _xx(q.xx()), _yy(q.yy()), _zz(q.zz()), iPad1(0.0),
-      _xy(q.xy()), _xz(q.xz()), _yz(q.yz()), iPad2(0.0) {}
+      _xx(q.xx()), _yy(q.yy()), _zz(q.zz()),
+      _xy(q.xy()), _xz(q.xz()), _yz(q.yz()) {}
 
   const Quadrupole& operator+=(const Quadrupole &q)
   {
