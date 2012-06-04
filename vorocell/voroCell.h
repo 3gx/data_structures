@@ -3,7 +3,6 @@
 
 #include "Plane3D.h"
 
-
 struct voroCell
 {
   typedef std::vector<voroCell> Vector;
@@ -13,9 +12,36 @@ struct voroCell
     typedef std::vector<Body> Vector;
     Point3D p;
     unsigned long long id;
-    Body(const Point3D &_p, const unsigned long long &_id) : p(_p), id(_id) {}
+    Body() {}
+    Body(const Point3D &_p, const unsigned long long &_id = -1) : p(_p), id(_id) {}
 
     const Point3D& operator() {return p;}
+  };
+
+  struct Vertex
+  {
+    typedef std::vector<Vertex> Vector;
+    int i,j,k;
+    Vertex() {}
+    Vertex(const int _i, const int _j, const int _k) : i(_i), j(_j), k(_k) {}
+  };
+
+  struct Face
+  {
+    enum {NVTX=128};
+    typedef std::deque<Face> Vector;
+    private:
+    int n 
+    int vtxList[NVTX];
+    public:
+    Face() : n(0);
+    int operator[](const int i) const {return vtxList[N];}
+    int nVtx() cosnt {return n;}
+    void insert(const int vtx) 
+    {
+      assert(n <= NVTX);
+      vtxList[n++] = vtx;
+    }
   };
 
   private:
@@ -23,10 +49,15 @@ struct voroCell
   Body::Vector nbList;     /*  neighbour list  */
   Body::Vector bodyList;
 
+  Vertex::Vector vtxList;  /* list of vertices */
+  Face  ::Vector faces;    /* list of faces */
+
+
   public:
   voroCell(const Body::Vector &bodies) : bodyList(bodies)
   {
-    nbList.reserve(128);
+    nbList .reserve(128);
+    vtxList.reserve(128);
 
     p0 = bodyList.back();
     bodyList.resize(bodyList.size() - 1);
@@ -47,6 +78,8 @@ struct voroCell
 
   bool completeFace(const Body &p1, const Body &p2, const Body &p3)
   {
+
+    return true;
   }
 
   Body nearest(

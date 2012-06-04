@@ -2,6 +2,7 @@
 #define __POINT3D_H__
 
 #include <vector>
+#include <deque>
 #include <cassert>
 #include "vector3.h"
 
