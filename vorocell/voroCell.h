@@ -212,7 +212,7 @@ namespace Voro
       /* now build faces */
 
       int nface = 0;
-//      while (nface < _faceList.size())
+      while (nface < _faceList.size())
       {
 #if 0
         fprintf(stderr, " --------------- \n");
@@ -279,8 +279,8 @@ namespace Voro
         if (sBnew == s2)
           break;
 
-        sA  = sB;
-        sB  = sBnew;
+        sA    = sB;
+        sB    = sBnew;
         faceA = faceB;
         faceB = Plane3D(sB, 0.5);
 
