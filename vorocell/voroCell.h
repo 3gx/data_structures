@@ -17,7 +17,7 @@ class boolMatrix
 
   public:
 
-  Matrix() 
+  boolMatrix() 
   {
     assert((N & 7) == 0);
     for (int j = 0; j < M; j++)
@@ -52,12 +52,13 @@ class Array
       for (int i = 0; i < n; i++)
         data[i] = _data[i];
     }
-    const T& operator[] const {return data[i];}
-          T& operator[]       {return data[i];}
+    const T& operator[](const int i) const {return data[i];}
+          T& operator[](const int i)       {return data[i];}
 
     void push_back(const T &t) {assert(n<N); data[n++] = t;}
-    int size() const { return n };
-    int capacity() const {return N};
+    int size() const { return n; }
+
+    int capacity() const {return N;}
 
     bool erase(const T &t) 
     {
@@ -89,13 +90,13 @@ namespace Voro
     Point3D p;
     int id;
     Site() {}
-    Site(const Point3D &_p, int &_id = -1) : p(_p), id(_id) {}
+    Site(const Point3D &_p, int _id = -1) : p(_p), id(_id) {}
 
-    const Point3D& operator() const {return p;}
-    int operator() const {return id;}
+    operator  Point3D() const {return  p;}
+    operator      int() const {return id;}
 
-    bool operator==(const Site &s) const {retrur s.id == id;}
-    bool operator!=(const Site &s) const {retrur s.id != id;}
+    bool operator==(const Site &s) const {return s.id == id;}
+    bool operator!=(const Site &s) const {return s.id != id;}
   };
 
   struct Vertex
@@ -126,6 +127,7 @@ namespace Voro
     Point3D vtxList[NVTX]; /* list of vertices */
 
     public:
+    Face() {}
     Face(const Site &s1, const Site &s2, const Site &s3) : nvtx(0)
     {
       site[0] = s1;
@@ -133,14 +135,14 @@ namespace Voro
       site[2] = s3;
     }
 
-    Site getSite() const {return site;}
+    const Site& getSite(const int i = 0) const {return site[i];}
 
-    Point3D operator[](const int i) const {return vtxList[N];}
-    int nVtx() cosnt {return n;}
+    Point3D operator[](const int i) const {return vtxList[i];}
+    int nVtx() const {return nvtx;}
     void insert(const Point3D &vtx) 
     {
-      assert(n <= NVTX);
-      vtxList[n++] = vtx;
+      assert(nvtx <= NVTX);
+      vtxList[nvtx++] = vtx;
     }
 
   };
@@ -161,7 +163,9 @@ namespace Voro
     double    _distVtx_s2;   /* distance to the most distant vertex */
 
     public:
-    voroCell(const Site &s0, const Site::Vector &sites) : 
+    int nFace() const {return _faceList.size();}
+    double r2() const {return _distVtx_s2;}
+    Cell(const Site &s0, const Site::Vector &sites) : 
       _s0(s0), _siteList(sites), _siteFlag(sites.size())
     {
       for (int i = 0; i < _siteList.size(); i++)
@@ -170,7 +174,7 @@ namespace Voro
         _siteFlag[i]    = 0;
       }
 
-      const Site s1 = _siteList.erase(nearestNeighbour());  /* Step 1 */
+      const Site s1 = _siteList.erase(nearestNeighbour(s0));  /* Step 1 */
 
       Point3D footP;
       const Plane3D face01(s0, s1, 0.5);  /* plane in which face 1 lies */
@@ -182,44 +186,45 @@ namespace Voro
 
       _siteList.push_back(s1);
       _siteList.push_back(s2);
+
       _faceList.push_back(Face(s1,s2,s3));
+      _siteFlag[s1] = true;
 
       /* now build faces */
 
       int nface = 0;
       while (nface++ < _faceList.size())
-        assert(buildFace(_siteList, faceList[nface]));
+        assert(buildFace(_siteList, _faceList[nface]));
     }
 
     bool buildFace(
         siteArray  sites,
         Face      &face)
     {
-      _siteFlag[s1] = true;
 
-      const Site &s1 = face.site[0];
-      const Site &s2 = face.site[1];
-      const Site &s3 = face.site[2];
+      const Site &s1 = face.getSite(0);
+      const Site &s2 = face.getSite(1);
+      const Site &s3 = face.getSite(2);
       
       __assert(sites.erase(s1));
       __assert(sites.erase(s2));
       __assert(sites.erase(s3));
 
-      const Plane3D face01(s0, s1, 0.5);
-      const Plane3D face02(s0, s2, 0.5); 
-      const Plane3D face03(s0, s3, 0.5);  
+      const Plane3D face01(_s0, s1, 0.5);
+      const Plane3D face02(_s0, s2, 0.5); 
+      const Plane3D face03(_s0, s3, 0.5);  
       
       Point3D newVtx;
-      Point3D    vtx = intersect(face03, Edge(face01, face02));
-      Point3D     sA = s2;
-      Point3D     sB = s3;
+      Point3D    vtx = intersect(face03, intersect(face01, face02));
+      Site        sA = s2;
+      Site        sB = s3;
 
-      if (!_siteFlag(sA))
+      if (!_siteFlag[sA])
       {
         _faceList.push_back(Face(sA, sB, s1));
         _siteFlag[sA] = true;
       }
-      if (!_siteFlag(sB))
+      if (!_siteFlag[sB])
       {
         _faceList.push_back(Face(sB, s1, sA));
         _siteFlag[sB] = true;
@@ -227,10 +232,10 @@ namespace Voro
 
       while(1)
       {
-        const Plane3D face(s0, sB);
+        const Plane3D face0B(_s0, sB);
         store_distVtx(vtx);
         face.insert(vtx);
-        const Site sC = sites.erase(nearest(sites, face02, intersect(face01, face), vtx, newVtx));
+        const Site sC = sites.erase(nearest(sites, face02, intersect(face01, face0B), vtx, newVtx));
         if (!_siteFlag[sC]) 
         {
           _faceList.push_back(Face(sC, s1, sB));
@@ -252,10 +257,10 @@ namespace Voro
     /* keeps track of the farthers vertex */
     bool store_distVtx(const Point3D &vtx)
     {
-      const double s2 = (vtx - s0).norm2();
-      if (s2 <= distVtx_s2) return false;
+      const double s2 = (vtx - _s0).norm2();
+      if (s2 <= _distVtx_s2) return false;
 
-      distVtx_s2 = s2;
+      _distVtx_s2 = s2;
       return true;
     }
 
@@ -274,7 +279,7 @@ namespace Voro
       double s2min = HUGE;
       for (int i = 0; i < n; i++)
       {
-        const Point3D ptmp = intersect(Plane3D(sites[i], s0, 0.5), line);
+        const Point3D ptmp = intersect(Plane3D(sites[i], _s0, 0.5), line);
         if (distance(plane, ptmp) > 0.0) continue;
         const double    s2 = (ptmp - point).norm2();
         assert(s2 > 0.0);
@@ -299,12 +304,12 @@ namespace Voro
         const   Line3D &line,
         const  Point3D &point)
     {
-      const int n = siteList.size();
+      const int n = _siteList.size();
       int       nb = -1;
       double s2min = HUGE;
       for (int i = 0; i < n; i++)
       {
-        const Point3D ptmp = intersect(Plane3D(siteList[i], p0, 0.5), line);
+        const Point3D ptmp = intersect(Plane3D(_siteList[i], _s0, 0.5), line);
         if (distance(plane, ptmp) > 0.0) continue;
         const double    s2 = (ptmp - point).norm2();
         assert(s2 > 0.0);
@@ -312,7 +317,6 @@ namespace Voro
         {
           nb    = i;
           s2min = s2;
-          vtx   = ptmp;
         }
       }
 
@@ -334,8 +338,8 @@ namespace Voro
       double s2min = HUGE;
       for (int i = 0; i < n; i++)
       {
-        const  Line3D line = intersect(Plane3D(_siteList[i].p, p0, 0.5), plane);
-        const Point3D foot = footPerpedicular(line, point);
+        const  Line3D line = intersect(Plane3D(_siteList[i].p, _s0, 0.5), plane);
+        const Point3D foot = perpendicularFoot(line, point);
         const double    s2 = (foot - point).norm2();
         assert (s2 > 0.0);
         if (s2 < s2min)
@@ -353,7 +357,7 @@ namespace Voro
     /* Find the nearest neighbour site in _siteList */
     int nearestNeighbour(const Point3D &s0) const
     {
-      const int n  = siteList.size();
+      const int n  = _siteList.size();
       int       nnb = -1;
       double s2min = HUGE;
       for (int i = 0; i < n; i++)
@@ -372,5 +376,7 @@ namespace Voro
     }
 
   };
+
+}
 
 #endif /* __VOROCELL_H__ */

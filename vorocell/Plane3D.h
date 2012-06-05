@@ -16,13 +16,13 @@ struct Plane3D
   Plane3D(const Point3D &p1, const Point3D &p2, const double loc = 0.5)
   {
     assert(loc >= 0.0 && loc <= 1.0);
-    _norm  = p2 - p1;
+    _n = p2 - p1;
 
-    const double l2 = _norm.norm2();
-    assert(len2 > 0.0);
-    _norm *= 1.0/std::sqrt(len2)
+    const double l2 = _n.norm2();
+    assert(l2 > 0.0);
+    _n*= 1.0/std::sqrt(l2);
 
-    _h  = (p1 + loc * (p2 - p1))*_norm;
+    _h  = (p1 + loc * (p2 - p1))*_n;
   };
 
   /* intersection of two planes, returns a line */
@@ -34,8 +34,8 @@ struct Plane3D
     const double c1  = (p1._h - p2._h*n12)*f;
     const double c2  = (p2._h - p1._h*n12)*f;
 
-    const  Point3D orig = p._n1*c1 + p._n2*c2;
-    const Vector3D tang = p._n1%p._n2;
+    const  Point3D orig = p1._n*c1 + p2._n*c2;
+    const Vector3D tang = p1._n%p2._n;
 
     return Line3D(orig, orig + tang);
   }
@@ -43,10 +43,10 @@ struct Plane3D
   /* intersection of a plane and a line, returns a point */
   friend Point3D intersect(const Plane3D &p, const Line3D &l)
   {
-    const double dot = p._n1*l._tang;
+    const double dot = p._n*l.tang();
     assert(dot > 0.0);
 
-    const double d = (p._h - p._n1*l._orig)*(1.0/dot);
+    const double d = (p._h - p._n*l.orig())*(1.0/dot);
 
     return l(d);
   }
@@ -58,7 +58,7 @@ struct Plane3D
   /* computes distance between a plane and a line */
   friend double distance(const Plane3D &plane, const Point3D &point)
   {
-    return p._h - p._n*point._orig;
+    return plane._h - plane._n*point;
   }
   friend double distance(const Point3D &point, const Plane3D &plane)
   {

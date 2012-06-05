@@ -36,10 +36,10 @@ endif
 LDFLAGS = 
 
 SRCPATH = ./
-SRC = octree.cpp
+SRC = vorocell.cpp
 OBJ = $(SRC:%.cpp=%.o) 
 
-PROG  = octree
+PROG = vorocell
 
 RM = /bin/rm
 
@@ -59,11 +59,5 @@ clean:
 clean_all:
 	/bin/rm -rf *.o $(PROG) plummer.dat *~
 
-$(OBJ): octree.h plummer.h mytimer.h boundary.h vector3.h boundary4.h peano.h
-
-
-
-
-
-
+$(OBJ): vector3.h Point3D.h Line3D.h Plane3D.h voroCell.h
 
