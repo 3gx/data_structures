@@ -18,14 +18,20 @@ int main(int argc, char * argv[])
   for (int i = 0; i < Nsite; i++)
     sites[i] = Voro::Site(dvec3(drand48(), drand48(), drand48()), i);
 
-  const double t00 = get_wtime();
+  Voro::Site::Vector searchSites(Nrepeat);
   for (int i = 0; i < Nrepeat; i++)
   {
     const double x = 0.5 + (1.0 - 2.0*drand48())*0.1;
     const double y = 0.5 + (1.0 - 2.0*drand48())*0.1;
     const double z = 0.5 + (1.0 - 2.0*drand48())*0.1;
-    const Voro::Site s0(dvec3(x, y, z), -1);
-    const Voro::Cell cell(s0, sites);
+    searchSites[i] = Voro::Site(dvec3(x, y, z), -1);
+  }
+
+  Voro::Cell cell;
+  const double t00 = get_wtime();
+  for (int i = 0; i < Nrepeat; i++)
+  {
+    cell.build(searchSites[i], sites);
     if (i == Nrepeat-1)
       fprintf(stderr , "nface= %d  r= %g\n", cell.nFace(), std::sqrt(cell.r2()));
   }

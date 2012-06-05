@@ -49,11 +49,20 @@ class Array
       for (int i = 0; i < n; i++)
         data[i] = _data[i];
     }
+    void clear()
+    {
+      n = 0;
+    }
     const T& operator[](const int i) const {return data[i];}
           T& operator[](const int i)       {return data[i];}
 
     void push_back(const T &t) {assert(n<N); data[n++] = t;}
     int size() const { return n; }
+    void resize(const int size) 
+    {
+      assert (size <= N);
+      n = size;
+    }
 
     int capacity() const {return N;}
 
@@ -116,7 +125,7 @@ namespace Voro
   struct Face
   {
     enum {NVTX=1024};
-    typedef std::deque<Face> Vector;
+//    typedef std::deque<Face> Vector;
 
     private:
     Site    site[3];       /*  generating site   */
@@ -130,6 +139,11 @@ namespace Voro
       site[0] = s1;
       site[1] = s2;
       site[2] = s3;
+    }
+
+    void clear() 
+    {
+      nvtx = 0;
     }
 
     const Site& getSite(const int i = 0) const {return site[i];}
@@ -162,9 +176,14 @@ namespace Voro
     public:
     int nFace() const {return _faceList.size();}
     double r2() const {return _distVtx_s2;}
-    Cell(const Site &site0, const Site::Vector &sites) : 
-      _s0(site0), _siteList(sites), _siteFlag(sites.size())
+    Cell() {}
+    void build(const Site &site0, const Site::Vector &sites) 
     {
+      _s0 = site0;
+      _siteList = sites;
+      _siteFlag.resize(sites.size());
+      _faceList.clear();
+
       for (int i = 0; i < _siteList.size(); i++)
       {
         _siteList[i].id = i;
@@ -172,6 +191,7 @@ namespace Voro
         _siteList[i].p -= site0;
       }
       _s0.p -= site0;
+      
 
       const int nnb = nearestNeighbour(_s0);
       const Site s1 = _siteList.erase(nnb); /* Step 1 */
@@ -191,6 +211,7 @@ namespace Voro
       _faceList.push_back(Face(s1,s2,s3));
       _siteFlag[s1.id] = true;
 
+
       /* now build faces */
 
       int nface = 0;
@@ -202,6 +223,9 @@ namespace Voro
 #endif
         assert(buildFace(_siteList, _faceList[nface++]));
       }
+
+      for (int i = 0; i < _siteFlag.size(); i++)
+        _siteFlag[i] = 0;
     }
 
     bool buildFace(
