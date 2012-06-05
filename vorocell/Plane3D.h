@@ -25,6 +25,7 @@ struct Plane3D
     _h  = (p1 + loc * (p2 - p1))*_norm;
   };
 
+  /* intersection of two planes, returns a line */
   friend Line3D intersect(const Plane3D &p1, const Plane3D &p2)
   {
     const double n12 = p1._n * p2._n;
@@ -39,6 +40,7 @@ struct Plane3D
     return Line3D(orig, orig + tang);
   }
 
+  /* intersection of a plane and a line, returns a point */
   friend Point3D intersect(const Plane3D &p, const Line3D &l)
   {
     const double dot = p._n1*l._tang;
@@ -51,6 +53,16 @@ struct Plane3D
   friend Point3D intersect(const Line3D &l, const Plane3D &p)
   {
     return intersect(p, l);
+  }
+
+  /* computes distance between a plane and a line */
+  friend double distance(const Plane3D &plane, const Point3D &point)
+  {
+    return p._h - p._n*point._orig;
+  }
+  friend double distance(const Point3D &point, const Plane3D &plane)
+  {
+    return distance(plane, point);
   }
 
 };

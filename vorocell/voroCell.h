@@ -2,161 +2,375 @@
 #define __VOROCELL_H__
 
 #include "Plane3D.h"
+#include <map>
 
-struct voroCell
+inline void __assert(const bool condition)
 {
-  typedef std::vector<voroCell> Vector;
+  assert(condition);
+}
 
-  struct Body
+template<const int M, const int N>
+class boolMatrix
+{
+  private:
+  unsigned int matrix[M][N>>3];
+
+  public:
+
+  Matrix() 
   {
-    typedef std::vector<Body> Vector;
-    Point3D p;
-    unsigned long long id;
-    Body() {}
-    Body(const Point3D &_p, const unsigned long long &_id = -1) : p(_p), id(_id) {}
+    assert((N & 7) == 0);
+    for (int j = 0; j < M; j++)
+      for (int i = 0; i < (N>>3); i++)
+        matrix[j][i] = 0;
+  }
 
-    const Point3D& operator() {return p;}
+  unsigned int bit(const int ch) const {return 1 << ch;}
+
+  bool operator()(const int row, const int col) const
+  {
+    return matrix[row][col>>3] & bit(col&7);
+  }
+
+  void   set(const int row, const int col) {matrix[row][col>>3] |=  bit(col&7);}
+  void unset(const int row, const int col) {matrix[row][col>>3] &= ~bit(col&7);}
+};
+
+template<class T, const int N>
+class Array
+{
+  private:
+    int n;
+    T data[N];
+
+  public:
+    Array(const int _n = 0) : n(_n) {}
+    Array(const std::vector<T> &_data)
+    {
+      n = _data.size();
+      assert(n <= N);
+      for (int i = 0; i < n; i++)
+        data[i] = _data[i];
+    }
+    const T& operator[] const {return data[i];}
+          T& operator[]       {return data[i];}
+
+    void push_back(const T &t) {assert(n<N); data[n++] = t;}
+    int size() const { return n };
+    int capacity() const {return N};
+
+    bool erase(const T &t) 
+    {
+      for (int i = 0; i < n; i++)
+        if (data[i] == t)
+        {
+          n--;
+          std::swap(data[i], data[n]);
+          return true;
+        }
+      return false;
+    }
+
+    T erase(const int i)
+    {
+      assert(i < n);
+      n--;
+      std::swap(data[i], data[n]);
+      return data[n+1];
+    }
+};
+
+namespace Voro
+{
+
+  struct Site
+  {
+    typedef std::vector<Site> Vector;
+    Point3D p;
+    int id;
+    Site() {}
+    Site(const Point3D &_p, int &_id = -1) : p(_p), id(_id) {}
+
+    const Point3D& operator() const {return p;}
+    int operator() const {return id;}
+
+    bool operator==(const Site &s) const {retrur s.id == id;}
+    bool operator!=(const Site &s) const {retrur s.id != id;}
   };
 
   struct Vertex
   {
     typedef std::vector<Vertex> Vector;
-    int i,j,k;
+    int s[3];  /* sites */
+    Point3D p;
     Vertex() {}
-    Vertex(const int _i, const int _j, const int _k) : i(_i), j(_j), k(_k) {}
+    Vertex(const Point3D &_p) : p(_p) {}
+  };
+
+  struct Edge
+  {
+    typedef std::vector<Edge> Vector;
+    int beg, end;
+    Edge() {}
+    Edge(const int _beg, const int _end) : beg(_beg), end(_end) {};
   };
 
   struct Face
   {
     enum {NVTX=128};
     typedef std::deque<Face> Vector;
+
     private:
-    int n 
-    int vtxList[NVTX];
+    Site    site[3];       /*  generating site   */
+    int     nvtx;          /* number of vertices */
+    Point3D vtxList[NVTX]; /* list of vertices */
+
     public:
-    Face() : n(0);
-    int operator[](const int i) const {return vtxList[N];}
+    Face(const Site &s1, const Site &s2, const Site &s3) : nvtx(0)
+    {
+      site[0] = s1;
+      site[1] = s2;
+      site[2] = s3;
+    }
+
+    Site getSite() const {return site;}
+
+    Point3D operator[](const int i) const {return vtxList[N];}
     int nVtx() cosnt {return n;}
-    void insert(const int vtx) 
+    void insert(const Point3D &vtx) 
     {
       assert(n <= NVTX);
       vtxList[n++] = vtx;
     }
+
   };
 
-  private:
-  Body             p0;     /*   central point */
-  Body::Vector nbList;     /*  neighbour list  */
-  Body::Vector bodyList;
-
-  Vertex::Vector vtxList;  /* list of vertices */
-  Face  ::Vector faces;    /* list of faces */
-
-
-  public:
-  voroCell(const Body::Vector &bodies) : bodyList(bodies)
+  struct Cell
   {
-    nbList .reserve(128);
-    vtxList.reserve(128);
+    enum {NFACEMAX=128, NSITEMAX=1024};
 
-    p0 = bodyList.back();
-    bodyList.resize(bodyList.size() - 1);
+    typedef Array<Site, NSITEMAX> siteArray;
+    typedef Array<bool, NSITEMAX> boolArray;
+    typedef Array<Face, NFACEMAX> faceArray;
 
-    const Body p1 = nearestNeighbour();   /* Step 1 */
+    private:
+    Site      _s0;           /*   central point  */
+    siteArray _siteList;     /*  input site list */
+    boolArray _siteFlag;
+    faceArray _faceList;     /* list of    faces */
+    double    _distVtx_s2;   /* distance to the most distant vertex */
 
-    Point3D footP;
-    const Plane3D face01(p0.p, p1.p, 0.5);  /* plane in which face 1 lies */
-    const Body p2 = nearest(face01, (p0.p + p1.p)*0.5, footP);  /* Step 2 */
-
-    Point3D vtx1;
-    const Plane3D face02(p0.p, p2.p, 0.5);  /* plane in which face 1 lies */
-    const Line3D  edge12 = intersect(face01, face02);
-    const Body p3 = nearest(edge12, footP, vtx1);   /* Step 3 */
-
-    assert(completeFace(p1, p2, p3));
-  }
-
-  bool completeFace(const Body &p1, const Body &p2, const Body &p3)
-  {
-
-    return true;
-  }
-
-  Body nearest(
-      const   Line3D &line,
-      const  Point3D &point, 
-      Point3D        &vtx)
-  {
-    const int n = bodyList.size();
-    int       nb = -1;
-    double s2min = HUGE;
-    for (int i = 0; i < n; i++)
+    public:
+    voroCell(const Site &s0, const Site::Vector &sites) : 
+      _s0(s0), _siteList(sites), _siteFlag(sites.size())
     {
-      const Point3D ptmp = intersect(Plane3D(bodyList[i], p0, 0.5), line);
-      const double    s2 = ptmp - p0;
-      assert(s2 > 0.0);
-      if (s2 < s2min)
+      for (int i = 0; i < _siteList.size(); i++)
       {
-        nb    = i;
-        s2min = s2;
-        vtx   = ptmp;
+        _siteList[i].id = i;
+        _siteFlag[i]    = 0;
       }
+
+      const Site s1 = _siteList.erase(nearestNeighbour());  /* Step 1 */
+
+      Point3D footP;
+      const Plane3D face01(s0, s1, 0.5);  /* plane in which face 1 lies */
+      const Site s2 = _siteList.erase(nearest(face01, (s0.p+s1.p)*0.5, footP)); /* Step 2*/
+
+      const Plane3D face02(s0.p, s2.p, 0.5);  /* plane in which face 1 lies */
+      const Line3D  edge12 = intersect(face01, face02);
+      const Site s3 = _siteList.erase(nearest(face02, edge12, footP));   /* Step 3 */
+
+      _siteList.push_back(s1);
+      _siteList.push_back(s2);
+      _faceList.push_back(Face(s1,s2,s3));
+
+      /* now build faces */
+
+      int nface = 0;
+      while (nface++ < _faceList.size())
+        assert(buildFace(_siteList, faceList[nface]));
     }
 
-    return extract_nb(nb);
-  }
-
-  Body nearest(
-      const Plane3D &plane, 
-      const Point3D &point, 
-      Point3D &footP)
-  {
-    const int n = bodyList.size();
-    int       nb = -1;
-    double s2min = HUGE;
-    for (int i = 0; i < n; i++)
+    bool buildFace(
+        siteArray  sites,
+        Face      &face)
     {
-      const  Line3D line = intersect(Plane3D(bodyList[i].p, p0, 0.5), plane);
-      const Point3D foot = footPerpedicular(line, point);
-      const double    s2 = (foot - point).norm2();
-      assert (s2 > 0.0);
-      if (s2 < s2min)
+      _siteFlag[s1] = true;
+
+      const Site &s1 = face.site[0];
+      const Site &s2 = face.site[1];
+      const Site &s3 = face.site[2];
+      
+      __assert(sites.erase(s1));
+      __assert(sites.erase(s2));
+      __assert(sites.erase(s3));
+
+      const Plane3D face01(s0, s1, 0.5);
+      const Plane3D face02(s0, s2, 0.5); 
+      const Plane3D face03(s0, s3, 0.5);  
+      
+      Point3D newVtx;
+      Point3D    vtx = intersect(face03, Edge(face01, face02));
+      Point3D     sA = s2;
+      Point3D     sB = s3;
+
+      if (!_siteFlag(sA))
       {
-        nb    = i;
-        s2min = s2;
-        footP = foot;
+        _faceList.push_back(Face(sA, sB, s1));
+        _siteFlag[sA] = true;
       }
+      if (!_siteFlag(sB))
+      {
+        _faceList.push_back(Face(sB, s1, sA));
+        _siteFlag[sB] = true;
+      }
+
+      while(1)
+      {
+        const Plane3D face(s0, sB);
+        store_distVtx(vtx);
+        face.insert(vtx);
+        const Site sC = sites.erase(nearest(sites, face02, intersect(face01, face), vtx, newVtx));
+        if (!_siteFlag[sC]) 
+        {
+          _faceList.push_back(Face(sC, s1, sB));
+          _siteFlag[sC] = true;
+        }
+
+        if (sC == s2)
+          break;
+
+        sites.push_back(sA);
+        sA  = sB;
+        sB  = sC;
+        vtx = newVtx;
+      }
+      
+      return true;
     }
 
-    return extract_nb(nb); 
-  }
-
-  Body nearestNeighbour()
-  {
-    const int n = bodyList.size();
-    int       nb = -1;
-    double s2min = HUGE;
-    for (int i = 0; i < n; i++)
+    /* keeps track of the farthers vertex */
+    bool store_distVtx(const Point3D &vtx)
     {
-      const double s2 = (p0 - bodyList[i].p).norm2();
-      assert(s2 > 0.0);
-      if (s2 < s2min)
-      {
-        nb    = i;
-        s2min = s2;
-      }
+      const double s2 = (vtx - s0).norm2();
+      if (s2 <= distVtx_s2) return false;
+
+      distVtx_s2 = s2;
+      return true;
     }
 
-    return extract_nb(nb);
-  }
+    /* find the nearest site in "sites" behind the "plane" whose face
+     * intersection with the "line" gives the "vertex" closes to the "point"
+     */
+    int nearest(
+        const siteArray &sites,
+        const Plane3D   &plane,
+        const Line3D    &line,
+        const Point3D   &point,
+        Point3D         &vertex) const
+    {
+      const int n  = sites.size();
+      int       nb = -1;
+      double s2min = HUGE;
+      for (int i = 0; i < n; i++)
+      {
+        const Point3D ptmp = intersect(Plane3D(sites[i], s0, 0.5), line);
+        if (distance(plane, ptmp) > 0.0) continue;
+        const double    s2 = (ptmp - point).norm2();
+        assert(s2 > 0.0);
+        if (s2 < s2min)
+        {
+          nb     = i;
+          s2min  = s2;
+          vertex = ptmp;
+        }
+      }
 
-  Body extract_nb(const int nb)
-  {
-    const Body p = bodyList[nb];
-    std::swap(bodyList[nb], bodyList[n-1]);
-    bodyList.resize(n-1);
-    return p;
-  }
-};
+      assert(nb >= 0);
+      return nb;
+    }
+
+
+    /* Find the nearest site behind the "plane" whose face itersection with the
+     * "line" is the closest to the "point"
+     */
+    int nearest(
+        const  Plane3D &plane,
+        const   Line3D &line,
+        const  Point3D &point)
+    {
+      const int n = siteList.size();
+      int       nb = -1;
+      double s2min = HUGE;
+      for (int i = 0; i < n; i++)
+      {
+        const Point3D ptmp = intersect(Plane3D(siteList[i], p0, 0.5), line);
+        if (distance(plane, ptmp) > 0.0) continue;
+        const double    s2 = (ptmp - point).norm2();
+        assert(s2 > 0.0);
+        if (s2 < s2min)
+        {
+          nb    = i;
+          s2min = s2;
+          vtx   = ptmp;
+        }
+      }
+
+      assert(nb >= 0);
+      return nb;
+    }
+
+
+    /* Find the nearest site whose face intersection with the "plane" is  
+     * closest line to the "point"  
+     */ 
+    int nearest(
+        const Plane3D &plane, 
+        const Point3D &point, 
+        Point3D &footP) const
+    {
+      const int n  = _siteList.size();
+      int       nb = -1;
+      double s2min = HUGE;
+      for (int i = 0; i < n; i++)
+      {
+        const  Line3D line = intersect(Plane3D(_siteList[i].p, p0, 0.5), plane);
+        const Point3D foot = footPerpedicular(line, point);
+        const double    s2 = (foot - point).norm2();
+        assert (s2 > 0.0);
+        if (s2 < s2min)
+        {
+          nb    = i;
+          s2min = s2;
+          footP = foot;
+        }
+      }
+
+      assert(nb >= 0);
+      return nb;
+    }
+
+    /* Find the nearest neighbour site in _siteList */
+    int nearestNeighbour(const Point3D &s0) const
+    {
+      const int n  = siteList.size();
+      int       nnb = -1;
+      double s2min = HUGE;
+      for (int i = 0; i < n; i++)
+      {
+        const double s2 = (s0 - _siteList[i]).norm2();
+        assert(s2 > 0.0);
+        if (s2 < s2min)
+        {
+          nnb   = i;
+          s2min = s2;
+        }
+      }
+
+      assert(nnb >= 0);
+      return nnb;
+    }
+
+  };
 
 #endif /* __VOROCELL_H__ */
