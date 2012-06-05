@@ -44,7 +44,7 @@ struct Plane3D
   friend Point3D intersect(const Plane3D &p, const Line3D &l)
   {
     const double dot = p._n*l.tang();
-    assert(dot > 0.0);
+    assert(dot*dot > 0.0);
 
     const double d = (p._h - p._n*l.orig())*(1.0/dot);
 
@@ -58,7 +58,7 @@ struct Plane3D
   /* computes distance between a plane and a line */
   friend double distance(const Plane3D &plane, const Point3D &point)
   {
-    return plane._h - plane._n*point;
+    return plane._n*point - plane._h;
   }
   friend double distance(const Point3D &point, const Plane3D &plane)
   {
