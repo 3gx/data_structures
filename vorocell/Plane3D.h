@@ -24,6 +24,19 @@ struct Plane3D
 
     _h  = (p1 + loc * (p2 - p1))*_n;
   };
+  
+  Plane3D(const Point3D &p, const double loc = 0.5)
+  {
+    assert(loc >= 0.0 && loc <= 1.0);
+    _n = p;
+
+    const double l2 = _n.norm2();
+    assert(l2 > 0.0);
+    _n*= 1.0/std::sqrt(l2);
+
+    _h  = (p*_n)*0.5;
+  };
+
 
   /* intersection of two planes, returns a line */
   friend Line3D intersect(const Plane3D &p1, const Plane3D &p2)
@@ -63,6 +76,10 @@ struct Plane3D
   friend double distance(const Point3D &point, const Plane3D &plane)
   {
     return distance(plane, point);
+  }
+  friend double distance(const Plane3D &plane)
+  {
+    return -plane._h;
   }
 
 };
