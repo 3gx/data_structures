@@ -14,7 +14,7 @@ int main(int argc, char * argv[])
   const double t00 = get_wtime();
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
-#if 0
+#if 1
 #define PLUMMER
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
@@ -43,17 +43,13 @@ int main(int argc, char * argv[])
     }
   }
 #endif
+
+
   const double t10 = get_wtime();
-
-
-  const double t20 = get_wtime();
   fprintf(stderr, " -- Buidling kdTree -- \n");
   kdTree tree(ptcl);
   fprintf(stderr, "    Depth= %d\n", tree.getDepth());
-  const double t30 = get_wtime();
-
-
-  const double t50 = get_wtime();
+  const double t20 = get_wtime();
 
   fprintf(stderr, " -- Searching nearest ngb -- \n");
   {
@@ -86,14 +82,76 @@ int main(int argc, char * argv[])
     const real ds = std::sqrt(s2 - s*s);
     fprintf(stderr, "<r> = %g  sigma= %g \n", s, ds);
   }
+  const double t30 = get_wtime();
+  
+  fprintf(stderr, " Tree dump \n");
+
+  std::vector<int> sortedBodies;
+  sortedBodies.reserve(n_bodies);
+  tree.dump(sortedBodies);
+  assert((int)sortedBodies.size() == n_bodies);
+  
+  const double t40 = get_wtime();
+  
+  fprintf(stderr, " Shuffle \n");
+
+  Particle::Vector sortedPtcl(n_bodies);
+  for (int i = 0; i < n_bodies; i++)
+    sortedPtcl[i] = ptcl[sortedBodies[i]];
+
+  const double t50 = get_wtime();
+
+  fprintf(stderr, " Building sortedTree \n");
+  kdTree sortedTree(sortedPtcl);
+  fprintf(stderr, "    Depth= %d\n", tree.getDepth());
+  
   const double t60 = get_wtime();
+  
+  fprintf(stderr, " -- Searching nearest ngb in sortedTree -- \n");
+  {
+    real s = 0.0;
+    real s2 = 0.0;
+#pragma omp parallel for reduction(+:s,s2)
+    for (int i = 0; i < n_bodies; i++)
+    {
+      const int  j = sortedTree.find_nnb(sortedPtcl[i].pos);
+      const real r = (sortedPtcl[i].pos - sortedPtcl[j].pos).abs();
+#if 0 /* correctness check */
+      real s2min = HUGE;
+      int  jmin  = -1;
+      for (int jx = 0; jx < n_bodies; jx++)
+      {
+        const real r2 = (sortedPtcl[i].pos - sortedPtcl[jx].pos).norm2();
+        if (r2 < s2min && r2 != 0.0f)
+        {
+          s2min = r2;
+          jmin = jx;
+        } 
+      }
+      assert(jmin == j);
+#endif
+      s  += r;
+      s2 += r*r;
+    }
+    s  *= 1.0/n_bodies;
+    s2 *= 1.0/n_bodies;
+    const real ds = std::sqrt(s2 - s*s);
+    fprintf(stderr, "<r> = %g  sigma= %g \n", s, ds);
+  }
+  
+  const double t70 = get_wtime();
+
+
 
   fprintf(stderr, " Timing info: \n");
   fprintf(stderr, " -------------\n");
   fprintf(stderr, "   Plummer:  %g sec \n", t10 -t00);
-  fprintf(stderr, "   Copy:     %g sec \n", t20 -t10);
-  fprintf(stderr, "   kdTree:   %g sec \n", t30 -t20);
-  fprintf(stderr, "   nnb :     %g sec \n", t60 -t50);
+  fprintf(stderr, "   kdTree:   %g sec \n", t20 -t10);
+  fprintf(stderr, "   nnb :     %g sec \n", t30 -t20);
+  fprintf(stderr, "   Dump :    %g sec \n", t40 -t30);
+  fprintf(stderr, "   Move :    %g sec \n", t50 -t40);
+  fprintf(stderr, "   sTree :   %g sec \n", t60 -t50);
+  fprintf(stderr, "   sNgbe :   %g sec \n", t70 -t60);
 
 
 

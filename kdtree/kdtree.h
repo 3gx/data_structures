@@ -308,6 +308,28 @@ class kdTree
 
 
   public:
+
+  void dump(std::vector<int> &bodies, const int inode = 1) const
+  {
+    if (inode >= (int)nodes.size()-1) return;
+    
+    const kdNode &node = nodes[inode];
+    if (node.isLeaf())
+    {
+      const Leaf &leaf = leaves[node.getLeaf()];
+      for (int i = 0; i < leaf.size(); i++)
+        bodies.push_back(leaf[i].idx());
+    }
+    else
+    {
+      bodies.push_back(node.body_idx());
+      const int left  = inode << 1;
+      const int right = left + 1;
+      dump(bodies, left);
+      dump(bodies, right);
+    }
+  } 
+
   int find_nnb(const vec3 &pos) const
   {
     real smin = HUGE;
@@ -316,7 +338,6 @@ class kdTree
 
     return body;
   }
-
   private:
 
   void find_recursively_nnb(
@@ -342,27 +363,28 @@ class kdTree
         }
       }
       smin = std::sqrt(s2min);
-      return;
     }
-
-    const int split_dim = node.split_dim();
-    const real dist     = pos[split_dim] - node.pos()[split_dim];
-    const bool go_left  = dist <= 0.0;
-    const int left  = inode << 1;
-    const int right = left + 1;
-    
-    const real s2 = (pos - node.pos()).norm2();
-    if (s2 <= SQR(smin) && s2 > 0.0)
+    else
     {
-      smin = std::sqrt(s2);
-      body = node.body_idx();
-    }
+      const int split_dim = node.split_dim();
+      const real dist     = pos[split_dim] - node.pos()[split_dim];
+      const bool go_left  = dist <= 0.0;
+      const int left  = inode << 1;
+      const int right = left + 1;
 
-    const int near = go_left ? left  : right;
-    const int far  = go_left ? right : left;
-    find_recursively_nnb(pos, near, smin, body);
-    if (std::abs(dist) <  smin)
-      find_recursively_nnb(pos, far, smin, body);
+      const real s2 = (pos - node.pos()).norm2();
+      if (s2 <= SQR(smin) && s2 > 0.0)
+      {
+        smin = std::sqrt(s2);
+        body = node.body_idx();
+      }
+
+      const int near = go_left ? left  : right;
+      const int far  = go_left ? right : left;
+      find_recursively_nnb(pos, near, smin, body);
+      if (std::abs(dist) <  smin)
+        find_recursively_nnb(pos, far, smin, body);
+    }
 
   }
 
