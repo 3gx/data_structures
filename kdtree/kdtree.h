@@ -309,11 +309,11 @@ class kdTree
   public:
   int find_nnb(const vec3 &pos) const
   {
-    real s2min     = HUGE;
-    int  inode_min = -1;
-    find_recursively_nnb(pos, 1, s2min, inode_min);
+    real smin = HUGE;
+    int  body = -1;
+    find_recursively_nnb(pos, 1, smin, body);
 
-    return inode_min;
+    return body;
   }
 
   private:
@@ -321,8 +321,8 @@ class kdTree
   void find_recursively_nnb(
       const vec3 &pos,
       const int   inode,
-      real &s2min,
-      int  &inode_min) const
+      real &smin,
+      int  &body) const
   {
     if (inode >= (int)nodes.size()-1) return;
 
@@ -330,17 +330,20 @@ class kdTree
     if (node.isLeaf())
     {
       const Leaf &leaf = leaves[node.getLeaf()];
+      real s2min = SQR(smin);
       for (int i = 0; i < leaf.size(); i++)
       {
         const real s2 = (pos - leaf[i].pos()).norm2();
         if (s2 <= s2min && s2 > 0.0)
         {
           s2min = s2;
-          inode_min = leaf[i].idx();
+          body  = leaf[i].idx();
         }
       }
+      smin = std::sqrt(s2min);
       return;
     }
+
     const int split_dim = node.split_dim();
     const bool go_left = pos[split_dim] <= node.pos()[split_dim];
     const int left  = (inode << 1);
@@ -349,15 +352,15 @@ class kdTree
     const int far  = go_left ? right : left;
     
     const real s2 = (pos - node.pos()).norm2();
-    if (s2 <= s2min && s2 > 0.0)
+    if (s2 <= SQR(smin) && s2 > 0.0)
     {
-      s2min     = s2;
-      inode_min = node.body_idx();
+      smin = std::sqrt(s2);
+      body = node.body_idx();
     }
 
-    find_recursively_nnb(pos, near, s2min, inode_min);
-    if (SQR(pos[split_dim] - node.pos()[split_dim]) <= s2min)
-      find_recursively_nnb(pos, far, s2min, inode_min);
+    find_recursively_nnb(pos, near, smin, body);
+    if (SQR(pos[split_dim] - node.pos()[split_dim]) <= SQR(smin))
+      find_recursively_nnb(pos, far, smin, body);
 
   }
 
