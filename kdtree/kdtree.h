@@ -247,6 +247,9 @@ class kdTree
   }
   int getDepth() const {return depth;}
 
+  int nLeaf() const { return  leaves.size(); }
+  const Leaf& getLeaf(const int i) const {return leaves[i];}
+
   private:
   
   class CompareBodies

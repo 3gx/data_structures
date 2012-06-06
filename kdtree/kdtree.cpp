@@ -114,14 +114,15 @@ int main(int argc, char * argv[])
 #pragma omp parallel for reduction(+:s,s2)
     for (int i = 0; i < n_bodies; i++)
     {
-      const int  j = sortedTree.find_nnb(sortedPtcl[i].pos);
-      const real r = (sortedPtcl[i].pos - sortedPtcl[j].pos).abs();
+      vec3 ipos = sortedPtcl[i].pos;
+      const int  j = sortedTree.find_nnb(ipos);
+      const real r = (ipos - sortedPtcl[j].pos).abs();
 #if 0 /* correctness check */
       real s2min = HUGE;
       int  jmin  = -1;
       for (int jx = 0; jx < n_bodies; jx++)
       {
-        const real r2 = (sortedPtcl[i].pos - sortedPtcl[jx].pos).norm2();
+        const real r2 = (ipos - sortedPtcl[jx].pos).norm2();
         if (r2 < s2min && r2 != 0.0f)
         {
           s2min = r2;
@@ -140,6 +141,51 @@ int main(int argc, char * argv[])
   }
   
   const double t70 = get_wtime();
+  
+  fprintf(stderr, " -- Searching nearest ngb w/ Leaf in sortedTree -- \n");
+  {
+#if 1
+    const kdTree &t = sortedTree;
+#else
+    const kdTree &t = tree;
+#endif
+    const int nLeaf = t.nLeaf();
+    real s = 0.0;
+    real s2 = 0.0;
+    for (int ileaf = 0; ileaf < nLeaf; ileaf++)
+    {
+      const kdTree::Leaf &leaf = t.getLeaf(ileaf);
+#pragma omp parallel for
+      for (int i = 0; i < leaf.size(); i++)
+      {
+        const vec3& ipos = leaf[i].pos();
+        const int  j = t.find_nnb(ipos);
+        const real r = (ipos - sortedPtcl[j].pos).abs();
+#if 0 /* correctness check */
+        real s2min = HUGE;
+        int  jmin  = -1;
+        for (int jx = 0; jx < n_bodies; jx++)
+        {
+          const real r2 = (ipos - sortedPtcl[jx].pos).norm2();
+          if (r2 < s2min && r2 != 0.0f)
+          {
+            s2min = r2;
+            jmin = jx;
+          } 
+        }
+        assert(jmin == j);
+#endif
+        s  += r;
+        s2 += r*r;
+      }
+    }
+    s  *= 1.0/n_bodies;
+    s2 *= 1.0/n_bodies;
+    const real ds = std::sqrt(s2 - s*s);
+    fprintf(stderr, "<r> = %g  sigma= %g \n", s, ds);
+  }
+
+  const double t80 = get_wtime();
 
 
 
@@ -147,11 +193,12 @@ int main(int argc, char * argv[])
   fprintf(stderr, " -------------\n");
   fprintf(stderr, "   Plummer:  %g sec \n", t10 -t00);
   fprintf(stderr, "   kdTree:   %g sec \n", t20 -t10);
-  fprintf(stderr, "   nnb :     %g sec \n", t30 -t20);
-  fprintf(stderr, "   Dump :    %g sec \n", t40 -t30);
-  fprintf(stderr, "   Move :    %g sec \n", t50 -t40);
+  fprintf(stderr, "   nnb   :   %g sec \n", t30 -t20);
+  fprintf(stderr, "   Dump  :   %g sec \n", t40 -t30);
+  fprintf(stderr, "   Move  :   %g sec \n", t50 -t40);
   fprintf(stderr, "   sTree :   %g sec \n", t60 -t50);
   fprintf(stderr, "   sNgbe :   %g sec \n", t70 -t60);
+  fprintf(stderr, "   sLeaf :   %g sec \n", t80 -t70);
 
 
 
