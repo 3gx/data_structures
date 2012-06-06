@@ -34,6 +34,7 @@ int main(int argc, char * argv[])
   const double t20 = get_wtime();
   fprintf(stderr, " -- Buidling kdTree -- \n");
   kdTree tree(ptcl);
+  fprintf(stderr, "    Depth= %d\n", tree.getDepth());
   const double t30 = get_wtime();
 
 
@@ -46,8 +47,7 @@ int main(int argc, char * argv[])
 #pragma omp parallel for reduction(+:s,s2)
     for (int i = 0; i < n_bodies; i++)
     {
-      const int node_id = tree.find_nnb(ptcl[i].pos);
-      const int  j = tree[node_id].body_idx();
+      const int  j = tree.find_nnb(ptcl[i].pos);
       const real r = (ptcl[i].pos - ptcl[j].pos).abs();
 #if 0 /* correctness check */
       real s2min = HUGE;

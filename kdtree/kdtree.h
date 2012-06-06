@@ -144,6 +144,7 @@ class kdBody
 
   public:
 
+    kdBody() {}
     kdBody(const Particle &ptcl, const int __idx) : _pos(ptcl.pos), _idx(__idx) 
   {
     assert(sizeof(kdBody) == sizeof(float)*4);
@@ -166,56 +167,72 @@ class kdNode
   typedef Vector::const_iterator constIterator;
 
   kdNode() : packed_data(0xFFFFFFFF) {}
+  kdNode(const int leaf) {packed_data = -1-leaf;}
   kdNode(const kdBody &body, const unsigned int split_dim):
-    packed_data(body.idx() | (split_dim) << 29), _pos(body.pos()) 
+    packed_data(body.idx() | (split_dim) << 28), _pos(body.pos()) 
   {
     assert(split_dim  < 3);
-    assert(body.idx() < 0x20000000); /* only 536M bodies are supported */
+    assert(body.idx() < 0x10000000); /* only 536M bodies are supported */
+    assert(!isLeaf());
   }
+
+  int getLeaf() const {return -1-packed_data;}
+  bool isLeaf() const {return packed_data & 0x80000000;}
 
   int split_dim() const 
   {
-    return packed_data >> 29;
+    assert(!isLeaf());
+    return packed_data >> 28;
   }
   int body_idx() const
   {
-    return packed_data & 0x1FFFFFFF;
+    assert(!isLeaf());
+    return packed_data & 0xFFFFFFF;
   }
 
   const vec3& pos() const {return _pos;}
 };
 
 template<const int NLEAF>
-class kdLeaf
+class kdLeafT
 {
   public:
-    typedef std::vector<kdLeaf> Vector;
+    typedef std::vector<kdLeafT> Vector;
 
   private:
     kdBody data[NLEAF];
     int n, iPad[3];
 
   public:
-    kdLeaf() : n(0) {}
-    kdLeaf(const kdBody::Vector &bodies) : n(bodies.size())
+    kdLeafT() : n(0) {}
+    kdLeafT(const kdBody::Vector &bodies) : n(bodies.size())
     {
       assert(n <= NLEAF);
       for (int i = 0; i < n; i++)
         data[i] = bodies[i];
     }
+    kdLeafT(const kdBody::constIterator beg, const kdBody::constIterator end) : n(end-beg)
+    {
+      assert(n <= NLEAF);
+      int i = 0;
+      for (kdBody::constIterator it = beg; it != end; it++, i++)
+        data[i] = *it;
+    }
     void insert(const kdBody &body) {assert(n<NLEAF); data[n++] = body;}
     bool isEmpty() const {return  n == 0;}
     bool isFull()  const {return n == NLEAF;}
     const kdBody& operator[](const int i) const { return data[i]; }
+    int size() const {return n;}
 };
 
 class kdTree
 {
   public:
     enum {NLEAF=16};
+    typedef kdLeafT<NLEAF> Leaf;
   private:
-    kdNode       ::Vector nodes;
-    kdLeaf<NLEAF>::Vector leaves;
+    kdNode::Vector nodes;
+      Leaf::Vector leaves;
 
   int depth;
 
@@ -223,11 +240,11 @@ class kdTree
 
   const kdNode& operator[](const int i) const { return nodes[i];}
 
-
   kdTree(const Particle::Vector &ptcl) : depth(0)
   {
     build_left_ballanced_tree(ptcl);
   }
+  int getDepth() const {return depth;}
 
   private:
   
@@ -251,6 +268,13 @@ class kdTree
   {
     const int n  = bodies_end - bodies_beg;
     if (n <= 0) return;
+
+    if (n <= NLEAF)
+    {
+      leaves.push_back(Leaf(bodies_beg, bodies_end));
+      nodes[n_node] = kdNode(leaves.size() - 1);
+      return;
+    }
 
     const int m  = prevPow2(n);
     const int r  = n - (m - 1);
@@ -300,9 +324,23 @@ class kdTree
       real &s2min,
       int  &inode_min) const
   {
-    if (inode >= (int)nodes.size()) return;
+    if (inode >= (int)nodes.size()-1) return;
 
     const kdNode &node = nodes[inode];
+    if (node.isLeaf())
+    {
+      const Leaf &leaf = leaves[node.getLeaf()];
+      for (int i = 0; i < leaf.size(); i++)
+      {
+        const real s2 = (pos - leaf[i].pos()).norm2();
+        if (s2 <= s2min && s2 > 0.0)
+        {
+          s2min = s2;
+          inode_min = leaf[i].idx();
+        }
+      }
+      return;
+    }
     const int split_dim = node.split_dim();
     const bool go_left = pos[split_dim] <= node.pos()[split_dim];
     const int left  = (inode << 1);
@@ -313,8 +351,8 @@ class kdTree
     const real s2 = (pos - node.pos()).norm2();
     if (s2 <= s2min && s2 > 0.0)
     {
-      s2min      = s2;
-      inode_min = inode;
+      s2min     = s2;
+      inode_min = node.body_idx();
     }
 
     find_recursively_nnb(pos, near, s2min, inode_min);

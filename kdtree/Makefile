@@ -12,6 +12,9 @@ ifeq ($(OMPCXX), 1)
 endif
 
 OFLAGS = -O4 -g -Wall
+ifeq ($(GDB), 1)
+	OFLAGS = -O0 -g -Wall
+endif
 
 CXXFLAGS =  -fPIC $(OFLAGS) -Wstrict-aliasing=2 $(OMPFLAGS)
 
