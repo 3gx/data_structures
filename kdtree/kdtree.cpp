@@ -36,28 +36,7 @@ int main(int argc, char * argv[])
   kdTree tree(ptcl);
   const double t30 = get_wtime();
 
-  fprintf(stderr, " -- Searching range ngb -- \n");
-  std::vector<int> nblist;
-  nblist.reserve(1024);
-  int nb = 0;
-  const int nb_mean = 32;
-  const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
-#pragma omp parallel for reduction(+:nb)
-  for (int i = 0; i < n_bodies; i++)
-  {
-    nb += tree.find_range_nb(ptcl[i].pos, s);
-  }
-  const double t40 = get_wtime();
 
-  const int K = 8;
-#if 0
-  fprintf(stderr, " -- Searching k-nearest ngb -- \n");
-  for (int i = 0; i < n_bodies; i++)
-  {
-    int klist[K];
-    tree.find_knb<K>(ptcl[i].pos, klist);
-  }
-#endif
   const double t50 = get_wtime();
 
   fprintf(stderr, " -- Searching nearest ngb -- \n");
@@ -99,9 +78,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, "   Plummer:  %g sec \n", t10 -t00);
   fprintf(stderr, "   Copy:     %g sec \n", t20 -t10);
   fprintf(stderr, "   kdTree:   %g sec \n", t30 -t20);
-  fprintf(stderr, "   ngb :     %g sec, nb= %g \n", t40 -t30, (real)nb/(real)n_bodies);
-  fprintf(stderr, "   kgb :     %g sec, K= %d \n", t50 -t40, K);
-  fprintf(stderr, "   ngb :     %g sec \n", t60 -t50);
+  fprintf(stderr, "   nnb :     %g sec \n", t60 -t50);
 
 
 
