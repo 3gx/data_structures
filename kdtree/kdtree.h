@@ -32,10 +32,10 @@ T prevPow2(const T v)
 struct MinDist
 {
   int   id;
-  float s2;
+  real s2;
 
   MinDist() : id(-1), s2(HUGE) {}
-  MinDist(const int _id, const float _s2) : id(_id), s2(_s2) {}
+  MinDist(const int _id, const real _s2) : id(_id), s2(_s2) {}
 
   bool operator<(const MinDist &rhs) const
   {
@@ -93,28 +93,6 @@ class SortedList
   const T& back() const {return list[K-1];}
 };
 
-struct kdStack
-{
-  int beg, end;
-  int node, depth;
-
-  kdStack(const int _beg, const int _end, const int _node, const int _depth) :
-    beg(_beg), end(_end), node(_node), depth(_depth) {}
-
-
-#ifdef __mySSE__ 
-  const kdStack operator=(const kdStack &rhs)
-  {
-    typedef float v4sf __attribute__ ((vector_size(16)));
-    v4sf *lp =(v4sf *)this;
-    v4sf *rp =(v4sf *)(&rhs);
-    lp[0] = rp[0];
-    return *this;
-  }
-#endif
-};
-
-
 class Particle
 {
   public:
@@ -146,10 +124,7 @@ class kdBody
   public:
 
     kdBody() {}
-    kdBody(const Particle &ptcl, const int __idx) : _pos(ptcl.pos), _idx(__idx) 
-  {
-    assert(sizeof(kdBody) == sizeof(float)*4);
-  }
+    kdBody(const Particle &ptcl, const int __idx) : _pos(ptcl.pos), _idx(__idx)  {}
     const vec3& pos() const {return _pos;}
     unsigned int idx() const {return _idx;}
 };
@@ -341,6 +316,21 @@ class kdTree
 
     return body;
   }
+
+  int find_nnb_inner(const vec3 n, const real h) const
+  {
+    real smin = HUGE;
+    int  body = -1;
+
+    vec3 min(-HUGE);
+    vec3 max(+HUGE);
+    /* revert normal, so that we can reuse outer half-space code */
+    /* WARNING: the equation of plane that is passed here is n.r-h = 0 */
+    /* while the recursive walks uses n.r+h = 0 for convenience */
+    /* so, only 'n' changes sign */
+    find_recursively_nnb_outer(n*(-1.0), h, 1, min, max, smin, body);
+    return body;
+  }
   private:
 
   void find_recursively_nnb(
@@ -387,6 +377,92 @@ class kdTree
       find_recursively_nnb(pos, near, smin, body);
       if (std::abs(dist) <  smin)
         find_recursively_nnb(pos, far, smin, body);
+    }
+
+  }
+
+  bool split_node_outer(
+      const vec3 &min, const vec3 &max,
+      const vec3 &n, const real h,
+      const real smin) const
+  {
+    const vec3 v0(min[0], min[1], min[2]);
+    const vec3 v1(min[0], min[1], max[2]);
+    const vec3 v2(min[0], max[1], min[2]);
+    const vec3 v3(min[0], max[1], max[2]);
+    const vec3 v4(max[0], min[1], min[2]);
+    const vec3 v5(max[0], min[1], max[2]);
+    const vec3 v6(max[0], max[1], min[2]);
+    const vec3 v7(max[0], max[1], max[2]);
+    const real d0 = n*v0 + h;
+    const real d1 = n*v1 + h;
+    const real d2 = n*v2 + h;
+    const real d3 = n*v3 + h;
+    const real d4 = n*v4 + h;
+    const real d5 = n*v5 + h;
+    const real d6 = n*v6 + h;
+    const real d7 = n*v7 + h;
+
+    const real dmin = __min(
+      __min(__min(d0, d1), __min(d2, d3)),
+      __min(__min(d4, d5), __min(d6, d7)));
+
+    const real dmax = __max(
+      __max(__max(d0, d1), __max(d2, d3)),
+      __max(__max(d4, d5), __max(d6, d7)));
+   
+    if (dmax > 0.0 && dmin < smin) return true;
+
+    return false;
+  }
+ 
+  void find_recursively_nnb_outer(
+      const vec3 &n, const real h,
+      const int inode,
+      const vec3 min, 
+      const vec3 max,
+      real &smin,
+      int  &body) const
+  {
+    if (inode >= (int)nodes.size()-1) return;
+
+    const kdNode &node = nodes[inode];
+    if (node.isLeaf())
+    {
+      const Leaf &leaf = leaves[node.getLeaf()];
+      for (int i = 0; i < leaf.size(); i++)
+      {
+        const real d = n*leaf[i].pos() + h;
+        if (d > 0.0 && d < smin)
+        {
+          smin = d;
+          body = leaf[i].idx();
+        }
+      }
+    }
+    else
+    {
+      const real d = n*node.pos() + h;
+      if (d > 0.0 && d < smin)
+      {
+        smin = d;
+        body = node.body_idx();
+      }
+
+      const int split_dim = node.split_dim();
+      const int left  = inode << 1;
+      const int right = left + 1;
+
+      const real pnt = node.pos()[split_dim];
+      vec3 lmax(max);
+      lmax[split_dim] = pnt;
+      if (split_node_outer(min, lmax, n, h, smin))
+        find_recursively_nnb_outer(n, h, left, min, lmax, smin, body);
+
+      vec3 rmin(min);
+      rmin[split_dim] = pnt;
+      if (split_node_outer(rmin, max, n, h, smin))
+        find_recursively_nnb_outer(n, h, right, rmin, max, smin, body);
     }
 
   }
