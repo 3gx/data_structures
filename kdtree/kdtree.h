@@ -127,6 +127,7 @@ class Particle
     vec3 pos;
     real mass;
 
+    Particle() {}
     Particle(const vec3 &_pos, const real _mass) : pos(_pos), mass(_mass) {}
 };
 
@@ -345,11 +346,10 @@ class kdTree
     }
 
     const int split_dim = node.split_dim();
-    const bool go_left = pos[split_dim] <= node.pos()[split_dim];
-    const int left  = (inode << 1);
-    const int right = (inode << 1) + 1;
-    const int near = go_left ? left  : right;
-    const int far  = go_left ? right : left;
+    const real dist     = pos[split_dim] - node.pos()[split_dim];
+    const bool go_left  = dist <= 0.0;
+    const int left  = inode << 1;
+    const int right = left + 1;
     
     const real s2 = (pos - node.pos()).norm2();
     if (s2 <= SQR(smin) && s2 > 0.0)
@@ -358,8 +358,10 @@ class kdTree
       body = node.body_idx();
     }
 
+    const int near = go_left ? left  : right;
+    const int far  = go_left ? right : left;
     find_recursively_nnb(pos, near, smin, body);
-    if (SQR(pos[split_dim] - node.pos()[split_dim]) <= SQR(smin))
+    if (std::abs(dist) <  smin)
       find_recursively_nnb(pos, far, smin, body);
 
   }

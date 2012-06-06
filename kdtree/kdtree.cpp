@@ -12,23 +12,38 @@ int main(int argc, char * argv[])
   fprintf(stderr, "n_bodies= %d\n", n_bodies);
 
   const double t00 = get_wtime();
-#if 1
-  const Plummer data(n_bodies);
-#endif
-  const double t10 = get_wtime();
-
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
+#if 0
+#define PLUMMER
+  const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
-#if 1
     ptcl.push_back(Particle(data.pos[i], data.mass[i]));
-#else
-    ptcl.push_back(Particle(
-          vec3(drand48(), drand48(), drand48()),
-          1.0/n_bodies));
-#endif
   }
+#elif 1  /* reads IC */
+  int dummy;
+  std::cin >> dummy >> n_bodies;
+  fprintf(stderr, " -- input file: nbodies= %d\n", n_bodies);
+  for (int i = 0; i < n_bodies; i++)
+  {
+    int idum;
+    real fdum;
+    Particle p;
+    std::cin >> p.pos.x >> p.pos.y >> p.pos.z >> fdum >> idum;
+    ptcl.push_back(p);
+  }
+#elif 0
+  {
+    for (int i = 0; i < n_bodies; i++)
+    {
+      ptcl.push_back(Particle(
+            vec3(drand48(), drand48(), drand48()),
+            1.0/n_bodies));
+    }
+  }
+#endif
+  const double t10 = get_wtime();
 
 
   const double t20 = get_wtime();
