@@ -211,13 +211,19 @@ class kdTree
       Leaf::Vector leaves;
 
   int depth;
+  vec3 min, max;
 
   public:
 
   const kdNode& operator[](const int i) const { return nodes[i];}
 
-  kdTree(const Particle::Vector &ptcl) : depth(0)
+  kdTree(const Particle::Vector &ptcl) : depth(0), min(HUGE), max(-HUGE)
   {
+    for (int i = 0; i < (int)ptcl.size(); i++)
+    {
+      min = mineach(min, ptcl[i].pos);
+      max = maxeach(max, ptcl[i].pos);
+    }
     build_left_ballanced_tree(ptcl);
   }
   int getDepth() const {return depth;}
@@ -322,8 +328,6 @@ class kdTree
     real smin = HUGE;
     int  body = -1;
 
-    vec3 min(-HUGE);
-    vec3 max(+HUGE);
     /* revert normal, so that we can reuse outer half-space code */
     /* WARNING: the equation of plane that is passed here is n.r-h = 0 */
     /* while the recursive walks uses n.r+h = 0 for convenience */
@@ -433,6 +437,7 @@ class kdTree
       for (int i = 0; i < leaf.size(); i++)
       {
         const real d = n*leaf[i].pos() + h;
+//        body++;
         if (d > 0.0 && d < smin)
         {
           smin = d;
@@ -443,6 +448,7 @@ class kdTree
     else
     {
       const real d = n*node.pos() + h;
+      //body++;
       if (d > 0.0 && d < smin)
       {
         smin = d;
@@ -452,6 +458,10 @@ class kdTree
       const int split_dim = node.split_dim();
       const int left  = inode << 1;
       const int right = left + 1;
+
+      assert(min.x < max.x);
+      assert(min.y < max.y);
+      assert(min.z < max.z);
 
       const real pnt = node.pos()[split_dim];
       vec3 lmax(max);
