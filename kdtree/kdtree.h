@@ -204,7 +204,7 @@ class kdLeafT
 class kdTree
 {
   public:
-    enum {NLEAF=16};
+    enum {NLEAF=1};
     typedef kdLeafT<NLEAF> Leaf;
   private:
     kdNode::Vector nodes;
@@ -254,12 +254,14 @@ class kdTree
     const int n  = bodies_end - bodies_beg;
     if (n <= 0) return;
 
+#if 1
     if (n <= NLEAF)
     {
       leaves.push_back(Leaf(bodies_beg, bodies_end));
       nodes[n_node] = kdNode(leaves.size() - 1);
       return;
     }
+#endif
 
     const int m  = prevPow2(n);
     const int r  = n - (m - 1);
@@ -431,6 +433,7 @@ class kdTree
     if (inode >= (int)nodes.size()-1) return;
 
     const kdNode &node = nodes[inode];
+#if 1
     if (node.isLeaf())
     {
       const Leaf &leaf = leaves[node.getLeaf()];
@@ -446,6 +449,7 @@ class kdTree
       }
     }
     else
+#endif
     {
       const real d = n*node.pos() + h;
       //body++;
