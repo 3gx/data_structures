@@ -14,16 +14,14 @@ int main(int argc, char * argv[])
   const double t00 = get_wtime();
   Particle::Vector ptcl;
   ptcl.reserve(n_bodies);
-#if 0
+#if 1
 #define PLUMMER
-  assert(0);
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
     ptcl.push_back(Particle(data.pos[i], data.mass[i]));
   }
-#elif 0  /* reads IC */
-  assert(0);
+#elif 1  /* reads IC */
   int dummy;
   std::cin >> dummy >> n_bodies;
   fprintf(stderr, " -- input file: nbodies= %d\n", n_bodies);
@@ -35,7 +33,7 @@ int main(int argc, char * argv[])
     std::cin >> p.pos.x >> p.pos.y >> p.pos.z >> fdum >> idum;
     ptcl.push_back(p);
   }
-#elif 1
+#elif 0
   {
     for (int i = 0; i < n_bodies; i++)
     {
@@ -144,10 +142,9 @@ int main(int argc, char * argv[])
   
   const double t70 = get_wtime();
   
-  fprintf(stderr, " -- Searching nearest in a half-plane -- \n");
+  fprintf(stderr, " -- Searching nearest ngb w/ Leaf in sortedTree -- \n");
   {
 #if 1
-#define sortedTree__
     const kdTree &t = sortedTree;
 #else
     const kdTree &t = tree;
@@ -155,26 +152,15 @@ int main(int argc, char * argv[])
     const int nLeaf = t.nLeaf();
     real s = 0.0;
     real s2 = 0.0;
-    unsigned long long cnt = 0;
     for (int ileaf = 0; ileaf < nLeaf; ileaf++)
     {
       const kdTree::Leaf &leaf = t.getLeaf(ileaf);
 #pragma omp parallel for
       for (int i = 0; i < leaf.size(); i++)
       {
-        const vec3 pos(drand48(), drand48(), drand48());
-        const vec3  n1(drand48(), drand48(), drand48());
-        const vec3  n = n1/n1.abs();
-        const real  h = n*pos;
-        const int   j = t.find_nnb_inner(n, h);
-        cnt += j;
-#if 1
-#ifdef sortedTree__
-        const real  r = n*sortedPtcl[j].pos - h;
-#else
-        const real  r = n*ptcl[j].pos - h;
-#endif
-        assert(r < 0.0);
+        const vec3& ipos = leaf[i].pos();
+        const int  j = t.find_nnb(ipos);
+        const real r = (ipos - sortedPtcl[j].pos).abs();
 #if 0 /* correctness check */
         real s2min = HUGE;
         int  jmin  = -1;
@@ -191,10 +177,8 @@ int main(int argc, char * argv[])
 #endif
         s  += r;
         s2 += r*r;
-#endif
       }
     }
-//    fprintf(stderr , " nsearc= %g\n", (real)cnt/n_bodies);
     s  *= 1.0/n_bodies;
     s2 *= 1.0/n_bodies;
     const real ds = std::sqrt(s2 - s*s);

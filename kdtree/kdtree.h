@@ -204,26 +204,20 @@ class kdLeafT
 class kdTree
 {
   public:
-    enum {NLEAF=1};
+    enum {NLEAF=16};
     typedef kdLeafT<NLEAF> Leaf;
   private:
     kdNode::Vector nodes;
       Leaf::Vector leaves;
 
   int depth;
-  vec3 min, max;
 
   public:
 
   const kdNode& operator[](const int i) const { return nodes[i];}
 
-  kdTree(const Particle::Vector &ptcl) : depth(0), min(HUGE), max(-HUGE)
+  kdTree(const Particle::Vector &ptcl) : depth(0)
   {
-    for (int i = 0; i < (int)ptcl.size(); i++)
-    {
-      min = mineach(min, ptcl[i].pos);
-      max = maxeach(max, ptcl[i].pos);
-    }
     build_left_ballanced_tree(ptcl);
   }
   int getDepth() const {return depth;}
@@ -254,14 +248,12 @@ class kdTree
     const int n  = bodies_end - bodies_beg;
     if (n <= 0) return;
 
-#if 1
     if (n <= NLEAF)
     {
       leaves.push_back(Leaf(bodies_beg, bodies_end));
       nodes[n_node] = kdNode(leaves.size() - 1);
       return;
     }
-#endif
 
     const int m  = prevPow2(n);
     const int r  = n - (m - 1);
@@ -330,6 +322,8 @@ class kdTree
     real smin = HUGE;
     int  body = -1;
 
+    vec3 min(-HUGE);
+    vec3 max(+HUGE);
     /* revert normal, so that we can reuse outer half-space code */
     /* WARNING: the equation of plane that is passed here is n.r-h = 0 */
     /* while the recursive walks uses n.r+h = 0 for convenience */
@@ -433,14 +427,12 @@ class kdTree
     if (inode >= (int)nodes.size()-1) return;
 
     const kdNode &node = nodes[inode];
-#if 1
     if (node.isLeaf())
     {
       const Leaf &leaf = leaves[node.getLeaf()];
       for (int i = 0; i < leaf.size(); i++)
       {
         const real d = n*leaf[i].pos() + h;
-//        body++;
         if (d > 0.0 && d < smin)
         {
           smin = d;
@@ -449,10 +441,8 @@ class kdTree
       }
     }
     else
-#endif
     {
       const real d = n*node.pos() + h;
-      //body++;
       if (d > 0.0 && d < smin)
       {
         smin = d;
@@ -462,10 +452,6 @@ class kdTree
       const int split_dim = node.split_dim();
       const int left  = inode << 1;
       const int right = left + 1;
-
-      assert(min.x < max.x);
-      assert(min.y < max.y);
-      assert(min.z < max.z);
 
       const real pnt = node.pos()[split_dim];
       vec3 lmax(max);
