@@ -899,7 +899,7 @@ C=================< STEP 4.5 >=================
       myNMX = myNMX + nmx
 
 c      call break1()
-#if 0          
+#if 0
 c slow version
       do j=2,nmx
         mFLAG=(j.ne.ia).and.(j.ne.ib).and.(j.ne.ic).and.(lc(j).eq.0)
