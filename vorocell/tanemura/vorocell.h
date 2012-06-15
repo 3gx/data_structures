@@ -180,7 +180,11 @@ struct Vorocell
         /* step 4.3:
          *  the vertex is completed, proceed to the next one
          */
-        if (vertexCompleted[iVertex]) continue;
+        if (vertexCompleted[iVertex]) 
+        {
+          assert(edges.isFullyConnected(iVertex));
+          continue;
+        }
 
 
         /* step 4.4:
@@ -261,6 +265,7 @@ struct Vorocell
         }
 
         /* step 4.8: */
+        assert(edges.isFullyConnected(iVertex));
         vertexCompleted[iVertex] = 1;
       }
     }
