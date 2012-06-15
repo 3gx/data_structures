@@ -124,37 +124,42 @@ struct Vorocell
     Edges     edges;
     Triangles triangles;
 
-    std::deque<    int     > vertexQueue;
-    std::vector<Tetrahedron>  tetrahedra;
-    std::vector<   int     >      nbList;
+    std::deque < int>   vertexQueue    ;
+    std::vector<bool> isVertexQueued   ;
+    std::vector<bool>   vertexCompleted;
 
-    std::vector<bool> vertexQueued;
-    std::vector<int >        edges;
-    std::vector<int >    triangles;
+    std::vector<Tetrahedron> tetrahedra;
+    std::vector<   int     >     nbList;
 
-    Array<N>    faceVtx[N];
-    int vertexCompleted[N];
+    Array<N> faceVtx[N];
 
   public:
     Vorocell(const int Particle::Vector &ptcl)
     {
-      clear();
       assert((int)ptcl.size() <= N);
+      clear();
     }
     
     clear()
     {
       edges      .clear();
       triangles  .clear();
-      vertexQueue.clear();
-      tetrahedra .clear();
-      for (int i = 0; i < N; i++)
-      {
-        vertexCompleted[i] = 0;
-        faceVtx[i].clear();
-      }
-    }
 
+      vertexCompleted.clear();
+      isVertexQueued .clear();
+      vertexQueue    .clear();
+      
+      vertexCompleted.resize(nSites);
+      for (int i = 0; i < nSites; i++)
+        vertexCompleted[i] = false;
+
+
+      tetrahedra.clear();
+      nbList    .clear();
+
+      for (int i = 0; i < N; i++)
+        faceVtx[i].clear();
+    }
 
   private:
 
@@ -172,6 +177,10 @@ struct Vorocell
         const int iVertex = vertexQueue.front();
         vertexQueue.pop_front();
 
+#if 1
+        for (std::vector<int>::const_iterator it = nbList.begin(); it != nbList.end(); it++)
+          assert(*it !=  iVertex);
+#endif
         nbList.push_back(iVertex);
         
         if (edges.isFullyConnected(iVertex))
@@ -185,7 +194,6 @@ struct Vorocell
           assert(edges.isFullyConnected(iVertex));
           continue;
         }
-
 
         /* step 4.4:
          *  find a tetrahedron (i, iVertex, jVertex, kVertex) with at least one
@@ -211,7 +219,6 @@ struct Vorocell
 
         while(triangles[map(iVertex, jVertex)] < 2)
         {
-
           /* step 4.5 - 4.6: 
            *  search a vertex on the opposite side of the kVertex 
            *  (in the half-space bounded by ijFace that does not contain kVertex)
@@ -224,6 +231,9 @@ struct Vorocell
           real largeNum = +1e10;
           vec3  cpos(0.0);
           int lVertex = -1;
+
+          /* hot-spot: finding 4th vertex of the new tetrahedron */
+
           for (int i = 0; i < nVertex; i++)
           {
             const vec3 &pos = siteList[i];
@@ -240,18 +250,22 @@ struct Vorocell
               lVertex = i;
             }
           }
+
           assert(lVertex >= 0);
 
           /* step 4.7:
            *  register new tetrahedron (iVertex, jVertex, lVertex) 
            */
           tetrahedronList.push_back(Tetrahedron(iVertex, jVertex, lVertex));
-          if (!queuedVertex[lVertex])
+          faceVtx[iVertex].push_back(tetrahedronList.size()-1);
+          faceVtx[jVertex].push_back(tetrahedronList.size()-1);
+          faceVtx[lVertex].push_back(tetrahedronList.size()-1);
+
+          if (!isVertexQueued[lVertex])
           {
             vertexQueue.push_back(lVertex);
-            queuedVertex[lVertex] = 1;
+            isVertexQueued[lVertex] = 1;
           }
-          faceVtx[iVertex].push_back(tetrahedronList.size()-1);
 
           edges.inc(iVertex, jVertex);
           edges.inc(iVertex, lVertex);
