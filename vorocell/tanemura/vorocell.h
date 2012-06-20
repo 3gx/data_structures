@@ -189,13 +189,144 @@ namespace Voronoi
       Cell(const Site::Vector &sites)
       {
         build(sites);
-        
       }
 
-      void build(const Site::Vector &sites)
+      void build(const Site::Vector &siteList)
       {
-        assert((int)sites.size() <= N);
-        clear(sites.size());
+        assert((int)siteList.size() <= N);
+        clear(siteList.size());
+        const int nSite = siteList.size();
+
+        /* step 1: 
+         *  find site nearest to site
+         */
+        int i = -1;
+        real r2min = HUGE;
+        for (int ix = 0; ix < nSite; ix++)
+        {
+          const vec3 jpos = siteList[ix].pos();
+          const real   r2 = jpos.norm2();
+          assert(r2 > 0.0);
+          if (r2 < r2min)
+          {
+            i = ix;
+            r2min = r2;
+          }
+        }
+        assert(i >= 0);
+
+        const vec3 &ipos = siteList[i];
+        assert(ipos.norm2() > 0.0);
+
+        /* step 2:
+         *  find site k, so that the triangle (i,j,k)
+         *  has minimal circumradius
+         */
+        r2min = HUGE;
+        int j = -1;
+        for (int ix = 0; ix < nSite; ix++)
+          if (ix != i)
+          {
+            const vec3 &pos = siteList[ix];
+            const real r2 = triangle(ipos, pos);
+            if (r2 < r2min)
+            {
+              j = ix;
+              r2min = r2;
+            }
+          }
+        assert(j >= 0);
+        assert(j != i);
+        const vec3 &jpos = siteList[j];
+
+        /* step 3:
+         *  find site l, so that tetrahedron (i,j,k,l)
+         *  has minimal circumradius
+         */
+
+        int k = -1;
+        int l = -1;
+        real r2k = HUGE;
+        real r2l = HUGE;
+        real largek = +1e10;
+        real largel = +1e10;
+        real rk = 0.0, rl = 0.0;
+        real cposk(0.0), cposl(0.0);
+        const Plane plane(ipos, jpos);
+        for (int ix = 0; ix < nSite; ix++)
+          if (ix != i && ix != j)
+          {
+            const vec3 &pos = siteList[ix];
+            const  int side = plane(pos);
+            if (side)
+            {
+              const real dist = pos*(pos + cposk) + largek;
+              if (dist < 0.0)
+              {
+                cposk = sphere(ipos, jpos, pos, rk);
+                largek = 0.0;
+                k = ix;
+              }
+            }
+            else
+            {
+              const real dist = pos*(pos + cposl) + largel;
+              if (dist < 0.0)
+              {
+                cposl = sphere(ipos, jpos, pos, rl);
+                largel = 0.0;
+                l = ix;
+              }
+            }
+          }
+        assert(k >= 0);
+        assert(l >= 0);
+        assert(k != l);
+        assert(k != i);
+        assert(k != j);
+        assert(l != i);
+        assert(l != j);
+
+        tetrahedra.push_back(Tetrahedron(i,j,k));
+        faceVtx[i].push_back(tetrahedra.size()-1);
+        faceVtx[j].push_back(tetrahedra.size()-1);
+        faceVtx[k].push_back(tetrahedra.size()-1);
+            
+        edges.inc(i,j);
+        edges.inc(i,k);
+        edges.inc(j,k);
+
+        triangles.inc(i,j);
+        triangles.inc(i,k);
+        triangles.inc(j,k);
+
+
+        tetrahedra.push_back(Tetrahedron(i,j,l));
+        faceVtx[i].push_back(tetrahedra.size()-1);
+        faceVtx[j].push_back(tetrahedra.size()-1);
+        faceVtx[l].push_back(tetrahedra.size()-1);
+            
+        edges.inc(i,j);
+        edges.inc(i,l);
+        edges.inc(j,l);
+
+        triangles.inc(i,j);
+        triangles.inc(i,l);
+        triangles.inc(j,l);
+
+        vertexQueue.push_back(i);
+        isVertexQueued[i] = 1;
+        
+        vertexQueue.push_back(j);
+        isVertexQueued[j] = 1;
+        
+        vertexQueue.push_back(k);
+        isVertexQueued[k] = 1;
+        
+        vertexQueue.push_back(l);
+        isVertexQueued[l] = 1;
+
+        completeCell(siteList);
       }
 
       private:
@@ -222,10 +353,6 @@ namespace Voronoi
       }
 
       private:
-
-      void buildCell()
-      {
-      }
 
       void completeCell(const Site::Vector &siteList)
       {
@@ -283,7 +410,7 @@ namespace Voronoi
             const vec3 &kpos = siteList[kVertex];
             const Plane plane(ipos, jpos);
             const int  sideK = plane(kpos) > 0.0;
-            real largeNum = +1e10;
+            real largeNum = -1e10;
             vec3  cpos(0.0);
             int lVertex = -1;
 
@@ -340,7 +467,7 @@ namespace Voronoi
       }
 
 
-      vec3 sphere(const vec3 &ip, const vec3 &jp, const vec3 &kp, real &radius)
+      vec3 sphere(const vec3 &ip, const vec3 &jp, const vec3 &kp, real &radius) const
       {
         const real di = ip.norm2();
         const real dj = jp.norm2();
@@ -366,6 +493,13 @@ namespace Voronoi
 
         radius = RR;
         return vec3(XC, YC, ZC);
+      }
+
+      real triangle(const vec3 &jpos, const vec3 &kpos) const
+      {
+        real radius;
+        sphere(jpos, kpos, Plane(jpos, kpos).n, radius);
+        return radius;
       }
 
 
