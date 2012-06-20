@@ -10,7 +10,7 @@ ifeq ($(OMPGLIBC), 1)
 	OMPFLAGS += -D_GLIBCXX_PARALLEL
 endif
 
-OFLAGS = -O4 -g -Wall
+OFLAGS = -O3 -g -Wall
 ifeq ($(GDB), 1)
 	OFLAGS = -O0 -g -Wall
 endif
@@ -59,5 +59,5 @@ clean:
 clean_all:
 	/bin/rm -rf *.o $(PROG) plummer.dat *~
 
-$(OBJ): vector3.h Point3D.h Line3D.h Plane3D.h voroCell.h
+$(OBJ): vector3.h vorocell.h
 
