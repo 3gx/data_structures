@@ -3,17 +3,58 @@
 
 /* Tanemura's algorithm */
 
+#include <cassert>
+#include <vector>
+#include <deque>
+#include <algorithm>
+#include "vector3.h"
+
 template<class T>
 inline T __min(const T a, const T b) {return a < b ? a : b;}
 
 template<class T>
 inline T __max(const T a, const T b) {return a > b ? a : b;}
 
-#include <cassert>
-#include <vector>
-#include <deque>
-#include <algorithm>
-#include "vector3.h"
+template<class T>
+inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
+
+inline float __atan2(float y, float x)
+{
+  float t0, t1, t3, t4;
+
+  t3 = __abs(x);
+  t1 = __abs(y);
+  t0 = __max(t3, t1);
+  t1 = __min(t3, t1);
+  t3 = float(1.0f) / t0;
+  t3 = t1 * t3;
+
+  t4 = t3 * t3;
+  t0 =         - float(0.013480470);
+  t0 = t0 * t4 + float(0.057477314);
+  t0 = t0 * t4 - float(0.121239071);
+  t0 = t0 * t4 + float(0.195635925);
+  t0 = t0 * t4 - float(0.332994597);
+  t0 = t0 * t4 + float(0.999995630);
+  t3 = t0 * t3;
+
+  t3 = (abs(y) > abs(x)) ? float(1.570796327f) - t3 : t3;
+  t3 = (x < 0.0f) ?  float(3.141592654f) - t3 : t3;
+  t3 = (y < 0.0f) ? -t3 : t3;
+
+  return t3;
+}
+
+
+
+struct cmp_float
+{
+  bool operator()(const std::pair<float, int> &lhs, const std::pair<float, int> &rhs) const
+  {
+    return lhs.first < rhs.first;
+  }
+};
+
 
 namespace Voronoi
 {
@@ -155,6 +196,7 @@ namespace Voronoi
   {
     vec3 norm;
     real area;
+    Face(const vec3 &n, const real A) : norm(n), area(A) {}
   };
 
   template<const int N>
@@ -320,6 +362,14 @@ namespace Voronoi
         dt_60 += get_wtime() - t00;
 
         /* compute volume and area of each faces */
+
+        const int nnb = nbList.size();
+        faceList.reserve(nnb);
+        for (int i = 0; i < nnb; i++)
+        {
+          const int jnb = nbList[i];
+          faceList.push_back(buildFace(siteList, jnb, faceVtx[jnb]));
+        }
 
         dt_70 += get_wtime() - t00;
       }
@@ -536,7 +586,25 @@ namespace Voronoi
         sphere(jpos, kpos, Plane(jpos, kpos).n, radius);
         return radius;
       }
+
+
+      Face buildFace(const Site::Vector &sites, const int i, const Array<int, N> vtxList)
+      {
+        const int n = vtxList.size();
+        std::vector< std::pair<float,int> > anglesN(n);
+        const vec3 &ipos = sites[i].pos;
+        for (int j = 0; j < n; j++)
+        {
+          const vec3 &jpos = sites[vtxList[j]].pos - ipos;
+          anglesN[j] = std::make_pair(__atan2(jpos.y, jpos.x), j);
+        }
+        std::sort(anglesN.begin(), anglesN.end(), cmp_float());
+
+        return Face(vec3(0.0), 0.0);
+      }
+
     };
+
 
 
 

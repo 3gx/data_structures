@@ -9,14 +9,6 @@ long long incompl  = 0;
 typedef Voronoi::real real;
 typedef Voronoi::vec3 vec3;
 
-struct cmp_dist
-{
-  bool operator()(const std::pair<float, int> &lhs, const std::pair<float, int> &rhs) const
-  {
-    return lhs.first < rhs.first;
-  }
-};
-
 int main(int argc, char * argv[])
 {
   dt_00=dt_10=dt_20=dt_30=dt_40=dt_44=dt_50=dt_60=dt_70=0.0;
@@ -123,7 +115,7 @@ int main(int argc, char * argv[])
         double t0 = get_wtime();
         for (int j = 0; j < (const int)sitesP.size(); j++)
           dist[j] = std::make_pair((sitesP[j].pos - s.pos).norm2(), j);
-        std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_dist());
+        std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_float());
         list.clear();
         for (int j = 0; j < ns+1; j++)
           if (dist[j].first > 0.0f)
