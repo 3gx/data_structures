@@ -151,6 +151,11 @@ namespace Voronoi
       }
   };
 
+  struct Face
+  {
+    vec3 norm;
+    real area;
+  };
 
   template<const int N>
     struct Cell
@@ -166,8 +171,9 @@ namespace Voronoi
 
       std::vector<Tetrahedron> tetrahedra;
       std::vector<   int     >     nbList;
+      std::vector<  Face     >   faceList;
 
-      Array<int, N> faceVtx[N];
+      Array<int,  N> faceVtx[N];
 
       public:
       Cell() {}
@@ -312,6 +318,10 @@ namespace Voronoi
 
         completeCell(siteList);
         dt_60 += get_wtime() - t00;
+
+        /* compute volume and area of each faces */
+
+        dt_70 += get_wtime() - t00;
       }
 
       private:
@@ -382,11 +392,14 @@ namespace Voronoi
           /* otherwise, find the face that lacks adjacent tetrahedron */
 
           //          const double tAA = get_wtime();
+          if (!incompleteTetra.empty())
+              incomplT++;
           while(!incompleteTetra.empty())
           {
             const Tetrahedron &t = tetrahedra[faceVtx[iVertex][incompleteTetra.front()]];
             incompleteTetra.pop_front();
             if (isComplete(t, iVertex)) continue;
+            incompl++;
 
             const std::pair<int,int> vpair = t.pair(iVertex);
             int jVertex = vpair.first;

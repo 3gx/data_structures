@@ -1,6 +1,8 @@
 #include "mytimer.h"
-double dt_00, dt_10, dt_20, dt_30, dt_40, dt_44, dt_50, dt_60;
+double dt_00, dt_10, dt_20, dt_30, dt_40, dt_44, dt_50, dt_60, dt_70;
 double dtA;
+long long incomplT = 0;
+long long incompl  = 0;
 #include "vorocell.h"
 #include <iostream>
 
@@ -17,7 +19,7 @@ struct cmp_dist
 
 int main(int argc, char * argv[])
 {
-  dt_00=dt_10=dt_20=dt_30=dt_40=dt_44=dt_50=dt_60=0.0;
+  dt_00=dt_10=dt_20=dt_30=dt_40=dt_44=dt_50=dt_60=dt_70=0.0;
   dtA = 0.0;
   double eps;
   int ns, nrg;
@@ -27,6 +29,8 @@ int main(int argc, char * argv[])
   int idum;
   double fdum;
   std::string sdum;
+
+  incomplT = incompl = 0;
 
   std::cin >> eps >> sdum;
   std::cin >> ns >> nrg >> sdum >> sdum;
@@ -149,11 +153,13 @@ int main(int argc, char * argv[])
   fprintf(stderr,  "   dt_44=  %g \n" ,dt_44);
   fprintf(stderr,  "   dt_50=  %g \n" ,dt_50);
   fprintf(stderr,  "   dt_60=  %g \n" ,dt_60);
+  fprintf(stderr,  "   dt_70=  %g \n" ,dt_70);
   fprintf(stderr,  "   dtA=  %g \n" ,dtA);
   //  fprintf(stderr,  "    sum= %g\n", dt_00+dt_10+dt_20+dt_30+dt_40+dt_50+dt_60);
   fprintf(stderr , " dt_total =  %g sec [ sum= %g ]\n", tend - tbeg,
       dt_search + dt_voro);
   fprintf(stderr, "   nface= %g \n", nface/np);
+  fprintf(stderr, "  ratio= %g \n", incompl*1.0/incomplT);
 
 
 
