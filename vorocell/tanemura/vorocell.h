@@ -16,8 +16,10 @@ namespace Voronoi
   struct Site
   {
     typedef std::vector<Site> Vector;
-    long long idx;
     vec3 pos;
+    long long idx;
+    Site() {}
+    Site(const vec3 &_pos, const long long _idx) : pos(_pos), idx(_idx) {}
   };
 
   struct Plane
@@ -59,6 +61,7 @@ namespace Voronoi
 
         void push_back(const T &t) {assert(n<N); data[n++] = t;}
         int size() const { return n; }
+        bool empty() const { return n == 0;}
         void resize(const int size) 
         {
           assert (size <= N);
@@ -173,7 +176,6 @@ namespace Voronoi
       typedef ConnectivityMatrix2D<N, 2>  Triangles;
 
       private:
-      Edges     edges;
       Triangles triangles;
 
       std::deque < int>   vertexQueue    ;
@@ -198,18 +200,18 @@ namespace Voronoi
         const int nSite = siteList.size();
 
         /* step 1: 
-         *  find site nearest to site
+         *  find site i, nearest to the origin
          */
         int i = -1;
         real r2min = HUGE;
         for (int ix = 0; ix < nSite; ix++)
         {
-          const vec3 jpos = siteList[ix].pos();
-          const real   r2 = jpos.norm2();
+          const vec3 &pos = siteList[ix].pos();
+          const real   r2 = pos.norm2();
           assert(r2 > 0.0);
           if (r2 < r2min)
           {
-            i = ix;
+            i     = ix;
             r2min = r2;
           }
         }
@@ -219,7 +221,7 @@ namespace Voronoi
         assert(ipos.norm2() > 0.0);
 
         /* step 2:
-         *  find site k, so that the triangle (i,j,k)
+         *  find site j, so that the triangle (origin, i, j)
          *  has minimal circumradius
          */
         r2min = HUGE;
@@ -228,10 +230,10 @@ namespace Voronoi
           if (ix != i)
           {
             const vec3 &pos = siteList[ix];
-            const real r2 = triangle(ipos, pos);
+            const real   r2 = triangle(ipos, pos);
             if (r2 < r2min)
             {
-              j = ix;
+              j     = ix;
               r2min = r2;
             }
           }
@@ -240,18 +242,16 @@ namespace Voronoi
         const vec3 &jpos = siteList[j];
 
         /* step 3:
-         *  find site l, so that tetrahedron (i,j,k,l)
+         *  find site k, so that tetrahedron (origin, i,j,k)
          *  has minimal circumradius
+         *  also site l that forms adjacent tetrahedron (origin, i, j, l)
          */
-
         int k = -1;
         int l = -1;
-        real r2k = HUGE;
-        real r2l = HUGE;
-        real largek = +1e10;
-        real largel = +1e10;
-        real rk = 0.0, rl = 0.0;
-        real cposk(0.0), cposl(0.0);
+        real    r2k =  HUGE,    r2l =  HUGE;
+        real largek = -1e10, largel = -1e10;
+        real     rk =   0.0,     rl =   0.0;
+        real  cposk(0.0),     cposl(0.0);
         const Plane plane(ipos, jpos);
         for (int ix = 0; ix < nSite; ix++)
           if (ix != i && ix != j)
@@ -287,15 +287,16 @@ namespace Voronoi
         assert(l != i);
         assert(l != j);
 
+        assert(rl > 0.0);
+        assert(rk > 0.0);
+        if (rl < rk) 
+          std::swap(k,l);
+
         tetrahedra.push_back(Tetrahedron(i,j,k));
         faceVtx[i].push_back(tetrahedra.size()-1);
         faceVtx[j].push_back(tetrahedra.size()-1);
         faceVtx[k].push_back(tetrahedra.size()-1);
             
-        edges.inc(i,j);
-        edges.inc(i,k);
-        edges.inc(j,k);
-
         triangles.inc(i,j);
         triangles.inc(i,k);
         triangles.inc(j,k);
@@ -306,10 +307,6 @@ namespace Voronoi
         faceVtx[j].push_back(tetrahedra.size()-1);
         faceVtx[l].push_back(tetrahedra.size()-1);
             
-        edges.inc(i,j);
-        edges.inc(i,l);
-        edges.inc(j,l);
-
         triangles.inc(i,j);
         triangles.inc(i,l);
         triangles.inc(j,l);
@@ -331,9 +328,16 @@ namespace Voronoi
 
       private:
 
+      bool isComplete(const Tetrahedron &t, const int vtx) const
+      {
+        const std::pair<int,int> vpair = t.pair(vtx);
+        return 
+          triangles(vtx, vpair.first ) == 2 &&
+          triangles(vtx, vpair.second) == 2;
+      }
+
       void clear(const int nSites)
       {
-        edges      .clear();
         triangles  .clear();
 
         vertexCompleted.clear();
@@ -371,36 +375,45 @@ namespace Voronoi
 #endif
           nbList.push_back(iVertex);
 
-          if (edges.isFullyConnected(iVertex))
-            vertexCompleted[iVertex] = 1;
-
           /* step 4.3:
            *  the vertex is completed, proceed to the next one
            */
           if (vertexCompleted[iVertex]) 
-          {
-            assert(edges.isFullyConnected(iVertex));
             continue;
-          }
 
           /* step 4.4:
            *  find a tetrahedron (i, iVertex, jVertex, kVertex) with at least one
            *  incomplete face
            */
 
+          assert(!faceVtx[iVertex].empty());
           const Tetrahedron &t = tetrahedra[faceVtx[iVertex].back()];
           const std::pair<int,int> vpair = t.pair(iVertex);
           int jVertex = vpair.first;
           int kVertex = vpair.second;
-          if (edges(iVertex, jVertex) > 1)
+
+          /* if all sides of tetrahedron have adjacent tetrahedra,
+           * the the vertex is complete
+           */
+          if (isComplete(t, iVertex))
+          {
+            assert(isComplete(tetrahedra[faceVtx[iVertex][0]], iVertex));
+            vertexCompleted[iVertex] = 1;
+            continue;
+          }
+
+          /* otherwise, find the face that lacks adjacent tetrahedron */
+
+          if (triangles(iVertex, jVertex) > 1)
             std::swap(jVertex, kVertex);
-          assert(edges(iVertex, jVertex) == 1);
-          assert(edges(iVertex, kVertex)  > 1);
+          assert(triangles(iVertex, jVertex) == 1);
+          assert(triangles(iVertex, kVertex) == 2);
 
           /* step 4.5-4.7 */
 
-          while(triangles(iVertex, jVertex) < 2)
+          while(triangles(iVertex, jVertex) != 2)
           {
+            assert(triangles(iVertex, jVertex) < 2);
             /* step 4.5 - 4.6: 
              *  search a vertex on the opposite side of the kVertex 
              *  (in the half-space bounded by ijFace that does not contain kVertex)
@@ -421,10 +434,10 @@ namespace Voronoi
               const vec3 &pos = siteList[i];
               const int  side = plane(pos) > 0.0;
               const real dist = pos*(pos + cpos) + largeNum;
-              const bool chck = !vertexCompleted[i] &&
-                (i != iVertex) && (i != jVertex) && (i != kVertex);
+              const bool skip = vertexCompleted[i] ||
+                (i == iVertex) || (i == jVertex) || (i == kVertex);
 
-              if (dist < 0.0 && side^sideK = 1 && chck)
+              if (dist < 0.0 && side^sideK = 1 && !skip)
               {
                 real radius = 0.0;
                 cpos = sphere(ipos, jpos, pos, radius);
@@ -449,10 +462,6 @@ namespace Voronoi
               isVertexQueued[lVertex] = 1;
             }
 
-            edges.inc(iVertex, jVertex);
-            edges.inc(iVertex, lVertex);
-            edges.inc(jVertex, lVertex);
-
             triangles.inc(iVertex, jVertex);
             triangles.inc(iVertex, lVertex);
             triangles.inc(jVertex, lVertex);
@@ -461,7 +470,12 @@ namespace Voronoi
           }
 
           /* step 4.8: */
-          assert(edges.isFullyConnected(iVertex));
+          assert(isComplete(tetrahedra[faceVtx[iVertex]  [0]  ], iVertex));
+          assert(isComplete(tetrahedra[faceVtx[iVertex].back()], iVertex));
+#if 1   /* pass over all tetrahedra to make sure they are all complete */
+          for (int i= 0; i < faceVtx[iVertex].size(); i++)
+            assert(isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex));
+#endif
           vertexCompleted[iVertex] = 1;
         }
       }

@@ -59,5 +59,5 @@ clean:
 clean_all:
 	/bin/rm -rf *.o $(PROG) plummer.dat *~
 
-$(OBJ): vector3.h vorocell.h
+$(OBJ): vector3.h vorocell.h mytimer.h
 
