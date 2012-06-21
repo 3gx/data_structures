@@ -1,5 +1,6 @@
 #include "mytimer.h"
 double dt_00, dt_10, dt_20, dt_30, dt_40, dt_44, dt_50, dt_60;
+double dtA;
 #include "vorocell.h"
 #include <iostream>
 
@@ -17,6 +18,7 @@ struct cmp_dist
 int main(int argc, char * argv[])
 {
   dt_00=dt_10=dt_20=dt_30=dt_40=dt_44=dt_50=dt_60=0.0;
+  dtA = 0.0;
   double eps;
   int ns, nrg;
   double lx, ly, lz;
@@ -98,37 +100,41 @@ int main(int argc, char * argv[])
   double nface     = 0.0;
   const double tbeg = get_wtime();
 
-#pragma omp parallel reduction(+:dt_search, dt_voro, nface)
+  for (int cnt = 0; cnt < 10; cnt++)
   {
-    Voronoi::Cell<128> cell;
-    std::vector< std::pair<float, int> > dist(sitesP.size());
 
-    Voronoi::Site::Vector list;
-    list.reserve(ns);
+#pragma omp parallel reduction(+:dt_search, dt_voro, nface)
+    {
+      Voronoi::Cell<128> cell;
+      std::vector< std::pair<float, int> > dist(sitesP.size());
+
+      Voronoi::Site::Vector list;
+      list.reserve(ns);
 
 #pragma omp for
-    for (int i = 0; i < np; i++)
-    {
-      const Voronoi::Site &s = sites[i];
+      for (int i = 0; i < np; i++)
+      {
+        const Voronoi::Site &s = sites[i];
 
-      double t0 = get_wtime();
-      for (int j = 0; j < (const int)sitesP.size(); j++)
-        dist[j] = std::make_pair((sitesP[j].pos - s.pos).norm2(), j);
-      std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_dist());
-      list.clear();
-      for (int j = 0; j < ns+1; j++)
-        if (dist[j].first > 0.0f)
-          list.push_back(Voronoi::Site(sitesP[dist[j].second].pos - s.pos, sitesP[dist[j].second].idx));
-      assert((int)list.size() == ns);
-      double t1 = get_wtime();
-      dt_search += t1 - t0;
+        double t0 = get_wtime();
+        for (int j = 0; j < (const int)sitesP.size(); j++)
+          dist[j] = std::make_pair((sitesP[j].pos - s.pos).norm2(), j);
+        std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_dist());
+        list.clear();
+        for (int j = 0; j < ns+1; j++)
+          if (dist[j].first > 0.0f)
+            list.push_back(Voronoi::Site(sitesP[dist[j].second].pos - s.pos, sitesP[dist[j].second].idx));
+        assert((int)list.size() == ns);
+        double t1 = get_wtime();
+        dt_search += t1 - t0;
 
-      t0 = t1;
-      cell.build(list);
-      nface += cell.nb();
-      t1 = get_wtime();
-      dt_voro += t1 - t0;
+        t0 = t1;
+        cell.build(list);
+        nface += cell.nb();
+        t1 = get_wtime();
+        dt_voro += t1 - t0;
 
+      }
     }
   }
   const double tend = get_wtime();
@@ -143,7 +149,8 @@ int main(int argc, char * argv[])
   fprintf(stderr,  "   dt_44=  %g \n" ,dt_44);
   fprintf(stderr,  "   dt_50=  %g \n" ,dt_50);
   fprintf(stderr,  "   dt_60=  %g \n" ,dt_60);
-//  fprintf(stderr,  "    sum= %g\n", dt_00+dt_10+dt_20+dt_30+dt_40+dt_50+dt_60);
+  fprintf(stderr,  "   dtA=  %g \n" ,dtA);
+  //  fprintf(stderr,  "    sum= %g\n", dt_00+dt_10+dt_20+dt_30+dt_40+dt_50+dt_60);
   fprintf(stderr , " dt_total =  %g sec [ sum= %g ]\n", tend - tbeg,
       dt_search + dt_voro);
   fprintf(stderr, "   nface= %g \n", nface/np);

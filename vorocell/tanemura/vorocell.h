@@ -144,7 +144,10 @@ namespace Voronoi
         else if (v2 == vX) return std::make_pair(v1,v3);
         else if (v3 == vX) return std::make_pair(v1,v2);
         else
+        {
           assert(0);
+          return std::make_pair(-1,-1);
+        }
       }
   };
 
@@ -385,7 +388,7 @@ namespace Voronoi
 
           /* otherwise, find the face that lacks adjacent tetrahedron */
 
-          const double tAA = get_wtime();
+//          const double tAA = get_wtime();
           while(!incompleteTetra.empty())
           {
             const Tetrahedron &t = tetrahedra[faceVtx[iVertex][incompleteTetra.front()]];
@@ -402,7 +405,7 @@ namespace Voronoi
 
             /* step 4.5-4.7 */
 
-            const double t00 = get_wtime();
+//            const double t00 = get_wtime();
             while(triangles(iVertex, jVertex) != 2)
             {
               assert(triangles(iVertex, jVertex) < 2);
@@ -414,23 +417,23 @@ namespace Voronoi
               const vec3 &jpos = siteList[jVertex].pos;
               const vec3 &kpos = siteList[kVertex].pos;
               const Plane plane(ipos, jpos);
-              const int  sideK = plane(kpos) > 0.0 ? 1 : -1;
+              const int  sideK = plane(kpos) > 0.0;
               real largeNum = -1e10;
               vec3  cpos(0.0);
               int lVertex = -1;
 
               /* hot-spot: finding 4th vertex of the new tetrahedron */
 
-              const double tA = get_wtime();
+//              const double tA = get_wtime();
               for (int i = 0; i < nSites; i++)
               {
                 const vec3 &pos = siteList[i].pos;
-                const int  side = plane(pos) > 0.0 ? 1 : -1;
+                const int  side = plane(pos) > 0.0;
                 const real dist = pos*(pos + cpos) + largeNum;
-                const bool skip = vertexCompleted[i] ||
-                  (i == iVertex) || (i == jVertex) || (i == kVertex);
+                const bool  use = !vertexCompleted[i] &&
+                  (i != iVertex) && (i != jVertex) && (i != kVertex);
 
-                if (dist < 0.0 && side*sideK == -1 && !skip)
+                if (dist < 0.0 && side^sideK && use)
                 {
                   real radius = 0.0;
                   cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
@@ -438,8 +441,7 @@ namespace Voronoi
                   lVertex = i;
                 }
               }
-              const double tB = get_wtime();
-              dt_00 += tB - tA;
+//              dt_00 += get_wtime() - tA;
               assert(lVertex >= 0);
 
               /* step 4.7:
@@ -465,11 +467,11 @@ namespace Voronoi
 
               kVertex = jVertex;
               jVertex = lVertex;
+//              dtA += get_wtime() - tB;
             }
-            const double t11 = get_wtime();
-            dt_10 += t11 - t00;
+//            dt_10 += get_wtime() - t00;
           }
-          dt_20 += get_wtime() - tAA;
+//          dt_20 += get_wtime() - tAA;
 
           /* step 4.8: */
 #if 0   /* pass over all tetrahedra to make sure they are all complete */
