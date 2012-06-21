@@ -5,7 +5,7 @@
 
 inline double get_wtime(){
   struct timeval tv;
-  gettimeofday(&tv, NULL);
+  gettimeofday(&tv, 0);
   return tv.tv_sec + 1.e-6 * tv.tv_usec;
 }
 #endif // __TIMER__H__
