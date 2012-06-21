@@ -249,25 +249,19 @@ namespace Voronoi
           {
             const vec3 &pos = siteList[ix].pos;
             const bool side = plane(pos) > 0.0;
-            if (side)
+            const real dist1 = pos*(pos + cposk) + largek;
+            const real dist2 = pos*(pos + cposl) + largel;
+            if (side && dist1 < 0.0)
             {
-              const real dist = pos*(pos + cposk) + largek;
-              if (dist < 0.0)
-              {
-                cposk = sphere(ipos, jpos, pos, rk)*(real)(-2.0);
-                largek = 0.0;
-                k = ix;
-              }
+              cposk = sphere(ipos, jpos, pos, rk)*(real)(-2.0);
+              largek = 0.0;
+              k = ix;
             }
-            else
+            else if (!side && dist2 < 0.0)
             {
-              const real dist = pos*(pos + cposl) + largel;
-              if (dist < 0.0)
-              {
-                cposl = sphere(ipos, jpos, pos, rl)*(real)(-2.0);
-                largel = 0.0;
-                l = ix;
-              }
+              cposl = sphere(ipos, jpos, pos, rl)*(real)(-2.0);
+              largel = 0.0;
+              l = ix;
             }
           }
         assert(plane(siteList[k].pos)*plane(siteList[l].pos) < 0.0);
@@ -314,8 +308,7 @@ namespace Voronoi
         vertexQueue.push_back(l);
         isVertexQueued[l] = true;
 
-        t2 = get_wtime();
-        dt_50 += t2 - t1;
+        dt_50 += get_wtime() - t1;
 
         completeCell(siteList);
         dt_60 += get_wtime() - t00;
@@ -388,7 +381,7 @@ namespace Voronoi
 
           /* otherwise, find the face that lacks adjacent tetrahedron */
 
-//          const double tAA = get_wtime();
+          //          const double tAA = get_wtime();
           while(!incompleteTetra.empty())
           {
             const Tetrahedron &t = tetrahedra[faceVtx[iVertex][incompleteTetra.front()]];
@@ -405,7 +398,7 @@ namespace Voronoi
 
             /* step 4.5-4.7 */
 
-//            const double t00 = get_wtime();
+            //            const double t00 = get_wtime();
             while(triangles(iVertex, jVertex) != 2)
             {
               assert(triangles(iVertex, jVertex) < 2);
@@ -424,7 +417,7 @@ namespace Voronoi
 
               /* hot-spot: finding 4th vertex of the new tetrahedron */
 
-//              const double tA = get_wtime();
+              //              const double tA = get_wtime();
               for (int i = 0; i < nSites; i++)
               {
                 const vec3 &pos = siteList[i].pos;
@@ -441,7 +434,7 @@ namespace Voronoi
                   lVertex = i;
                 }
               }
-//              dt_00 += get_wtime() - tA;
+              //              dt_00 += get_wtime() - tA;
               assert(lVertex >= 0);
 
               /* step 4.7:
@@ -467,11 +460,11 @@ namespace Voronoi
 
               kVertex = jVertex;
               jVertex = lVertex;
-//              dtA += get_wtime() - tB;
+              //              dtA += get_wtime() - tB;
             }
-//            dt_10 += get_wtime() - t00;
+            //            dt_10 += get_wtime() - t00;
           }
-//          dt_20 += get_wtime() - tAA;
+          //          dt_20 += get_wtime() - tAA;
 
           /* step 4.8: */
 #if 0   /* pass over all tetrahedra to make sure they are all complete */
