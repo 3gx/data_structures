@@ -18,35 +18,6 @@ inline T __max(const T a, const T b) {return a > b ? a : b;}
 template<class T>
 inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
 
-inline float __atan2(float y, float x)
-{
-  float t0, t1, t3, t4;
-
-  t3 = __abs(x);
-  t1 = __abs(y);
-  t0 = __max(t3, t1);
-  t1 = __min(t3, t1);
-  t3 = float(1.0f) / t0;
-  t3 = t1 * t3;
-
-  t4 = t3 * t3;
-  t0 =         - float(0.013480470);
-  t0 = t0 * t4 + float(0.057477314);
-  t0 = t0 * t4 - float(0.121239071);
-  t0 = t0 * t4 + float(0.195635925);
-  t0 = t0 * t4 - float(0.332994597);
-  t0 = t0 * t4 + float(0.999995630);
-  t3 = t0 * t3;
-
-  t3 = (abs(y) > abs(x)) ? float(1.570796327f) - t3 : t3;
-  t3 = (x < 0.0f) ?  float(3.141592654f) - t3 : t3;
-  t3 = (y < 0.0f) ? -t3 : t3;
-
-  return t3;
-}
-
-
-
 struct cmp_float
 {
   bool operator()(const std::pair<float, int> &lhs, const std::pair<float, int> &rhs) const
@@ -214,11 +185,16 @@ namespace Voronoi
       std::vector<Tetrahedron> tetrahedra;
       std::vector<   int     >     nbList;
       std::vector<  Face     >   faceList;
+      std::vector< std::pair<float, int> > vec1, vec2;
 
       Array<int,  N> faceVtx[N];
 
       public:
-      Cell() {}
+      Cell() 
+      {
+        vec1.reserve(N);
+        vec2.reserve(N);
+      }
 
       int nb() const {return nbList.size();}
 
@@ -591,14 +567,27 @@ namespace Voronoi
       Face buildFace(const Site::Vector &sites, const int i, const Array<int, N> vtxList)
       {
         const int n = vtxList.size();
-        std::vector< std::pair<float,int> > anglesN(n);
         const vec3 &ipos = sites[i].pos;
-        for (int j = 0; j < n; j++)
+        const vec3 &posA = sites[vtxList[0]].pos - ipos;
+        const vec3 &posB = sites[vtxList[1]].pos - ipos;
+        const vec3  norm = posA%posB;
+        vec1.clear();
+        vec2.clear();
+        vec1.push_back(std::make_pair(posA*posA, vtxList[0]));
+        vec1.push_back(std::make_pair(posA*posB, vtxList[1]));
+        for (int j = 2; j < n; j++)
         {
           const vec3 &jpos = sites[vtxList[j]].pos - ipos;
-          anglesN[j] = std::make_pair(__atan2(jpos.y, jpos.x), j);
+          const float f1   = jpos *  posA;
+          const float f2   = norm * (posA%jpos);
+          if (f2 >= 0.0f)  vec1.push_back(std::make_pair( f1, vtxList[j]));
+          else             vec2.push_back(std::make_pair(-f1, vtxList[j]));
         }
-        std::sort(anglesN.begin(), anglesN.end(), cmp_float());
+        std::sort(vec1.begin(), vec1.end(), cmp_float());
+        std::sort(vec2.begin(), vec2.end(), cmp_float());
+
+        for (int i = 0; i < (const int)vec2.size(); i++)
+          vec1.push_back(vec2[i]);
 
         return Face(vec3(0.0), 0.0);
       }
