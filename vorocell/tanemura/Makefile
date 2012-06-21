@@ -1,6 +1,6 @@
-CXX = g++
+CXX = g++-mp-4.5
 CC  = gcc
-LD  = g++
+LD  = g++-mp-4.5
 F90 = gfortran
 
 ifeq ($(OMP), 1)

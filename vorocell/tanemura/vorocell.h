@@ -3,9 +3,16 @@
 
 /* Tanemura's algorithm */
 
+template<class T>
+inline T __min(const T a, const T b) {return a < b ? a : b;}
+
+template<class T>
+inline T __max(const T a, const T b) {return a > b ? a : b;}
+
 #include <cassert>
 #include <vector>
 #include <deque>
+#include <algorithm>
 #include "vector3.h"
 
 namespace Voronoi
@@ -27,7 +34,7 @@ namespace Voronoi
     vec3 n;
     Plane(const vec3 &ipos, const vec3 &jpos)
     {
-       n = ipos%jpos;
+      n = ipos%jpos;
     }
     real operator()(const vec3 pos) const
     {
@@ -58,6 +65,8 @@ namespace Voronoi
         }
         const T& operator[](const int i) const {return data[i];}
         T& operator[](const int i)       {return data[i];}
+        const T& back() const {assert(n > 0); return data[n-1];};
+        T& back() {assert(n > 0); return data[n-1];};
 
         void push_back(const T &t) {assert(n<N); data[n++] = t;}
         int size() const { return n; }
@@ -92,12 +101,11 @@ namespace Voronoi
         }
     };
 
-  template<const int N, const int NCRIT>
+  template<const int N>
     struct ConnectivityMatrix2D
     {
       private:
-        int matrix[N*(N+1)/2];
-        int _flags[N];
+        int matrix[N][N];
 
       public:
 
@@ -108,43 +116,15 @@ namespace Voronoi
 
         void clear()
         {
-          for (int i = 0; i < N*(N+1)/2; i++)
-            matrix[i] = 0;
-
-          for (int i = 0; i < N; i++)
-            _flags[i] = 0;
+          for (int j = 0; j < N; j++)
+            for (int i = 0; i < N; i++)
+              matrix[j][i] = 0;
         }
 
         /* i: x
          * j: y */
-        unsigned int  operator()(const int i, const int j) const { return matrix[map(i,j)]; }
-        unsigned int  inc       (const int i, const int j) 
-        {
-          unsigned int &val = matrix[map(i,j)];
-          val++;
-          const int inc = (int)(val == NCRIT) - (int)(val == NCRIT+1);
-          _flags[i] += inc;
-          _flags[j] += inc;
-
-          return val;
-        }
-
-        /************/
-
-        bool isFullyConnected(const int i) const {return _flags[i] == 0;}
-
-      private:
-
-        /* i: x
-         * j: y */
-        int map(const int i, const int j) const
-        {
-#if 1 /* LOWER_PACKED */
-          return i + ((2*N-j)*(j-1)>>1);
-#else /* UPPER_PACKED */
-          return i + (j*(j-1)>>1);
-#endif
-        }
+        int   operator()(const int i, const int j) const { return matrix[__min(i,j)][__max(i,j)]; }
+        int&  operator()(const int i, const int j)       { return matrix[__min(i,j)][__max(i,j)]; }
     };
 
   struct Tetrahedron
@@ -172,8 +152,7 @@ namespace Voronoi
   template<const int N>
     struct Cell
     {
-      typedef ConnectivityMatrix2D<N, 1>      Edges;
-      typedef ConnectivityMatrix2D<N, 2>  Triangles;
+      typedef ConnectivityMatrix2D<N>  Triangles;
 
       private:
       Triangles triangles;
@@ -188,13 +167,14 @@ namespace Voronoi
       Array<int, N> faceVtx[N];
 
       public:
-      Cell(const Site::Vector &sites)
-      {
-        build(sites);
-      }
+      Cell() {}
+
+      int nb() const {return nbList.size();}
 
       void build(const Site::Vector &siteList)
       {
+        const double t00 = get_wtime();
+
         assert((int)siteList.size() <= N);
         clear(siteList.size());
         const int nSite = siteList.size();
@@ -202,11 +182,12 @@ namespace Voronoi
         /* step 1: 
          *  find site i, nearest to the origin
          */
+        double t1 = get_wtime();
         int i = -1;
         real r2min = HUGE;
         for (int ix = 0; ix < nSite; ix++)
         {
-          const vec3 &pos = siteList[ix].pos();
+          const vec3 &pos = siteList[ix].pos;
           const real   r2 = pos.norm2();
           assert(r2 > 0.0);
           if (r2 < r2min)
@@ -217,8 +198,12 @@ namespace Voronoi
         }
         assert(i >= 0);
 
-        const vec3 &ipos = siteList[i];
+        const vec3 &ipos = siteList[i].pos;
         assert(ipos.norm2() > 0.0);
+
+        double t2 = get_wtime();
+        dt_40 += t2 - t1;
+        t1 = t2;
 
         /* step 2:
          *  find site j, so that the triangle (origin, i, j)
@@ -229,7 +214,7 @@ namespace Voronoi
         for (int ix = 0; ix < nSite; ix++)
           if (ix != i)
           {
-            const vec3 &pos = siteList[ix];
+            const vec3 &pos = siteList[ix].pos;
             const real   r2 = triangle(ipos, pos);
             if (r2 < r2min)
             {
@@ -239,7 +224,11 @@ namespace Voronoi
           }
         assert(j >= 0);
         assert(j != i);
-        const vec3 &jpos = siteList[j];
+        const vec3 &jpos = siteList[j].pos;
+
+        t2 = get_wtime();
+        dt_44 += t2 - t1;
+        t1 = t2;
 
         /* step 3:
          *  find site k, so that tetrahedron (origin, i,j,k)
@@ -248,22 +237,21 @@ namespace Voronoi
          */
         int k = -1;
         int l = -1;
-        real    r2k =  HUGE,    r2l =  HUGE;
         real largek = -1e10, largel = -1e10;
         real     rk =   0.0,     rl =   0.0;
-        real  cposk(0.0),     cposl(0.0);
+        vec3  cposk(0.0),     cposl(0.0);
         const Plane plane(ipos, jpos);
         for (int ix = 0; ix < nSite; ix++)
           if (ix != i && ix != j)
           {
-            const vec3 &pos = siteList[ix];
-            const  int side = plane(pos);
+            const vec3 &pos = siteList[ix].pos;
+            const bool side = plane(pos) > 0.0;
             if (side)
             {
               const real dist = pos*(pos + cposk) + largek;
               if (dist < 0.0)
               {
-                cposk = sphere(ipos, jpos, pos, rk);
+                cposk = sphere(ipos, jpos, pos, rk)*(real)(-2.0);
                 largek = 0.0;
                 k = ix;
               }
@@ -273,12 +261,13 @@ namespace Voronoi
               const real dist = pos*(pos + cposl) + largel;
               if (dist < 0.0)
               {
-                cposl = sphere(ipos, jpos, pos, rl);
+                cposl = sphere(ipos, jpos, pos, rl)*(real)(-2.0);
                 largel = 0.0;
                 l = ix;
               }
             }
           }
+        assert(plane(siteList[k].pos)*plane(siteList[l].pos) < 0.0);
         assert(k >= 0);
         assert(l >= 0);
         assert(k != l);
@@ -296,34 +285,37 @@ namespace Voronoi
         faceVtx[i].push_back(tetrahedra.size()-1);
         faceVtx[j].push_back(tetrahedra.size()-1);
         faceVtx[k].push_back(tetrahedra.size()-1);
-            
-        triangles.inc(i,j);
-        triangles.inc(i,k);
-        triangles.inc(j,k);
 
+        triangles(i,j)++;
+        triangles(i,k)++;
+        triangles(j,k)++;
 
         tetrahedra.push_back(Tetrahedron(i,j,l));
         faceVtx[i].push_back(tetrahedra.size()-1);
         faceVtx[j].push_back(tetrahedra.size()-1);
         faceVtx[l].push_back(tetrahedra.size()-1);
-            
-        triangles.inc(i,j);
-        triangles.inc(i,l);
-        triangles.inc(j,l);
+
+        triangles(i,j)++;
+        triangles(i,l)++;
+        triangles(j,l)++;
 
         vertexQueue.push_back(i);
-        isVertexQueued[i] = 1;
-        
+        isVertexQueued[i] = true;
+
         vertexQueue.push_back(j);
-        isVertexQueued[j] = 1;
-        
+        isVertexQueued[j] = true;
+
         vertexQueue.push_back(k);
-        isVertexQueued[k] = 1;
-        
+        isVertexQueued[k] = true;
+
         vertexQueue.push_back(l);
-        isVertexQueued[l] = 1;
+        isVertexQueued[l] = true;
+
+        t2 = get_wtime();
+        dt_50 += t2 - t1;
 
         completeCell(siteList);
+        dt_60 += get_wtime() - t00;
       }
 
       private:
@@ -339,15 +331,12 @@ namespace Voronoi
       void clear(const int nSites)
       {
         triangles  .clear();
-
-        vertexCompleted.clear();
-        isVertexQueued .clear();
-        vertexQueue    .clear();
+        vertexQueue.clear();
 
         vertexCompleted.resize(nSites);
+        isVertexQueued .resize(nSites);
         for (int i = 0; i < nSites; i++)
-          vertexCompleted[i] = false;
-
+          isVertexQueued[i] = vertexCompleted[i] = false;
 
         tetrahedra.clear();
         nbList    .clear();
@@ -360,7 +349,10 @@ namespace Voronoi
 
       void completeCell(const Site::Vector &siteList)
       {
+        const double tX = get_wtime();
+        std::deque<int> incompleteTetra;
         const int nSites = siteList.size();
+
         while (!vertexQueue.empty())
         {
           /* step 4.2:
@@ -369,7 +361,7 @@ namespace Voronoi
           const int iVertex = vertexQueue.front();
           vertexQueue.pop_front();
 
-#if 1  /* sanity check: the vertex haven't yet registered in nbList */
+#if 0  /* sanity check: the vertex haven't yet registered in nbList */
           for (std::vector<int>::const_iterator it = nbList.begin(); it != nbList.end(); it++)
             assert(*it !=  iVertex);
 #endif
@@ -378,119 +370,140 @@ namespace Voronoi
           /* step 4.3:
            *  the vertex is completed, proceed to the next one
            */
-          if (vertexCompleted[iVertex]) 
-            continue;
+          assert(incompleteTetra.empty());
+          for (int i = 0; i < faceVtx[iVertex].size(); i++)
+            if (!isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex))
+              incompleteTetra.push_back(i);
+
+          if (!incompleteTetra.empty())
+            assert(!vertexCompleted[iVertex]);
 
           /* step 4.4:
            *  find a tetrahedron (i, iVertex, jVertex, kVertex) with at least one
            *  incomplete face
            */
 
-          assert(!faceVtx[iVertex].empty());
-          const Tetrahedron &t = tetrahedra[faceVtx[iVertex].back()];
-          const std::pair<int,int> vpair = t.pair(iVertex);
-          int jVertex = vpair.first;
-          int kVertex = vpair.second;
-
-          /* if all sides of tetrahedron have adjacent tetrahedra,
-           * the the vertex is complete
-           */
-          if (isComplete(t, iVertex))
-          {
-            assert(isComplete(tetrahedra[faceVtx[iVertex][0]], iVertex));
-            vertexCompleted[iVertex] = 1;
-            continue;
-          }
-
           /* otherwise, find the face that lacks adjacent tetrahedron */
 
-          if (triangles(iVertex, jVertex) > 1)
-            std::swap(jVertex, kVertex);
-          assert(triangles(iVertex, jVertex) == 1);
-          assert(triangles(iVertex, kVertex) == 2);
-
-          /* step 4.5-4.7 */
-
-          while(triangles(iVertex, jVertex) != 2)
+          const double tAA = get_wtime();
+          while(!incompleteTetra.empty())
           {
-            assert(triangles(iVertex, jVertex) < 2);
-            /* step 4.5 - 4.6: 
-             *  search a vertex on the opposite side of the kVertex 
-             *  (in the half-space bounded by ijFace that does not contain kVertex)
-             */
-            const vec3 &ipos = siteList[iVertex];
-            const vec3 &jpos = siteList[jVertex];
-            const vec3 &kpos = siteList[kVertex];
-            const Plane plane(ipos, jpos);
-            const int  sideK = plane(kpos) > 0.0;
-            real largeNum = -1e10;
-            vec3  cpos(0.0);
-            int lVertex = -1;
+            const Tetrahedron &t = tetrahedra[faceVtx[iVertex][incompleteTetra.front()]];
+            incompleteTetra.pop_front();
+            if (isComplete(t, iVertex)) continue;
 
-            /* hot-spot: finding 4th vertex of the new tetrahedron */
+            const std::pair<int,int> vpair = t.pair(iVertex);
+            int jVertex = vpair.first;
+            int kVertex = vpair.second;
+            if (triangles(iVertex, jVertex) != 1)
+              std::swap(jVertex, kVertex);
+            assert(triangles(iVertex, jVertex) == 1);
+            assert(triangles(iVertex, kVertex) == 2);
 
-            for (int i = 0; i < nSites; i++)
+            /* step 4.5-4.7 */
+
+            const double t00 = get_wtime();
+            while(triangles(iVertex, jVertex) != 2)
             {
-              const vec3 &pos = siteList[i];
-              const int  side = plane(pos) > 0.0;
-              const real dist = pos*(pos + cpos) + largeNum;
-              const bool skip = vertexCompleted[i] ||
-                (i == iVertex) || (i == jVertex) || (i == kVertex);
+              assert(triangles(iVertex, jVertex) < 2);
+              /* step 4.5 - 4.6: 
+               *  search a vertex on the opposite side of the kVertex 
+               *  (in the half-space bounded by ijFace that does not contain kVertex)
+               */
+              const vec3 &ipos = siteList[iVertex].pos;
+              const vec3 &jpos = siteList[jVertex].pos;
+              const vec3 &kpos = siteList[kVertex].pos;
+              const Plane plane(ipos, jpos);
+              const int  sideK = plane(kpos) > 0.0 ? 1 : -1;
+              real largeNum = -1e10;
+              vec3  cpos(0.0);
+              int lVertex = -1;
 
-              if (dist < 0.0 && side^sideK = 1 && !skip)
+              /* hot-spot: finding 4th vertex of the new tetrahedron */
+
+              const double tA = get_wtime();
+              for (int i = 0; i < nSites; i++)
               {
-                real radius = 0.0;
-                cpos = sphere(ipos, jpos, pos, radius);
-                largeNum = 0.0;
-                lVertex = i;
+                const vec3 &pos = siteList[i].pos;
+                const int  side = plane(pos) > 0.0 ? 1 : -1;
+                const real dist = pos*(pos + cpos) + largeNum;
+                const bool skip = vertexCompleted[i] ||
+                  (i == iVertex) || (i == jVertex) || (i == kVertex);
+
+                if (dist < 0.0 && side*sideK == -1 && !skip)
+                {
+                  real radius = 0.0;
+                  cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
+                  largeNum = 0.0;
+                  lVertex = i;
+                }
               }
+              const double tB = get_wtime();
+              dt_00 += tB - tA;
+              assert(lVertex >= 0);
+
+              /* step 4.7:
+               *  register new tetrahedron (iVertex, jVertex, lVertex) 
+               */
+              tetrahedra.push_back(Tetrahedron(iVertex, jVertex, lVertex));
+              faceVtx[iVertex].push_back(tetrahedra.size()-1);
+              faceVtx[jVertex].push_back(tetrahedra.size()-1);
+              faceVtx[lVertex].push_back(tetrahedra.size()-1);
+
+              if (!isVertexQueued[lVertex])
+              {
+                vertexQueue.push_back(lVertex);
+                isVertexQueued[lVertex] = true;
+              }
+
+              assert(triangles(iVertex, jVertex) < 3);
+              assert(triangles(iVertex, lVertex) < 3);
+              assert(triangles(jVertex, lVertex) < 3);
+              triangles(iVertex, jVertex)++;
+              triangles(iVertex, lVertex)++;
+              triangles(jVertex, lVertex)++;
+
+              kVertex = jVertex;
+              jVertex = lVertex;
             }
-
-            assert(lVertex >= 0);
-
-            /* step 4.7:
-             *  register new tetrahedron (iVertex, jVertex, lVertex) 
-             */
-            tetrahedra.push_back(Tetrahedron(iVertex, jVertex, lVertex));
-            faceVtx[iVertex].push_back(tetrahedra.size()-1);
-            faceVtx[jVertex].push_back(tetrahedra.size()-1);
-            faceVtx[lVertex].push_back(tetrahedra.size()-1);
-
-            if (!isVertexQueued[lVertex])
-            {
-              vertexQueue.push_back(lVertex);
-              isVertexQueued[lVertex] = 1;
-            }
-
-            triangles.inc(iVertex, jVertex);
-            triangles.inc(iVertex, lVertex);
-            triangles.inc(jVertex, lVertex);
-            kVertex = jVertex;
-            jVertex = lVertex;
+            const double t11 = get_wtime();
+            dt_10 += t11 - t00;
           }
+          dt_20 += get_wtime() - tAA;
 
           /* step 4.8: */
-          assert(isComplete(tetrahedra[faceVtx[iVertex]  [0]  ], iVertex));
-          assert(isComplete(tetrahedra[faceVtx[iVertex].back()], iVertex));
-#if 1   /* pass over all tetrahedra to make sure they are all complete */
+#if 0   /* pass over all tetrahedra to make sure they are all complete */
           for (int i= 0; i < faceVtx[iVertex].size(); i++)
             assert(isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex));
 #endif
-          vertexCompleted[iVertex] = 1;
+          vertexCompleted[iVertex] = true;
         }
+        dt_30 += get_wtime() - tX;
       }
 
 
       vec3 sphere(const vec3 &ip, const vec3 &jp, const vec3 &kp, real &radius) const
       {
-        const real di = ip.norm2();
-        const real dj = jp.norm2();
-        const real dk = kp.norm2();
 
         real XI, YI, ZI, DI;
         real XJ, YJ, ZJ, DJ;
         real XK, YK, ZK, DK;
         real XC, YC, ZC, RR, D;
+
+        XI = ip.x;
+        YI = ip.y;
+        ZI = ip.z;
+        DI = ip.norm2();
+
+        XJ = jp.x;
+        YJ = jp.y;
+        ZJ = jp.z;
+        DJ = jp.norm2();
+
+        XK = kp.x;
+        YK = kp.y;
+        ZK = kp.z;
+        DK = kp.norm2();
 
         D=XI*YJ*ZK+XJ*YK*ZI+XK*YI*ZJ-XK*YJ*ZI-XI*YK*ZJ-XJ*YI*ZK;
         assert (D != 0.0);
@@ -515,10 +528,10 @@ namespace Voronoi
         sphere(jpos, kpos, Plane(jpos, kpos).n, radius);
         return radius;
       }
-
-
-
     };
+
+
+
 }
 
 #endif /* __VOROCELL_H__ */
