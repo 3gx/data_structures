@@ -600,10 +600,8 @@ namespace Voronoi
         const vec3 &posB = sites[vtxList[1]].pos - ipos;
         const vec3 &unitA = posA * (1.0/posA.abs());
         const vec3 &unitB = posB * (1.0/posB.abs());
-        const vec3  norm  = unitA%unitB;
-#if 1
+        const vec3  unitN  = unitA%unitB;
         vec1.clear();
-        vec2.clear();
         vec1.push_back(std::make_pair(unitA*unitA, vtxList[0]));
         vec1.push_back(std::make_pair(unitA*unitB, vtxList[1]));
         for (int j = 2; j < n; j++)
@@ -611,26 +609,11 @@ namespace Voronoi
           const vec3 &jpos = sites[vtxList[j]].pos - ipos;
           const vec3 unitj = jpos * (1.0/jpos.abs());
           const float cos =  unitA * unitj;
-          const float sin = (unitA % unitj) * norm;
-          if (sin >= 0.0f)  vec1.push_back(std::make_pair( cos, vtxList[j]));
-          else              vec2.push_back(std::make_pair(-cos, vtxList[j]));
+          const float sin = (unitA % unitj) * unitN;
+          if (sin >= 0.0f)  vec1.push_back(std::make_pair(  -cos, vtxList[j]));
+          else              vec1.push_back(std::make_pair(10+cos, vtxList[j]));
         }
         std::sort(vec1.begin(), vec1.end(), cmp_float());
-        std::sort(vec2.begin(), vec2.end(), cmp_float());
-
-        for (int i = 0; i < (const int)vec2.size(); i++)
-          vec1.push_back(vec2[i]);
-#else
-        vec1.clear();
-        vec1.push_back(std::make_pair(0.0f, vtxList[0]));
-        vec1.push_back(std::make_pair(std::atan2(norm*posB, posA*posB), vtxList[1]));
-        for (int j = 2; j < n; j++)
-        {
-          const vec3 &jpos = sites[vtxList[j]].pos - ipos;
-          vec1.push_back(std::make_pair(__atan2(norm*(posA%jpos), posA*jpos), vtxList[j]));
-        }
-        std::sort(vec1.begin(), vec1.end(), cmp_float());
-#endif
 
         return Face(vec3(0.0), 0.0);
       }
