@@ -95,17 +95,21 @@ int main(int argc, char * argv[])
   double dt_voro   = 0.0;
   double nface     = 0.0;
   const double tbeg = get_wtime();
+  double volume    = 0.0;
 
   for (int cnt = 0; cnt < 10; cnt++)
   {
 
-#pragma omp parallel reduction(+:dt_search, dt_voro, nface)
+    volume    = 0.0;
+
+#pragma omp parallel reduction(+:dt_search, dt_voro, nface, volume)
     {
       Voronoi::Cell<128> cell;
       std::vector< std::pair<float, int> > dist(sitesP.size());
 
       Voronoi::Site::Vector list;
       list.reserve(ns);
+  
 
 #pragma omp for
       for (int i = 0; i < np; i++)
@@ -115,17 +119,21 @@ int main(int argc, char * argv[])
         double t0 = get_wtime();
         for (int j = 0; j < (const int)sitesP.size(); j++)
           dist[j] = std::make_pair((sitesP[j].pos - s.pos).norm2(), j);
-        std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_float());
+        std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_data<float, int>());
         list.clear();
         for (int j = 0; j < ns+1; j++)
           if (dist[j].first > 0.0f)
+          {
+            assert(dist[j].first <= dist[ns].first);
             list.push_back(Voronoi::Site(sitesP[dist[j].second].pos - s.pos, sitesP[dist[j].second].idx));
+          }
         assert((int)list.size() == ns);
         double t1 = get_wtime();
         dt_search += t1 - t0;
 
         t0 = t1;
         cell.build(list);
+        volume += cell.volume();
         nface += cell.nb();
         t1 = get_wtime();
         dt_voro += t1 - t0;
@@ -152,6 +160,9 @@ int main(int argc, char * argv[])
       dt_search + dt_voro);
   fprintf(stderr, "   nface= %g \n", nface/np);
   fprintf(stderr, "  ratio= %g \n", incompl*1.0/incomplT);
+
+  fprintf(stderr, " volume= %g   exact= %g  diff= %g \n",
+      volume, lx*ly*lz, (volume-lx*ly*lz)/(lx*ly*lz));
 
 
 

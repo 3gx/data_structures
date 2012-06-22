@@ -46,9 +46,10 @@ inline float __atan2(float y, float x)
 }
 
 
-struct cmp_float
+template<class T1, class T2>
+struct cmp_data
 {
-  bool operator()(const std::pair<float, int> &lhs, const std::pair<float, int> &rhs) const
+  bool operator()(const std::pair<T1, T2> &lhs, const std::pair<T1, T2> &rhs) const
   {
     return lhs.first < rhs.first;
   }
@@ -171,12 +172,15 @@ namespace Voronoi
   {
     private:
       int v1, v2, v3;
+      vec3 c;
     public:
-      Tetrahedron(const int _v1, const int _v2, const int _v3) : v1(_v1), v2(_v2), v3(_v3) {}
+      Tetrahedron(const int _v1, const int _v2, const int _v3, const vec3 &_c) : 
+        v1(_v1), v2(_v2), v3(_v3), c(_c) {}
 
       int vertex1() const {return v1;}
       int vertex2() const {return v2;}
       int vertex3() const {return v3;}
+      const vec3& centre() const { return c; }
 
       std::pair<int,int> pair(const int vX) const
       {
@@ -213,18 +217,21 @@ namespace Voronoi
       std::vector<Tetrahedron> tetrahedra;
       std::vector<   int     >     nbList;
       std::vector<  Face     >   faceList;
-      std::vector< std::pair<float, int> > vec1, vec2;
+      std::vector< std::pair<real, vec3> > angle_vec_pair;
+      std::deque<int> incompleteTetra;
 
       Array<int,  N> faceVtx[N];
+
+      real cellVolume;
 
       public:
       Cell() 
       {
-        vec1.reserve(N);
-        vec2.reserve(N);
+        angle_vec_pair.reserve(N);
       }
 
       int nb() const {return nbList.size();}
+      real volume() const {return cellVolume;}
 
       void build(const Site::Vector &siteList)
       {
@@ -327,22 +334,20 @@ namespace Voronoi
 
         assert(rl > 0.0);
         assert(rk > 0.0);
-        if (rl < rk) 
-          std::swap(k,l);
 
-        tetrahedra.push_back(Tetrahedron(i,j,k));
-        faceVtx[i].push_back(tetrahedra.size()-1);
-        faceVtx[j].push_back(tetrahedra.size()-1);
-        faceVtx[k].push_back(tetrahedra.size()-1);
+        faceVtx[i].push_back(tetrahedra.size());
+        faceVtx[j].push_back(tetrahedra.size());
+        faceVtx[k].push_back(tetrahedra.size());
+        tetrahedra.push_back(Tetrahedron(i,j,k, cposk*(real)(-0.5)));
 
         triangles(i,j)++;
         triangles(i,k)++;
         triangles(j,k)++;
 
-        tetrahedra.push_back(Tetrahedron(i,j,l));
-        faceVtx[i].push_back(tetrahedra.size()-1);
-        faceVtx[j].push_back(tetrahedra.size()-1);
-        faceVtx[l].push_back(tetrahedra.size()-1);
+        faceVtx[i].push_back(tetrahedra.size());
+        faceVtx[j].push_back(tetrahedra.size());
+        faceVtx[l].push_back(tetrahedra.size());
+        tetrahedra.push_back(Tetrahedron(i,j,l, cposl*(real)(-0.5)));
 
         triangles(i,j)++;
         triangles(i,l)++;
@@ -369,10 +374,15 @@ namespace Voronoi
 
         const int nnb = nbList.size();
         faceList.reserve(nnb);
+        cellVolume = 0.0;
         for (int i = 0; i < nnb; i++)
         {
-          const int jnb = nbList[i];
-          faceList.push_back(buildFace(siteList, jnb, faceVtx[jnb]));
+          const int j = nbList[i];
+#if 1   /* pass over all tetrahedra to make sure they are all complete */
+          for (int i= 0; i < faceVtx[j].size(); i++)
+            assert(isComplete(tetrahedra[faceVtx[j][i]], j));
+#endif
+          faceList.push_back(buildFace(faceVtx[j], cellVolume));
         }
 
         dt_70 += get_wtime() - t00;
@@ -400,6 +410,7 @@ namespace Voronoi
 
         tetrahedra.clear();
         nbList    .clear();
+        faceList  .clear();
 
         for (int i = 0; i < N; i++)
           faceVtx[i].clear();
@@ -410,7 +421,7 @@ namespace Voronoi
       void completeCell(const Site::Vector &siteList)
       {
         const double tX = get_wtime();
-        std::deque<int> incompleteTetra;
+        assert(incompleteTetra.empty());
         const int nSites = siteList.size();
 
         while (!vertexQueue.empty())
@@ -421,7 +432,7 @@ namespace Voronoi
           const int iVertex = vertexQueue.front();
           vertexQueue.pop_front();
 
-#if 0  /* sanity check: the vertex haven't yet registered in nbList */
+#if 1  /* sanity check: the vertex haven't yet registered in nbList */
           for (std::vector<int>::const_iterator it = nbList.begin(); it != nbList.end(); it++)
             assert(*it !=  iVertex);
 #endif
@@ -433,7 +444,7 @@ namespace Voronoi
           assert(incompleteTetra.empty());
           for (int i = 0; i < faceVtx[iVertex].size(); i++)
             if (!isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex))
-              incompleteTetra.push_back(i);
+              incompleteTetra.push_back(faceVtx[iVertex][i]);
 
           if (!incompleteTetra.empty())
             assert(!vertexCompleted[iVertex]);
@@ -448,9 +459,10 @@ namespace Voronoi
           //          const double tAA = get_wtime();
           if (!incompleteTetra.empty())
               incomplT++;
+
           while(!incompleteTetra.empty())
           {
-            const Tetrahedron &t = tetrahedra[faceVtx[iVertex][incompleteTetra.front()]];
+            const Tetrahedron &t = tetrahedra[incompleteTetra.front()];
             incompleteTetra.pop_front();
             if (isComplete(t, iVertex)) continue;
             incompl++;
@@ -490,10 +502,10 @@ namespace Voronoi
                 const vec3 &pos = siteList[i].pos;
                 const int  side = plane(pos) > 0.0;
                 const real dist = pos*(pos + cpos) + largeNum;
-                const bool  use = !vertexCompleted[i] &&
-                  (i != iVertex) && (i != jVertex) && (i != kVertex);
+                const bool skip = vertexCompleted[i] || 
+                  (i == iVertex) || (i == jVertex) || (i == kVertex);
 
-                if (dist < 0.0 && side^sideK && use)
+                if (dist < 0.0 && side^sideK && !skip)
                 {
                   real radius = 0.0;
                   cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
@@ -507,7 +519,7 @@ namespace Voronoi
               /* step 4.7:
                *  register new tetrahedron (iVertex, jVertex, lVertex) 
                */
-              tetrahedra.push_back(Tetrahedron(iVertex, jVertex, lVertex));
+              tetrahedra.push_back(Tetrahedron(iVertex, jVertex, lVertex, cpos*(real)(-0.5)));
               faceVtx[iVertex].push_back(tetrahedra.size()-1);
               faceVtx[jVertex].push_back(tetrahedra.size()-1);
               faceVtx[lVertex].push_back(tetrahedra.size()-1);
@@ -534,7 +546,7 @@ namespace Voronoi
           //          dt_20 += get_wtime() - tAA;
 
           /* step 4.8: */
-#if 0   /* pass over all tetrahedra to make sure they are all complete */
+#if 1   /* pass over all tetrahedra to make sure they are all complete */
           for (int i= 0; i < faceVtx[iVertex].size(); i++)
             assert(isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex));
 #endif
@@ -591,31 +603,62 @@ namespace Voronoi
         return radius;
       }
 
-
-      Face buildFace(const Site::Vector &sites, const int i, const Array<int, N> vtxList)
+      Face buildFace(const Array<int, N> vtxList, real &volume)
       {
         const int n = vtxList.size();
-        const vec3 &ipos = sites[i].pos;
-        const vec3 &posA = sites[vtxList[0]].pos - ipos;
-        const vec3 &posB = sites[vtxList[1]].pos - ipos;
+        vec3 cpos(0.0);
+        for (int i= 0; i < n; i++)
+          cpos += tetrahedra[vtxList[i]].centre();
+        cpos *= 1.0/(real)n;
+
+        const vec3 &posA = tetrahedra[vtxList[0]].centre() - cpos;
+        const vec3 &posB = tetrahedra[vtxList[1]].centre() - cpos;
         const vec3 &unitA = posA * (1.0/posA.abs());
         const vec3 &unitB = posB * (1.0/posB.abs());
         const vec3  unitN  = unitA%unitB;
-        vec1.clear();
-        vec1.push_back(std::make_pair(unitA*unitA, vtxList[0]));
-        vec1.push_back(std::make_pair(unitA*unitB, vtxList[1]));
+        angle_vec_pair.clear();
+#if 0
+        angle_vec_pair.push_back(std::make_pair(unitA*unitA, posA));
+        angle_vec_pair.push_back(std::make_pair(unitA*unitB, posB));
         for (int j = 2; j < n; j++)
         {
-          const vec3 &jpos = sites[vtxList[j]].pos - ipos;
+          const vec3 &jpos = tetrahedra[vtxList[j]].centre() - cpos;
           const vec3 unitj = jpos * (1.0/jpos.abs());
           const float cos =  unitA * unitj;
           const float sin = (unitA % unitj) * unitN;
-          if (sin >= 0.0f)  vec1.push_back(std::make_pair(  -cos, vtxList[j]));
-          else              vec1.push_back(std::make_pair(10+cos, vtxList[j]));
+          if (sin >= 0.0f)  angle_vec_pair.push_back(std::make_pair(  -cos, jpos));
+          else              angle_vec_pair.push_back(std::make_pair(10+cos, jpos));
         }
-        std::sort(vec1.begin(), vec1.end(), cmp_float());
+#error
+#else
+        angle_vec_pair.push_back(std::make_pair(0.0, posA));
+        for (int j = 1; j < n; j++)
+        {
+          const vec3 &jpos = tetrahedra[vtxList[j]].centre() - cpos;
+          const real x =  unitA * jpos;
+          const real y = (unitA % jpos) * unitN;
+          angle_vec_pair.push_back(std::make_pair(std::atan2(y, x), jpos));
+        }
+#endif
+        assert((int)angle_vec_pair.size() == n);
+        std::sort(angle_vec_pair.begin(), angle_vec_pair.end(), cmp_data<real, vec3>());
+        angle_vec_pair.push_back(angle_vec_pair[0]);
 
-        return Face(vec3(0.0), 0.0);
+        /* comput area & volume */
+        real area = 0.0;
+        real vol  = 0.0;
+        const vec3 &v0 = cpos;
+        for (int i = 0; i < n; i++)
+        {
+          const vec3 &v1 = angle_vec_pair[i  ].second;
+          const vec3 &v2 = angle_vec_pair[i+1].second;
+          area   += (v1%v2).abs();
+          vol    += __abs(v0*((v1+v0)%(v2+v0)));
+        }
+        area   *= 0.5;
+        volume += vol*(1.0/6.0);
+
+        return Face(unitN, area);
       }
 
     };
