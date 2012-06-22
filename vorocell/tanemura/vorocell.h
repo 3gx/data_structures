@@ -193,6 +193,16 @@ namespace Voronoi
           return std::make_pair(-1,-1);
         }
       }
+
+      bool operator==(const Tetrahedron &t) const
+      {
+        int list1[3] = {  v1,   v2,   v3};
+        int list2[3] = {t.v1, t.v2, t.v3};
+        std::sort(list1, list1+3);
+        std::sort(list2, list2+3);
+        return list1[0]==list2[0] && list1[1]==list2[1] && list1[2]==list2[2];
+      };
+      bool operator!=(const Tetrahedron &t) const { return !(*this == t); }
   };
 
   struct Face
@@ -378,7 +388,7 @@ namespace Voronoi
         for (int i = 0; i < nnb; i++)
         {
           const int j = nbList[i];
-#if 1   /* pass over all tetrahedra to make sure they are all complete */
+#if 0   /* sanity check: pass over all tetrahedra to make sure they are all complete */
           for (int i= 0; i < faceVtx[j].size(); i++)
             assert(isComplete(tetrahedra[faceVtx[j][i]], j));
 #endif
@@ -386,6 +396,19 @@ namespace Voronoi
         }
 
         dt_70 += get_wtime() - t00;
+
+#if 0  /* sanity check */
+        const int nt = tetrahedra.size();
+        for (int i = 0 ; i < nt-1; i++)
+          for (int j = i+1; j < nt; j++)
+            if (tetrahedra[i] == tetrahedra[j])
+            {
+              fprintf(stderr, "i= %d  (%d %d %d)  j= %d (%d %d %d) \n",
+                  i, tetrahedra[i].vertex1(), tetrahedra[i].vertex2(), tetrahedra[i].vertex3(),
+                  j, tetrahedra[j].vertex1(), tetrahedra[j].vertex2(), tetrahedra[j].vertex3());
+              assert(0);
+            }
+#endif
       }
 
       private:
@@ -432,7 +455,7 @@ namespace Voronoi
           const int iVertex = vertexQueue.front();
           vertexQueue.pop_front();
 
-#if 1  /* sanity check: the vertex haven't yet registered in nbList */
+#if 0  /* sanity check: the vertex haven't yet registered in nbList */
           for (std::vector<int>::const_iterator it = nbList.begin(); it != nbList.end(); it++)
             assert(*it !=  iVertex);
 #endif
@@ -536,6 +559,13 @@ namespace Voronoi
               triangles(iVertex, jVertex)++;
               triangles(iVertex, lVertex)++;
               triangles(jVertex, lVertex)++;
+        
+#if 0         /* sanity check */
+              bool complete = true; 
+              for (int i = 0; i < faceVtx[kVertex].size(); i++)
+                complete &= isComplete(tetrahedra[faceVtx[kVertex][i]], kVertex);
+              if (complete) vertexCompleted[kVertex] = true;
+#endif
 
               kVertex = jVertex;
               jVertex = lVertex;
@@ -546,7 +576,7 @@ namespace Voronoi
           //          dt_20 += get_wtime() - tAA;
 
           /* step 4.8: */
-#if 1   /* pass over all tetrahedra to make sure they are all complete */
+#if 0   /* sanity check: pass over all tetrahedra to make sure they are all complete */
           for (int i= 0; i < faceVtx[iVertex].size(); i++)
             assert(isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex));
 #endif
@@ -637,6 +667,8 @@ namespace Voronoi
           const vec3 &jpos = tetrahedra[vtxList[j]].centre() - cpos;
           const real x =  unitA * jpos;
           const real y = (unitA % jpos) * unitN;
+          const real dot = jpos * unitN;
+          assert(__abs(dot) < jpos.abs()*1.0e-12);
           angle_vec_pair.push_back(std::make_pair(std::atan2(y, x), jpos));
         }
 #endif

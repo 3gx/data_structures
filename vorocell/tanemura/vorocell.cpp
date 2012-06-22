@@ -73,19 +73,26 @@ int main(int argc, char * argv[])
   const real dy = f * ly;
   const real dz = f * lz;
   for (int i = 0; i < np; i++)
-  {
-    Voronoi::Site &s = sites[i];
-    sitesP.push_back(s);
-
-    if      (s.pos.x      < dx) sitesP.push_back(Voronoi::Site(vec3(s.pos.x+lx, s.pos.y, s.pos.z), -1-s.idx));
-    else if (lx - s.pos.x < dx) sitesP.push_back(Voronoi::Site(vec3(s.pos.x-lx, s.pos.y, s.pos.z), -1-s.idx));
-
-    if      (s.pos.y      < dy) sitesP.push_back(Voronoi::Site(vec3(s.pos.x, s.pos.y+ly, s.pos.z), -1-s.idx));
-    else if (ly - s.pos.y < dy) sitesP.push_back(Voronoi::Site(vec3(s.pos.x, s.pos.y-ly, s.pos.z), -1-s.idx));
-
-    if      (s.pos.z      < dz) sitesP.push_back(Voronoi::Site(vec3(s.pos.x, s.pos.y, s.pos.z+lz), -1-s.idx));
-    else if (lz - s.pos.z < dz) sitesP.push_back(Voronoi::Site(vec3(s.pos.x, s.pos.y, s.pos.z-lz), -1-s.idx));
-  }
+    for (int oct = 0; oct < 8; oct++)
+    {
+      Voronoi::Site s = sites[i];
+        if (oct&1)
+        {
+          if      (s.pos.x      < dx) s.pos.x += lx;
+          else if (lx - s.pos.x < dx) s.pos.x -= lx;
+        }
+      if (oct&2)
+      {
+        if      (s.pos.y      < dy) s.pos.y += ly;
+        else if (ly - s.pos.y < dy) s.pos.y -= ly;
+      }
+      if (oct&4)
+      {
+        if      (s.pos.z      < dz) s.pos.z += lz;
+        else if (lz - s.pos.z < dz) s.pos.z -= lz;
+      }
+      sitesP.push_back(s);
+    }
 #else /* reflecting */
 #endif
   fprintf(stderr, " np= %d  Pnp= %d\n", (int)sites.size(), (int)sitesP.size());
@@ -109,7 +116,7 @@ int main(int argc, char * argv[])
 
       Voronoi::Site::Vector list;
       list.reserve(ns);
-  
+
 
 #pragma omp for
       for (int i = 0; i < np; i++)
