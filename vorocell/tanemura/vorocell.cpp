@@ -42,6 +42,9 @@ int main(int argc, char * argv[])
 
   Voronoi::Site::Vector sites(np);
   vec3 min(+HUGE), max(-HUGE);
+  lx *= 1.125;
+  ly *= 1.125;
+  lz *= 1.125;
   for (int i = 0; i < np; i++)
   {
     std::cin >> idum >> 
@@ -49,6 +52,11 @@ int main(int argc, char * argv[])
       sites[i].pos.y >> 
       sites[i].pos.z;
     sites[i].idx = i;
+#if 1
+    sites[i].pos.x += lx*0.01;
+    sites[i].pos.y += ly*0.01;
+    sites[i].pos.z += lz*0.01;
+#endif
     min = mineach(min, sites[i].pos);
     max = maxeach(max, sites[i].pos);
   }
@@ -63,8 +71,8 @@ int main(int argc, char * argv[])
 
   Voronoi::Site::Vector sitesP;
   sitesP.reserve(8*np);
-#if 0 /* periodic */
-  const real  f = 0.5;
+#if 1 /* periodic */
+  const real  f = 0.499;
   assert(f <= 0.5);
   const real dx = (0.5 - f) * lx;
   const real dy = (0.5 - f) * ly;
@@ -153,7 +161,7 @@ int main(int argc, char * argv[])
 #pragma omp for
       for (int i = 0; i < np; i++)
       {
-//        fprintf(stderr, "i= %d\n", i);
+        //        fprintf(stderr, "i= %d\n", i);
         const Voronoi::Site &s = sites[i];
 
         double t0 = get_wtime();
