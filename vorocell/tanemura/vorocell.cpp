@@ -68,7 +68,7 @@ int main(int argc, char * argv[])
   Voronoi::Site::Vector sitesP;
   sitesP.reserve(8*np);
 #if 1 /* periodic */
-  const real  f = 0.4999;
+  const real  f = 0.5;
   assert(f <= 0.5);
   const real dx = (0.5 - f) * lx;
   const real dy = (0.5 - f) * ly;
@@ -104,7 +104,6 @@ int main(int argc, char * argv[])
 
   for (int cnt = 0; cnt < 10; cnt++)
   {
-
     volume    = 0.0;
 
 #pragma omp parallel reduction(+:dt_search, dt_voro, nface, volume)
@@ -119,6 +118,7 @@ int main(int argc, char * argv[])
 #pragma omp for
       for (int i = 0; i < np; i++)
       {
+//        fprintf(stderr, "i= %d\n", i);
         const Voronoi::Site &s = sites[i];
 
         double t0 = get_wtime();
@@ -131,6 +131,14 @@ int main(int argc, char * argv[])
           {
             assert(dist[j].first <= dist[ns].first);
             list.push_back(Voronoi::Site(sitesP[dist[j].second].pos - s.pos, sitesP[dist[j].second].idx));
+#if 0
+            fprintf(stdout, " %g %g %g  dist= %g  j= %d\n", 
+                list.back().pos.x,
+                list.back().pos.y,
+                list.back().pos.z,
+                dist[j].first, j
+                );
+#endif
           }
         assert((int)list.size() == ns);
         double t1 = get_wtime();

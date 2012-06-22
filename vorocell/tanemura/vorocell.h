@@ -532,7 +532,7 @@ namespace Voronoi
                 const vec3 &pos = siteList[i].pos;
                 const int  side = plane(pos) > 0.0;
                 const real dist = pos*(pos + cpos) + largeNum;
-                const bool skip = vertexCompleted[i] || 
+                const bool skip = vertexCompleted[i] ||
                   (i == iVertex) || (i == jVertex) || (i == kVertex);
 
                 if (dist < 0.0 && side^sideK && !skip)
@@ -560,6 +560,12 @@ namespace Voronoi
                 isVertexQueued[lVertex] = true;
               }
 
+#if 0
+              fprintf(stderr, "(%d,%d)= %d\n", __min(iVertex,jVertex), __max(iVertex,jVertex), triangles(iVertex,jVertex));
+              fprintf(stderr, "(%d,%d)= %d\n", __min(iVertex,lVertex), __max(iVertex,lVertex), triangles(iVertex,lVertex));
+              fprintf(stderr, "(%d,%d)= %d\n", __min(jVertex,lVertex), __max(jVertex,lVertex), triangles(jVertex,lVertex));
+              fprintf(stderr, " --- \n");
+#endif
               assert(triangles(iVertex, jVertex) < 2);
               assert(triangles(iVertex, lVertex) < 2);
               assert(triangles(jVertex, lVertex) < 2);
@@ -582,6 +588,12 @@ namespace Voronoi
               for (int i = 0; i < faceVtx[jVertex].size(); i++)
                 complete &= isComplete(tetrahedra[faceVtx[jVertex][i]], jVertex);
               if (complete) vertexCompleted[jVertex] = true;
+              
+              complete = true; 
+              for (int i = 0; i < faceVtx[jVertex].size(); i++)
+                complete &= isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex);
+              if (complete) break;
+
 #endif
 
               kVertex = jVertex;
