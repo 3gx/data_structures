@@ -52,22 +52,18 @@ int main(int argc, char * argv[])
     min = mineach(min, sites[i].pos);
     max = maxeach(max, sites[i].pos);
   }
-  for (int i = 0; i < np; i++)
-    sites[i].pos -= min;
-  min -= min;
-  max -= min;
   fprintf(stderr, " min= %g %g %g \n", min.x, min.y, min.z);
   fprintf(stderr, " max= %g %g %g \n", max.x, max.y, max.z);
-  for (int i = 0; i < np; i++)
-  {
-    assert(sites[i].pos.x < lx);
-    assert(sites[i].pos.y < ly);
-    assert(sites[i].pos.z < lz);
-  }
+  assert(min.x > 0.0);
+  assert(min.y > 0.0);
+  assert(min.z > 0.0);
+  assert(max.x < lx);
+  assert(max.y < ly);
+  assert(max.z < lz);
 
   Voronoi::Site::Vector sitesP;
   sitesP.reserve(8*np);
-#if 1 /* periodic */
+#if 0 /* periodic */
   const real  f = 0.5;
   assert(f <= 0.5);
   const real dx = (0.5 - f) * lx;
@@ -92,6 +88,45 @@ int main(int argc, char * argv[])
     }
   }
 #else /* reflecting */
+  const real f = 0.5;
+  const real dx = f*lx;
+  const real dy = f*ly;
+  const real dz = f*lz;
+  for (int i = 0; i < np; i++)
+  {
+    const Voronoi::Site &s0 = sites[i];
+    sitesP.push_back(s0);
+    for (int oct = 1; oct < 8; oct++)
+    {
+      Voronoi::Site s = s0;
+      if (oct&1)
+      {
+        if      (     s.pos.x <= dx) s.pos.x =        - s.pos.x;
+        else if (lx - s.pos.x <= dx) s.pos.x = 2.0*lx - s.pos.x;
+        else
+          assert(0);
+      }
+      if (oct&2)
+      {
+        if      (     s.pos.y <= dy) s.pos.y =        - s.pos.y;
+        else if (ly - s.pos.y <= dy) s.pos.y = 2.0*ly - s.pos.y;
+        else
+          assert(0);
+      }
+      if (oct&4)
+      {
+        if      (     s.pos.z <= dz) s.pos.z =        - s.pos.z;
+        else if (lz - s.pos.z <= dz) s.pos.z = 2.0*lz - s.pos.z;
+        else
+          assert(0);
+      }
+      if (s.pos.x != s0.pos.x || s.pos.y != s0.pos.y || s.pos.z != s0.pos.z)
+      {
+        s.idx = -1-s.idx;
+        sitesP.push_back(s);
+      }
+    }
+  }
 #endif
   fprintf(stderr, " np= %d  Pnp= %d\n", (int)sites.size(), (int)sitesP.size());
   assert(!sitesP.empty());
