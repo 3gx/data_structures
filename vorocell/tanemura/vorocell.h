@@ -350,6 +350,10 @@ namespace Voronoi
         faceVtx[k].push_back(tetrahedra.size());
         tetrahedra.push_back(Tetrahedron(i,j,k, cposk*(real)(-0.5)));
 
+        assert(triangles(i,j) < 2);
+        assert(triangles(j,k) < 2);
+        assert(triangles(i,k) < 2);
+
         triangles(i,j)++;
         triangles(i,k)++;
         triangles(j,k)++;
@@ -359,6 +363,9 @@ namespace Voronoi
         faceVtx[l].push_back(tetrahedra.size());
         tetrahedra.push_back(Tetrahedron(i,j,l, cposl*(real)(-0.5)));
 
+        assert(triangles(i,j) < 2);
+        assert(triangles(i,l) < 2);
+        assert(triangles(j,l) < 2);
         triangles(i,j)++;
         triangles(i,l)++;
         triangles(j,l)++;
@@ -481,7 +488,7 @@ namespace Voronoi
 
           //          const double tAA = get_wtime();
           if (!incompleteTetra.empty())
-              incomplT++;
+            incomplT++;
 
           while(!incompleteTetra.empty())
           {
@@ -542,10 +549,10 @@ namespace Voronoi
               /* step 4.7:
                *  register new tetrahedron (iVertex, jVertex, lVertex) 
                */
+              faceVtx[iVertex].push_back(tetrahedra.size());
+              faceVtx[jVertex].push_back(tetrahedra.size());
+              faceVtx[lVertex].push_back(tetrahedra.size());
               tetrahedra.push_back(Tetrahedron(iVertex, jVertex, lVertex, cpos*(real)(-0.5)));
-              faceVtx[iVertex].push_back(tetrahedra.size()-1);
-              faceVtx[jVertex].push_back(tetrahedra.size()-1);
-              faceVtx[lVertex].push_back(tetrahedra.size()-1);
 
               if (!isVertexQueued[lVertex])
               {
@@ -553,18 +560,28 @@ namespace Voronoi
                 isVertexQueued[lVertex] = true;
               }
 
-              assert(triangles(iVertex, jVertex) < 3);
-              assert(triangles(iVertex, lVertex) < 3);
-              assert(triangles(jVertex, lVertex) < 3);
+              assert(triangles(iVertex, jVertex) < 2);
+              assert(triangles(iVertex, lVertex) < 2);
+              assert(triangles(jVertex, lVertex) < 2);
               triangles(iVertex, jVertex)++;
               triangles(iVertex, lVertex)++;
               triangles(jVertex, lVertex)++;
-        
+
 #if 0         /* sanity check */
               bool complete = true; 
               for (int i = 0; i < faceVtx[kVertex].size(); i++)
                 complete &= isComplete(tetrahedra[faceVtx[kVertex][i]], kVertex);
               if (complete) vertexCompleted[kVertex] = true;
+              
+              complete = true; 
+              for (int i = 0; i < faceVtx[lVertex].size(); i++)
+                complete &= isComplete(tetrahedra[faceVtx[lVertex][i]], lVertex);
+              if (complete) vertexCompleted[lVertex] = true;
+              
+              complete = true; 
+              for (int i = 0; i < faceVtx[jVertex].size(); i++)
+                complete &= isComplete(tetrahedra[faceVtx[jVertex][i]], jVertex);
+              if (complete) vertexCompleted[jVertex] = true;
 #endif
 
               kVertex = jVertex;
@@ -668,7 +685,7 @@ namespace Voronoi
           const real x =  unitA * jpos;
           const real y = (unitA % jpos) * unitN;
           const real dot = jpos * unitN;
-          assert(__abs(dot) < jpos.abs()*1.0e-12);
+          assert(__abs(dot) < jpos.abs()*1.0e-10);
           angle_vec_pair.push_back(std::make_pair(std::atan2(y, x), jpos));
         }
 #endif

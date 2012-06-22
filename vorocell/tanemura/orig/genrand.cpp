@@ -3,7 +3,7 @@
 
 int main()
 {
-  int n = 10000;
+  int n = 2000;
   for (int i = 0; i < n; i++)
   {
     fprintf(stdout, " %d %g %g %g \n",

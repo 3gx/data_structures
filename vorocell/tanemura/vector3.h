@@ -59,7 +59,7 @@ template <class REAL> struct vector3{
     REAL abs() const{
       return std::sqrt(norm2());
     }
-
+    
     friend std::ostream &operator << (std::ostream &ofs, const vector3<REAL> &v){
       ofs << v.x << " " << v.y << " " << v.z;
       return ofs;
