@@ -73,7 +73,7 @@ int main(int argc, char * argv[])
 
   Voronoi::Site::Vector sitesP;
   sitesP.reserve(8*np);
-#if 0 /* periodic */
+#if 1 /* periodic */
   const real  f = 0.25;
   assert(f <= 0.5);
   const real dx = (0.5 - f) * lx;
@@ -198,12 +198,14 @@ int main(int argc, char * argv[])
   double nface     = 0.0;
   const double tbeg = get_wtime();
   double volume    = 0.0;
+  int nfailed = 0;
 
   for (int cnt = 0; cnt < 10; cnt++)
   {
     volume    = 0.0;
+    nfailed = 0;
 
-#pragma omp parallel reduction(+:dt_search, dt_voro, nface, volume)
+#pragma omp parallel reduction(+:dt_search, dt_voro, nface, volume, nfailed)
     {
       Voronoi::Cell<128> cell;
       std::vector< std::pair<real, int> > dist(sitesP.size());
@@ -249,7 +251,8 @@ int main(int argc, char * argv[])
         dt_search += t1 - t0;
 
         t0 = t1;
-        cell.build(list);
+        if (!cell.build(list))
+          nfailed++;
         volume += cell.volume();
         nface += cell.nb();
         t1 = get_wtime();
@@ -280,6 +283,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, " volume= %g   exact= %g  diff= %g \n",
       volume, lx*ly*lz, (volume-lx*ly*lz)/(lx*ly*lz));
 
+  fprintf(stderr,  "ncell= %d  nfailed= %d : %g \n",      np, nfailed, (real)nfailed/np);
 
 
   return 0;

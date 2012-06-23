@@ -246,7 +246,7 @@ namespace Voronoi
       int nb() const {return nbList.size();}
       real volume() const {return cellVolume;}
 
-      void build(const Site::Vector &siteList)
+      bool build(const Site::Vector &siteList)
       {
         const double t00 = get_wtime();
 
@@ -406,7 +406,8 @@ namespace Voronoi
 
         dt_50 += get_wtime() - t1;
 
-        completeCell(siteList);
+        if (!completeCell(siteList))
+          return false;
         dt_60 += get_wtime() - t00;
 
         /* compute volume and area of each faces */
@@ -438,6 +439,7 @@ namespace Voronoi
               assert(0);
             }
 #endif
+        return true;
       }
 
       private:
@@ -470,10 +472,10 @@ namespace Voronoi
 
       private:
 
-      void completeCell(const Site::Vector &siteList)
+      bool completeCell(const Site::Vector &siteList)
       {
         const double tX = get_wtime();
-        assert(incompleteTetra.empty());
+        incompleteTetra.clear();
         const int nSites = siteList.size();
 
         while (!vertexQueue.empty())
@@ -524,6 +526,8 @@ namespace Voronoi
             int kVertex = vpair.second;
             if (triangles(iVertex, jVertex) != 1)
               std::swap(jVertex, kVertex);
+
+            if (triangles(iVertex, jVertex) != 1) return false;
             assert(triangles(iVertex, jVertex) == 1);
             assert(triangles(iVertex, kVertex) == 2);
 
@@ -532,6 +536,7 @@ namespace Voronoi
             //            const double t00 = get_wtime();
             while(triangles(iVertex, jVertex) != 2)
             {
+              if (triangles(iVertex, jVertex) >= 2) return false;
               assert(triangles(iVertex, jVertex) < 2);
               /* step 4.5 - 4.6: 
                *  search a vertex on the opposite side of the kVertex 
@@ -598,9 +603,11 @@ namespace Voronoi
               fprintf(stderr, "(%d,%d)= %d\n", __min(jVertex,lVertex), __max(jVertex,lVertex), triangles(jVertex,lVertex));
               fprintf(stderr, " --- \n");
 #endif
+#if 0
               assert(triangles(iVertex, jVertex) < 2);
               assert(triangles(iVertex, lVertex) < 2);
               assert(triangles(jVertex, lVertex) < 2);
+#endif
               triangles(iVertex, jVertex)++;
               triangles(iVertex, lVertex)++;
               triangles(jVertex, lVertex)++;
@@ -644,6 +651,7 @@ namespace Voronoi
           vertexCompleted[iVertex] = true;
         }
         dt_30 += get_wtime() - tX;
+        return true;
       }
 
 
