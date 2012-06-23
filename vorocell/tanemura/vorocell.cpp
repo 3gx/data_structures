@@ -73,7 +73,7 @@ int main(int argc, char * argv[])
 
   Voronoi::Site::Vector sitesP;
   sitesP.reserve(8*np);
-#if 1 /* periodic */
+#if 0 /* periodic */
   const real  f = 0.25;
   assert(f <= 0.5);
   const real dx = (0.5 - f) * lx;
@@ -105,7 +105,7 @@ int main(int argc, char * argv[])
   const real dx = f*lx;
   const real dy = f*ly;
   const real dz = f*lz;
-  const real ff = 1.0e-4;
+  const real ff = 1.0e-5;
   const real flx = ff*lx;
   const real fly = ff*ly;
   const real flz = ff*lz;
@@ -116,6 +116,37 @@ int main(int argc, char * argv[])
     for (int oct = 1; oct < 8; oct++)
     {
       Voronoi::Site s = s0;
+#if 1
+      if (oct > 3) continue;
+      if (oct == 1)
+      {
+        if (s.pos.x <= 0.5*lx) s.pos.x = -s.pos.x;
+        else                   s.pos.x = 2.0*lx - s.pos.x;
+      }
+      if (oct == 2)
+      {
+        if (s.pos.y <= 0.5*ly) s.pos.y = -s.pos.y;
+        else                   s.pos.y = 2.0*ly - s.pos.y;
+      }
+      if (oct == 3)
+      {
+        if (s.pos.z <= 0.5*lz) s.pos.z = -s.pos.z;
+        else                   s.pos.z = 2.0*lz - s.pos.z;
+      }
+      if (1)
+      {
+        s.idx = -1-s.idx;
+#if 0
+        const real dx = flx*(1.0-2.0*drand48());
+        const real dy = fly*(1.0-2.0*drand48());
+        const real dz = flz*(1.0-2.0*drand48());
+        if (s.pos.x + dx > 0.0 && s.pos.x + dx < lx) s.pos.x += dx;
+        if (s.pos.y + dy > 0.0 && s.pos.y + dy < ly) s.pos.y += dy;
+        if (s.pos.z + dz > 0.0 && s.pos.z + dz < lz) s.pos.z += dz;
+#endif
+        sitesP.push_back(s);
+      }
+#else
       if (oct&1)
       {
         if      (     s.pos.x <= dx) s.pos.x =        - s.pos.x;
@@ -141,10 +172,11 @@ int main(int argc, char * argv[])
       {
         s.idx = -1-s.idx;
         s.pos.x += flx*(1.0-2.0*drand48());
-        s.pos.x += fly*(1.0-2.0*drand48());
-        s.pos.x += flz*(1.0-2.0*drand48());
+        s.pos.y += fly*(1.0-2.0*drand48());
+        s.pos.z += flz*(1.0-2.0*drand48());
         sitesP.push_back(s);
       }
+#endif
     }
   }
 #endif

@@ -675,6 +675,7 @@ namespace Voronoi
 #if 0
         if (__abs(D*D) < eps*DI*DJ*DK) {radius = -1.0; return vec3(0.0);}
 #else
+        if (D == 0.0) {radius = -1.0; return vec3(0.0);}
 #endif
 
         D=0.50/D;
