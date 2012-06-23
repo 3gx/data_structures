@@ -105,7 +105,7 @@ int main(int argc, char * argv[])
   const real dx = f*lx;
   const real dy = f*ly;
   const real dz = f*lz;
-  const real ff = 0.0;
+  const real ff = 1.0e-4;
   const real flx = ff*lx;
   const real fly = ff*ly;
   const real flz = ff*lz;
@@ -118,28 +118,31 @@ int main(int argc, char * argv[])
       Voronoi::Site s = s0;
       if (oct&1)
       {
-        if      (     s.pos.x <= dx) s.pos.x =        - s.pos.x + flx*drand48();
-        else if (lx - s.pos.x <= dx) s.pos.x = 2.0*lx - s.pos.x + flx*drand48();
+        if      (     s.pos.x <= dx) s.pos.x =        - s.pos.x;
+        else if (lx - s.pos.x <= dx) s.pos.x = 2.0*lx - s.pos.x;
         else
           assert(0);
       }
       if (oct&2)
       {
-        if      (     s.pos.y <= dy) s.pos.y =        - s.pos.y + fly*drand48();
-        else if (ly - s.pos.y <= dy) s.pos.y = 2.0*ly - s.pos.y + fly*drand48();
+        if      (     s.pos.y <= dy) s.pos.y =        - s.pos.y;
+        else if (ly - s.pos.y <= dy) s.pos.y = 2.0*ly - s.pos.y;
         else
           assert(0);
       }
       if (oct&4)
       {
-        if      (     s.pos.z <= dz) s.pos.z =        - s.pos.z + flz*drand48();
-        else if (lz - s.pos.z <= dz) s.pos.z = 2.0*lz - s.pos.z + flz*drand48();
+        if      (     s.pos.z <= dz) s.pos.z =        - s.pos.z;
+        else if (lz - s.pos.z <= dz) s.pos.z = 2.0*lz - s.pos.z;
         else
           assert(0);
       }
       if (s.pos.x != s0.pos.x || s.pos.y != s0.pos.y || s.pos.z != s0.pos.z)
       {
         s.idx = -1-s.idx;
+        s.pos.x += flx*(1.0-2.0*drand48());
+        s.pos.x += fly*(1.0-2.0*drand48());
+        s.pos.x += flz*(1.0-2.0*drand48());
         sitesP.push_back(s);
       }
     }

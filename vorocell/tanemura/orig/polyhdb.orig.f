@@ -1518,11 +1518,41 @@ C
       XD = 0.0D0
       YD = 0.0D0
       ZD = 0.0D0
+#if 1
+#if 1
       IF(IM .EQ. 1) XD = -2.0D0 * XC
       IF(IM .EQ. 2) XD =  2.0D0 * (BX - XC)
       IF(IM .EQ. 3) YD = -2.0D0 * YC
       IF(IM .EQ. 4) YD =  2.0D0 * (BY - YC)
       IF(IM .EQ. 5) ZD = -2.0D0 * ZC
       IF(IM .EQ. 6) ZD =  2.0D0 * (BZ - ZC)
+#else
+      IF(IM .EQ. 1) then
+        if (XC .LT. 0.5*BX) XD = -2.0D0 * XC
+        else                XD =  2.0D0 * (BX - XC)
+      endif
+      IF(IM .EQ. 2) then
+        if (YC .LT. 0.5*BY) YD = -2.0D0 * YC
+        else                YD =  2.0D0 * (BY - YC)
+      endif
+      IF(IM .EQ. 3) then
+        if (ZC .LT. 0.5*BZ) ZD = -2.0D0 * ZC
+        else                ZD =  2.0D0 * (BZ - ZC)
+      endif
+#endif
+#else
+      if (IAND(IM,1).EQ.1) then
+        if (XC .LT. 0.5*BX) XD = -2.0* XC;
+        else                XD =  2.0*(BX-XC);
+      end if 
+      if (IAND(IM,2).EQ.2) then
+        if (YC .LT. 0.5*BY) YD = -2.0* YC;
+        else                YD =  2.0*(BY-YC);
+      end if 
+      if (IAND(IM,4).EQ.4) then
+        if (ZC .LT. 0.5*BZ) ZD = -2.0* ZC;
+        else                ZD =  2.0*(BZ-ZC);
+      end if 
+#endif
       RETURN
       END

@@ -73,9 +73,11 @@ namespace Voronoi
   struct Plane
   {
     vec3 n;
-    Plane(const vec3 &ipos, const vec3 &jpos)
+    Plane(const vec3 &ipos, const vec3 &jpos, const bool normalize = false)
     {
       n = ipos%jpos;
+      if (normalize)
+        n *= 1.0/n.abs();
     }
     real operator()(const vec3 pos) const
     {
@@ -313,13 +315,13 @@ namespace Voronoi
         real largek = -1e10, largel = -1e10;
         real     rk =   0.0,     rl =   0.0;
         vec3  cposk(0.0),     cposl(0.0);
-        const Plane plane(ipos, jpos);
+        const Plane plane(ipos, jpos, true);
         for (int ix = 0; ix < nSite; ix++)
           if (ix != i && ix != j)
           {
             const vec3 &pos = siteList[ix].pos;
             const real ploc = plane(pos);
-            if (__abs(ploc) < eps) continue;
+            if (__abs(ploc) < eps*pos.abs()) continue;
             const bool side  = ploc > 0.0;
             const real dist1 = pos*(pos + cposk) + largek;
             const real dist2 = pos*(pos + cposl) + largel;
@@ -336,17 +338,32 @@ namespace Voronoi
               l = ix;
             }
           }
-        assert(__abs(plane(siteList[k].pos)) > eps);
-        assert(__abs(plane(siteList[l].pos)) > eps);
-        assert(plane(siteList[k].pos)*plane(siteList[l].pos) < 0.0);
+#if 0
+        fprintf(stderr, "i= %d j= %d k= %d l= %d\n", i,j,k,l);
+        fprintf(stderr, "i= %d: %g %g %g\n", i, ipos.x, ipos.y, ipos.z);
+        fprintf(stderr, "j= %d: %g %g %g\n", j, jpos.x, jpos.y, jpos.z);
+#endif
         assert(k >= 0);
         assert(l >= 0);
+        const vec3 &kpos = siteList[k].pos;
+        const vec3 &lpos = siteList[l].pos;
+#if 0
+        fprintf(stderr, "k= %d: %g %g %g  rk=%g\n", k, kpos.x, kpos.y, kpos.z, rk);
+        fprintf(stderr, "l= %d: %g %g %g  rl=%g\n", l, lpos.x, lpos.y, lpos.z, rl);
+#endif
         assert(k != l);
         assert(k != i);
         assert(k != j);
         assert(l != i);
         assert(l != j);
+        assert(__abs(plane(kpos)) > eps*kpos.abs());
+        assert(__abs(plane(lpos)) > eps*lpos.abs());
+        assert(plane(siteList[k].pos)*plane(siteList[l].pos) < 0.0);
 
+#if 0
+        fprintf(stderr, "cposl= %g %g %g \n", cposl.x, cposl.y, cposl.z);
+        fprintf(stderr, "cposl= %g %g %g \n", cposl.x, cposl.y, cposl.z);
+#endif
         assert(rl > 0.0);
         assert(rk > 0.0);
 
@@ -547,7 +564,7 @@ namespace Voronoi
 
                   real radius = 0.0;
                   const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
-                  assert(radius > 0.0);
+                  //assert(radius > 0.0);
                   if (radius < 0.0) continue;
                   cpos = _cpos;
                   largeNum = 0.0;
@@ -655,7 +672,10 @@ namespace Voronoi
 
         D=XI*YJ*ZK+XJ*YK*ZI+XK*YI*ZJ-XK*YJ*ZI-XI*YK*ZJ-XJ*YI*ZK;
 
-        if (__abs(D) < eps) {radius = -1.0; return vec3(0.0);}
+#if 0
+        if (__abs(D*D) < eps*DI*DJ*DK) {radius = -1.0; return vec3(0.0);}
+#else
+#endif
 
         D=0.50/D;
         XC=DI*YJ*ZK+DJ*YK*ZI+DK*YI*ZJ-DK*YJ*ZI-DI*YK*ZJ-DJ*YI*ZK;
