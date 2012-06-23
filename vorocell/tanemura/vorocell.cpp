@@ -42,9 +42,11 @@ int main(int argc, char * argv[])
 
   Voronoi::Site::Vector sites(np);
   vec3 min(+HUGE), max(-HUGE);
+#if 0
   lx *= 1.125;
   ly *= 1.125;
   lz *= 1.125;
+#endif
   for (int i = 0; i < np; i++)
   {
     std::cin >> idum >> 
@@ -52,7 +54,7 @@ int main(int argc, char * argv[])
       sites[i].pos.y >> 
       sites[i].pos.z;
     sites[i].idx = i;
-#if 1
+#if 0
     sites[i].pos.x += lx*0.01;
     sites[i].pos.y += ly*0.01;
     sites[i].pos.z += lz*0.01;
@@ -72,7 +74,7 @@ int main(int argc, char * argv[])
   Voronoi::Site::Vector sitesP;
   sitesP.reserve(8*np);
 #if 1 /* periodic */
-  const real  f = 0.499;
+  const real  f = 0.25;
   assert(f <= 0.5);
   const real dx = (0.5 - f) * lx;
   const real dy = (0.5 - f) * ly;
@@ -82,15 +84,18 @@ int main(int argc, char * argv[])
   {
     const Voronoi::Site &s0 = sites[i];
     sitesP.push_back(s0);
+ //   fprintf(stderr, "%g %g %g \n", s0.pos.x, s0.pos.y, s0.pos.z);
     for (int oct = 1; oct < 8; oct++)
     {
       Voronoi::Site s = s0;
-      if (oct&1 && std::abs(s.pos.x-cpos.x) > dx) s.pos.x += lx * (s.pos.x < cpos.x ? +1.0 : -1.0);
-      if (oct&2 && std::abs(s.pos.y-cpos.y) > dy) s.pos.y += ly * (s.pos.y < cpos.y ? +1.0 : -1.0);
-      if (oct&4 && std::abs(s.pos.z-cpos.z) > dz) s.pos.z += lz * (s.pos.z < cpos.z ? +1.0 : -1.0);
-      if (s.pos.x != s0.pos.x || s.pos.y != s0.pos.y || s.pos.z != s0.pos.z)
+      int ioct = 0;
+      if ((oct&1) && __abs(s.pos.x-cpos.x) > dx) {s.pos.x += lx * (s.pos.x <= cpos.x ? +1.0 : -1.0); ioct += 1;}
+      if ((oct&2) && __abs(s.pos.y-cpos.y) > dy) {s.pos.y += ly * (s.pos.y <= cpos.y ? +1.0 : -1.0); ioct += 2;}
+      if ((oct&4) && __abs(s.pos.z-cpos.z) > dz) {s.pos.z += lz * (s.pos.z <= cpos.z ? +1.0 : -1.0); ioct += 4;}
+      if (oct == ioct)
       {
         s.idx = -1-s.idx;
+//        fprintf(stderr, "%g %g %g \n", s.pos.x, s.pos.y, s.pos.z);
         sitesP.push_back(s);
       }
     }
@@ -100,6 +105,10 @@ int main(int argc, char * argv[])
   const real dx = f*lx;
   const real dy = f*ly;
   const real dz = f*lz;
+  const real ff = 0.0;
+  const real flx = ff*lx;
+  const real fly = ff*ly;
+  const real flz = ff*lz;
   for (int i = 0; i < np; i++)
   {
     const Voronoi::Site &s0 = sites[i];
@@ -109,22 +118,22 @@ int main(int argc, char * argv[])
       Voronoi::Site s = s0;
       if (oct&1)
       {
-        if      (     s.pos.x <= dx) s.pos.x =        - s.pos.x;
-        else if (lx - s.pos.x <= dx) s.pos.x = 2.0*lx - s.pos.x;
+        if      (     s.pos.x <= dx) s.pos.x =        - s.pos.x + flx*drand48();
+        else if (lx - s.pos.x <= dx) s.pos.x = 2.0*lx - s.pos.x + flx*drand48();
         else
           assert(0);
       }
       if (oct&2)
       {
-        if      (     s.pos.y <= dy) s.pos.y =        - s.pos.y;
-        else if (ly - s.pos.y <= dy) s.pos.y = 2.0*ly - s.pos.y;
+        if      (     s.pos.y <= dy) s.pos.y =        - s.pos.y + fly*drand48();
+        else if (ly - s.pos.y <= dy) s.pos.y = 2.0*ly - s.pos.y + fly*drand48();
         else
           assert(0);
       }
       if (oct&4)
       {
-        if      (     s.pos.z <= dz) s.pos.z =        - s.pos.z;
-        else if (lz - s.pos.z <= dz) s.pos.z = 2.0*lz - s.pos.z;
+        if      (     s.pos.z <= dz) s.pos.z =        - s.pos.z + flz*drand48();
+        else if (lz - s.pos.z <= dz) s.pos.z = 2.0*lz - s.pos.z + flz*drand48();
         else
           assert(0);
       }
@@ -135,6 +144,16 @@ int main(int argc, char * argv[])
       }
     }
   }
+#endif
+#if 0
+  for (int i = 0; i < (int)sitesP.size(); i++)
+  {
+    fprintf(stdout, "%g %g %g \n",
+        sitesP[i].pos.x,
+        sitesP[i].pos.y,
+        sitesP[i].pos.z);
+  }
+  assert(0);
 #endif
   fprintf(stderr, " np= %d  Pnp= %d\n", (int)sites.size(), (int)sitesP.size());
   assert(!sitesP.empty());
@@ -152,7 +171,7 @@ int main(int argc, char * argv[])
 #pragma omp parallel reduction(+:dt_search, dt_voro, nface, volume)
     {
       Voronoi::Cell<128> cell;
-      std::vector< std::pair<float, int> > dist(sitesP.size());
+      std::vector< std::pair<real, int> > dist(sitesP.size());
 
       Voronoi::Site::Vector list;
       list.reserve(ns);
@@ -161,13 +180,19 @@ int main(int argc, char * argv[])
 #pragma omp for
       for (int i = 0; i < np; i++)
       {
-        //        fprintf(stderr, "i= %d\n", i);
         const Voronoi::Site &s = sites[i];
+#if 0
+        fprintf(stderr, "i= %d  %g %g %g \n", i, s.pos.x, s.pos.y, s.pos.z);
+#endif
 
         double t0 = get_wtime();
         for (int j = 0; j < (const int)sitesP.size(); j++)
           dist[j] = std::make_pair((sitesP[j].pos - s.pos).norm2(), j);
-        std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_data<float, int>());
+#if 1
+        std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_data<real, int>());
+#else
+        std::sort(dist.begin(), dist.end(), cmp_data<real, int>());
+#endif
         list.clear();
         for (int j = 0; j < ns+1; j++)
           if (dist[j].first > 0.0f)
@@ -175,10 +200,11 @@ int main(int argc, char * argv[])
             assert(dist[j].first <= dist[ns].first);
             list.push_back(Voronoi::Site(sitesP[dist[j].second].pos - s.pos, sitesP[dist[j].second].idx));
 #if 0
-            fprintf(stdout, " %g %g %g  dist= %g  j= %d\n", 
+            fprintf(stdout, " %g %g %g   %g dist= %g  j= %d\n", 
                 list.back().pos.x,
                 list.back().pos.y,
                 list.back().pos.z,
+                list.back().pos.norm2(),
                 dist[j].first, j
                 );
 #endif
@@ -193,7 +219,6 @@ int main(int argc, char * argv[])
         nface += cell.nb();
         t1 = get_wtime();
         dt_voro += t1 - t0;
-
       }
     }
   }

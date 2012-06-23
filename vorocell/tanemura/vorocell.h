@@ -219,6 +219,7 @@ namespace Voronoi
 
       private:
       Triangles triangles;
+      real eps;
 
       std::deque < int>   vertexQueue    ;
       std::vector<bool> isVertexQueued   ;
@@ -235,7 +236,7 @@ namespace Voronoi
       real cellVolume;
 
       public:
-      Cell() 
+      Cell(const real _eps = 1.0e-11) : eps(_eps)
       {
         angle_vec_pair.reserve(N);
       }
@@ -317,7 +318,9 @@ namespace Voronoi
           if (ix != i && ix != j)
           {
             const vec3 &pos = siteList[ix].pos;
-            const bool side = plane(pos) > 0.0;
+            const real ploc = plane(pos);
+            if (__abs(ploc) < eps) continue;
+            const bool side  = ploc > 0.0;
             const real dist1 = pos*(pos + cposk) + largek;
             const real dist2 = pos*(pos + cposl) + largel;
             if (side && dist1 < 0.0)
@@ -333,6 +336,8 @@ namespace Voronoi
               l = ix;
             }
           }
+        assert(__abs(plane(siteList[k].pos)) > eps);
+        assert(__abs(plane(siteList[l].pos)) > eps);
         assert(plane(siteList[k].pos)*plane(siteList[l].pos) < 0.0);
         assert(k >= 0);
         assert(l >= 0);
@@ -532,18 +537,28 @@ namespace Voronoi
                 const vec3 &pos = siteList[i].pos;
                 const int  side = plane(pos) > 0.0;
                 const real dist = pos*(pos + cpos) + largeNum;
-                const bool skip = vertexCompleted[i] ||
+                const bool skip = vertexCompleted[i] || 
                   (i == iVertex) || (i == jVertex) || (i == kVertex);
-
+             
+                 
                 if (dist < 0.0 && side^sideK && !skip)
                 {
+                 // if (triangles(iVertex,i)==2 || triangles(jVertex,i)==2) continue;
+
                   real radius = 0.0;
-                  cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
+                  const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
+                  assert(radius > 0.0);
+                  if (radius < 0.0) continue;
+                  cpos = _cpos;
                   largeNum = 0.0;
                   lVertex = i;
                 }
               }
               //              dt_00 += get_wtime() - tA;
+              if (lVertex < 0)
+              {
+                fprintf(stderr, " nb= %d\n", (int)nbList.size());
+              }
               assert(lVertex >= 0);
 
               /* step 4.7:
@@ -578,17 +593,17 @@ namespace Voronoi
               for (int i = 0; i < faceVtx[kVertex].size(); i++)
                 complete &= isComplete(tetrahedra[faceVtx[kVertex][i]], kVertex);
               if (complete) vertexCompleted[kVertex] = true;
-              
+
               complete = true; 
               for (int i = 0; i < faceVtx[lVertex].size(); i++)
                 complete &= isComplete(tetrahedra[faceVtx[lVertex][i]], lVertex);
               if (complete) vertexCompleted[lVertex] = true;
-              
+
               complete = true; 
               for (int i = 0; i < faceVtx[jVertex].size(); i++)
                 complete &= isComplete(tetrahedra[faceVtx[jVertex][i]], jVertex);
               if (complete) vertexCompleted[jVertex] = true;
-              
+
               complete = true; 
               for (int i = 0; i < faceVtx[jVertex].size(); i++)
                 complete &= isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex);
@@ -639,7 +654,9 @@ namespace Voronoi
         DK = kp.norm2();
 
         D=XI*YJ*ZK+XJ*YK*ZI+XK*YI*ZJ-XK*YJ*ZI-XI*YK*ZJ-XJ*YI*ZK;
-        assert (D != 0.0);
+
+        if (__abs(D) < eps) {radius = -1.0; return vec3(0.0);}
+
         D=0.50/D;
         XC=DI*YJ*ZK+DJ*YK*ZI+DK*YI*ZJ-DK*YJ*ZI-DI*YK*ZJ-DJ*YI*ZK;
         XC=XC*D;
