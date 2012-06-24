@@ -736,6 +736,8 @@ namespace Voronoi
         const real eps2c = eps2*cpos.norm2();
 
         const vec3 &posA = angle_vec_pair[0].second - cpos;
+        assert(posA.norm2() > 0.0);
+        const vec3 unitA = posA * (1.0/posA.abs());
         const vec3 &posB = angle_vec_pair[1].second - cpos;
         vec3  unitN  = posA%posB;
         if (unitN.abs() < eps) return false;
@@ -745,11 +747,11 @@ namespace Voronoi
           const vec3  jpos = angle_vec_pair[j].second - cpos;
           const real    r2 = jpos.norm2();
           if (r2 < eps2c) continue;
-          const real cos    =  posA * jpos;
-          const real sin    = (posA % jpos) * unitN;
+          const real cos    =  unitA * jpos;
+          const real sin    = (unitA % jpos) * unitN;
 #if 1
           const real cos2   =  cos*__abs(cos) * (1.0/r2);
-          angle_vec_pair[j] = std::make_pair(sin >  0.0 ? -cos2 : 100.0+cos2, jpos);
+          angle_vec_pair[j] = std::make_pair(sin >  0.0 ? -cos2 : 2.0+cos2, jpos);
 #else
           angle_vec_pair[j] = std::make_pair(std::atan2(sin, cos), jpos);
 #endif
