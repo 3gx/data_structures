@@ -323,10 +323,13 @@ namespace Voronoi
           if (ix != i)
           {
             const vec3 &pos = siteList[ix].pos;
+            const real r2ij = (ipos - pos).norm2();
+            if (r2ij >= r2min) continue;
+
             const real area = (ipos%pos).norm2();
             const real pos2 =       pos .norm2();
             if (area < eps2*pos2) continue;
-            const real r2 = ipos2*pos2*(ipos - pos).norm2()/area;
+            const real r2 = ipos2*pos2*r2ij/area;
             if (r2 < r2min)
             {
               j     = ix;
@@ -576,13 +579,12 @@ namespace Voronoi
               int lVertex = -1;
 
               assert(!vertexCompleted[iVertex]);
-              assert(!vertexCompleted[jVertex]);
 
               /* hot-spot: finding 4th vertex of the new tetrahedron */
 
               vtxUse[iVertex] ^= 1;
-              vtxUse[jVertex] ^= 1;
-              vtxUse[kVertex] ^= ~vertexCompleted[kVertex];
+              vtxUse[jVertex] ^= 1-vertexCompleted[jVertex];
+              vtxUse[kVertex] ^= 1-vertexCompleted[kVertex];
               for (int i = 0; i < nSites; i++)
               {
                 const vec3 &pos = siteList[i].pos;
@@ -602,8 +604,8 @@ namespace Voronoi
                 }
               }
               vtxUse[iVertex] ^= 1;
-              vtxUse[jVertex] ^= 1;
-              vtxUse[kVertex] ^= ~vertexCompleted[kVertex];
+              vtxUse[jVertex] ^= 1-vertexCompleted[jVertex];
+              vtxUse[kVertex] ^= 1-vertexCompleted[kVertex];
               if (lVertex < 0) return false;
               assert(lVertex >= 0);
 
@@ -625,7 +627,7 @@ namespace Voronoi
               triangles.inc(iVertex, lVertex);
               triangles.inc(jVertex, lVertex);
 
-#if 0         /* sanity check */
+#if 0        /* sanity check */
               bool complete = true; 
               for (int i = 0; i < faceVtx[kVertex].size(); i++)
                 complete &= isComplete(tetrahedra[faceVtx[kVertex][i]], kVertex);
@@ -642,7 +644,7 @@ namespace Voronoi
               if (complete) vertexCompleted[jVertex] = true;
 
               complete = true; 
-              for (int i = 0; i < faceVtx[jVertex].size(); i++)
+              for (int i = 0; i < faceVtx[iVertex].size(); i++)
                 complete &= isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex);
               if (complete) break;
 #endif

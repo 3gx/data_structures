@@ -110,90 +110,11 @@ int main(int argc, char * argv[])
       }
     }
   }
-#elif 0 /* reflecting */
-  const real f = 0.5;
-  const real dx = f*lx;
-  const real dy = f*ly;
-  const real dz = f*lz;
-  const real ff = 1.0e-9;
-  const real flx = ff*lx;
-  const real fly = ff*ly;
-  const real flz = ff*lz;
-  for (int i = 0; i < np; i++)
-  {
-    const Voronoi::Site &s0 = sites[i];
-    sitesP.push_back(s0);
-    for (int oct = 1; oct < 8; oct++)
-    {
-      Voronoi::Site s = s0;
-#if 1
-      if (oct > 3) continue;
-      if (oct == 1)
-      {
-        if (s.pos.x <  0.5*lx) s.pos.x = -s.pos.x;
-        else                   s.pos.x = 2.0*lx - s.pos.x;
-      }
-      if (oct == 2)
-      {
-        if (s.pos.y <  0.5*ly) s.pos.y = -s.pos.y;
-        else                   s.pos.y = 2.0*ly - s.pos.y;
-      }
-      if (oct == 3)
-      {
-        if (s.pos.z <  0.5*lz) s.pos.z = -s.pos.z;
-        else                   s.pos.z = 2.0*lz - s.pos.z;
-      }
-      if (1)
-      {
-        s.idx = -1-s.idx;
-#if 0
-        const real dx = flx*(1.0-2.0*drand48());
-        const real dy = fly*(1.0-2.0*drand48());
-        const real dz = flz*(1.0-2.0*drand48());
-        if (s.pos.x + dx > 0.0 && s.pos.x + dx < lx) s.pos.x += dx;
-        if (s.pos.y + dy > 0.0 && s.pos.y + dy < ly) s.pos.y += dy;
-        if (s.pos.z + dz > 0.0 && s.pos.z + dz < lz) s.pos.z += dz;
-#endif
-        sitesP.push_back(s);
-      }
-#else
-      if (oct&1)
-      {
-        if  (s.pos.x <  0.5*lx) s.pos.x =        - s.pos.x;
-        else                   s.pos.x = 2.0*lx - s.pos.x;
-      }
-      if (oct&2)
-      {
-        if   (s.pos.y <  0.5*ly) s.pos.y =        - s.pos.y;
-        else                     s.pos.y = 2.0*ly - s.pos.y;
-      }
-      if (oct&4)
-      {
-        if  (s.pos.z < 0.5*lz) s.pos.z =        - s.pos.z;
-        else                   s.pos.z = 2.0*lz - s.pos.z;
-      }
-      if (1)
-      {
-        s.idx = -1-s.idx;
-        sitesP.push_back(s);
-      }
-#endif
-    }
-  }
-#else
+#else  /* reflecting */
 #define REFLECTING
   sitesP = sites;
 #endif
-#if 0
-  for (int i = 0; i < (int)sitesP.size(); i++)
-  {
-    fprintf(stdout, "%g %g %g \n",
-        sitesP[i].pos.x,
-        sitesP[i].pos.y,
-        sitesP[i].pos.z);
-  }
-  assert(0);
-#endif
+
   fprintf(stderr, " np= %d  Pnp= %d\n", (int)sites.size(), (int)sitesP.size());
   assert(!sitesP.empty());
 
@@ -230,13 +151,14 @@ int main(int argc, char * argv[])
         double t0 = get_wtime();
         for (int j = 0; j < (const int)sitesP.size(); j++)
           dist[j] = std::make_pair((sitesP[j].pos - s.pos).norm2(), j);
-#if 0
+#if 1
         std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_data<real, int>());
 #else
         std::sort(dist.begin(), dist.end(), cmp_data<real, int>());
 #endif
         list.clear();
 #ifdef REFLECTING
+        std::nth_element(dist.begin(), dist.begin() + ns-3, dist.end(), cmp_data<real, int>());
         for (int j = 0; j < ns+1; j++)
           if (dist[j].first > 0.0)
             list.push_back(Voronoi::Site(sitesP[dist[j].second].pos - s.pos, sitesP[dist[j].second].idx));
