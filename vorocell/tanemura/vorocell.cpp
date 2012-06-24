@@ -1,6 +1,7 @@
 #include "mytimer.h"
 double dt_00, dt_10, dt_20, dt_30, dt_40, dt_44, dt_50, dt_60, dt_70;
 double dtA;
+unsigned long long flop = 0;
 #include "vorocell.h"
 #include "vorocell_degenerate.h"
 #include <iostream>
@@ -12,6 +13,7 @@ int main(int argc, char * argv[])
 {
   dt_00=dt_10=dt_20=dt_30=dt_40=dt_44=dt_50=dt_60=dt_70=0.0;
   dtA = 0.0;
+  flop = 0;
   double eps;
   int ns, nrg;
   double lx, ly, lz;
@@ -228,8 +230,8 @@ int main(int argc, char * argv[])
   fprintf(stderr , " dt_voro  =  %g sec \n", dt_voro);
   fprintf(stderr,  "   dt_00=  %g \n" ,dt_00);
   fprintf(stderr,  "   dt_10=  %g \n" ,dt_10);
-  fprintf(stderr,  "   dt_20=  %g \n" ,dt_20);
-  fprintf(stderr,  "   dt_30=  %g \n" ,dt_30);
+  fprintf(stderr,  "   dt_20=  %g GFLOP/s: %g\n" ,dt_20, flop/dt_20/1e9);
+  fprintf(stderr,  "   dt_30=  %g GFLOP/s: %g\n" ,dt_30, flop/dt_30/1e9);
   fprintf(stderr,  "   dt_40=  %g \n" ,dt_40);
   fprintf(stderr,  "   dt_44=  %g \n" ,dt_44);
   fprintf(stderr,  "   dt_50=  %g \n" ,dt_50);
