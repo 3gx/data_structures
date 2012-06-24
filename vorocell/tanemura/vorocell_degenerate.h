@@ -173,7 +173,7 @@ namespace VoronoiDegenerate
 
       private:
       Triangles triangles;
-      real eps;
+      real eps, eps2;
 
       std::deque < int>   vertexQueue    ;
       std::vector<bool> isVertexQueued   ;
@@ -190,7 +190,7 @@ namespace VoronoiDegenerate
       real cellVolume;
 
       public:
-      Cell(const real _eps = 1.0e-11) : eps(_eps)
+      Cell(const real _eps = 1.0e-11) : eps(_eps), eps2(_eps*_eps)
       {
         angle_vec_pair.reserve(N);
       }
@@ -239,12 +239,18 @@ namespace VoronoiDegenerate
          */
         r2min = HUGE;
         int j = -1;
+        const real ipos2 = ipos.norm2();
         for (int ix = 0; ix < nSite; ix++)
           if (ix != i)
           {
             const vec3 &pos = siteList[ix].pos;
-            if ((ipos%pos).norm2() == 0.0) continue;
-            const real   r2 = triangle(ipos, pos);
+            const real r2ij = (ipos - pos).norm2();
+            if (r2ij >= r2min) continue;
+
+            const real area = (ipos%pos).norm2();
+            const real pos2 =       pos .norm2();
+            if (area < eps2*pos2) continue;
+            const real r2 = ipos2*pos2*r2ij/area;
             if (r2 < r2min)
             {
               j     = ix;
@@ -270,7 +276,6 @@ namespace VoronoiDegenerate
         real     rk =   0.0,     rl =   0.0;
         vec3  cposk(0.0),     cposl(0.0);
         const Plane plane(ipos, jpos, true);
-        const real eps2 = eps*eps;
         for (int ix = 0; ix < nSite; ix++)
           if (ix != i && ix != j)
           {
@@ -466,7 +471,6 @@ namespace VoronoiDegenerate
            */
           const int iVertex = vertexQueue.front();
           vertexQueue.pop_front();
-          const real eps2 = eps*eps;
 
           nbList.push_back(iVertex);
 
@@ -649,92 +653,70 @@ namespace VoronoiDegenerate
       bool buildFace(const Array<int, N> vtxList, real &volume, Face &face)
       {
         const int n = vtxList.size();
+        angle_vec_pair.resize(n);
         vec3 cpos(0.0);
         for (int i= 0; i < n; i++)
-          cpos += tetrahedra[vtxList[i]].centre();
+        {
+          const vec3 &jpos = tetrahedra[vtxList[i]].centre();
+          cpos += jpos;
+          angle_vec_pair[i].second = jpos;
+        }
         cpos *= 1.0/(real)n;
+        const real eps2c = eps2*cpos.norm2();
 
-        const vec3 &posA = tetrahedra[vtxList[0]].centre() - cpos;
+        const vec3 &posA = angle_vec_pair[0].second - cpos;
+        if (posA.norm2() == 0.0)
+          return false;
+        const real eps4a = eps2*eps2*posA.norm2();
         int iv = 0;
         for (iv = 1; iv < n; iv++)
         {
-          const vec3 &posB = tetrahedra[vtxList[iv]].centre() - cpos;
+          const vec3 &posB = angle_vec_pair[iv].second - cpos;
           const real q = (posA%posB).norm2();
-          if (q*q > eps*eps*eps*eps*posA.norm2()*posB.norm2())
+          if (q*q > eps4a*posB.norm2())
             break;
         }
-        if (iv == n) return false;
-        const vec3 &posB = tetrahedra[vtxList[iv]].centre() - cpos;
-#if 0
-        fprintf(stderr, "c= %g %g %g | %g\n", cpos.x, cpos.y, cpos.z, cpos.abs());
-        fprintf(stderr, "a= %g %g %g | %g\n", posA.x, posA.y, posA.z, posA.abs());
-        fprintf(stderr, "b= %g %g %g | %g\n", posB.x, posB.y, posB.z, posB.abs());
-#endif
-        const vec3 &unitA = posA * (1.0/posA.abs());
-        const vec3 &unitB = posB * (1.0/posB.abs());
-        vec3  unitN  = unitA%unitB;
-#if 0
-        fprintf(stderr, "unitA= %g %g %g | %g\n", unitA.x, unitA.y, unitA.z, unitA.abs());
-        fprintf(stderr, "unitB= %g %g %g | %g\n", unitB.x, unitB.y, unitB.z, unitB.abs());
-        fprintf(stderr, "unitN= %g %g %g | %g\n", unitN.x, unitN.y, unitN.z, unitN.abs());
-#endif
-        if (unitN.abs() == 0.0) return false;
-        unitN *= 1.0/unitN.abs();
+        if (iv == n) 
+          return false;
 
-        angle_vec_pair.clear();
-        angle_vec_pair.push_back(std::make_pair(0.0, posA));
-#if 0
-        fprintf(stderr, " -- nvtx= %d\n", n);
-#endif
-        for (int j = 1; j < n; j++)
+        const vec3 unitA = posA * (1.0/posA.abs());
+        const vec3 &posB = angle_vec_pair[iv].second - cpos;
+        vec3  unitN  = posA%posB;
+        if (unitN.abs() < eps) 
+          return false;
+        unitN *= 1.0/unitN.abs();
+        for (int j = 0; j < n; j++)
         {
-          const vec3 &jpos = tetrahedra[vtxList[j]].centre() - cpos;
-          const real x =  posA * jpos;
-          const real y = (posA % jpos) * unitN;
-          const real dot = jpos * unitN;
-#if 1
-          if (!(__abs(dot) < jpos.abs()*1.0e-10))
+          const vec3  jpos = angle_vec_pair[j].second - cpos;
+          const real    r2 = jpos.norm2();
+          if (r2 < eps2c) 
             return false;
-#endif
-          assert(__abs(dot) < jpos.abs()*1.0e-10);
-          angle_vec_pair.push_back(std::make_pair(std::atan2(y, x), jpos));
-#if 0
-          fprintf(stderr, " -- i= %d: pos= %g %g %g  phi= %g\n", 
-              j, jpos.x, jpos.y, jpos.z, std::atan2(y,x));
+          const real cos    =  unitA * jpos;
+          const real sin    = (unitA % jpos) * unitN;
+#if 1
+          const real cos2   =  cos*__abs(cos) * (1.0/r2);
+          angle_vec_pair[j] = std::make_pair(sin >  0.0 ? -cos2 : 2.0+cos2, jpos);
+#else
+          angle_vec_pair[j] = std::make_pair(std::atan2(sin, cos), jpos);
 #endif
         }
-
-        assert((int)angle_vec_pair.size() == n);
         std::sort(angle_vec_pair.begin(), angle_vec_pair.end(), cmp_data<real, vec3>());
         angle_vec_pair.push_back(angle_vec_pair[0]);
-#if 0
-        for (int i = 0; i < n+1; i++)
-        {
-          const vec3 &jpos = angle_vec_pair[i].second;
-          fprintf(stderr, " -- i= %d: pos= %g %g %g  phi= %g\n", 
-              i, jpos.x, jpos.y, jpos.z, angle_vec_pair[i].first);
-        }
-#endif
 
         /* comput area & volume */
-        real area = 0.0;
         real vol  = 0.0;
+        vec3 area(0.0);
         const vec3 &v0 = cpos;
         for (int i = 0; i < n; i++)
         {
           const vec3 &v1 = angle_vec_pair[i  ].second;
           const vec3 &v2 = angle_vec_pair[i+1].second;
-          area   += (v1%v2).abs();
-          vol    += __abs(v0*((v1+v0)%(v2+v0)));
+          area  += v1%v2;
+          vol   += __abs(v0*((v1+v0)%(v2+v0)));
         }
-        area   *= 0.5;
         volume += vol*(1.0/6.0);
 
-#if 0
-        fprintf(stderr, " vol= %g faceA= %g  n= %g %g %g | %g\n",
-            vol, area, unitN.x, unitN.y, unitN.z, unitN.abs());
-#endif
-        face = Face(unitN, area);
+        face = Face(unitN, 0.5*area.abs());
         return true;
       }
 
