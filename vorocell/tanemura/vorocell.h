@@ -480,6 +480,7 @@ namespace Voronoi
         const double tX = get_wtime();
         incompleteTetra.clear();
         const int nSites = siteList.size();
+        std::vector<int> vtxUse(nSites, 1);
 
         while (!vertexQueue.empty())
         {
@@ -513,16 +514,12 @@ namespace Voronoi
 
           /* otherwise, find the face that lacks adjacent tetrahedron */
 
-          //          const double tAA = get_wtime();
-          if (!incompleteTetra.empty())
-            incomplT++;
-
+          const double tY = get_wtime();
           while(!incompleteTetra.empty())
           {
             const Tetrahedron &t = tetrahedra[incompleteTetra.front()];
             incompleteTetra.pop_front();
             if (isComplete(t, iVertex)) continue;
-            incompl++;
 
             const std::pair<int,int> vpair = t.pair(iVertex);
             int jVertex = vpair.first;
@@ -536,7 +533,6 @@ namespace Voronoi
 
             /* step 4.5-4.7 */
 
-            //            const double t00 = get_wtime();
             while(triangles(iVertex, jVertex) != 2)
             {
               if (triangles(iVertex, jVertex) >= 2) return false;
@@ -554,36 +550,34 @@ namespace Voronoi
               vec3  cpos(0.0);
               int lVertex = -1;
 
+              assert(!vertexCompleted[iVertex]);
+              assert(!vertexCompleted[jVertex]);
+
               /* hot-spot: finding 4th vertex of the new tetrahedron */
 
-              //              const double tA = get_wtime();
+              vtxUse[iVertex] ^= 1;
+              vtxUse[jVertex] ^= 1;
+              vtxUse[kVertex] ^= ~vertexCompleted[kVertex];
               for (int i = 0; i < nSites; i++)
               {
                 const vec3 &pos = siteList[i].pos;
                 const int  side = plane(pos) > 0.0;
                 const real dist = pos*(pos + cpos) + largeNum;
-                const bool skip = vertexCompleted[i] || 
-                  (i == iVertex) || (i == jVertex) || (i == kVertex);
-             
-                 
-                if (dist < 0.0 && side^sideK && !skip)
+                if (dist < 0.0 && side^sideK && vtxUse[i])
                 {
-                 // if (triangles(iVertex,i)==2 || triangles(jVertex,i)==2) continue;
-
                   real radius = 0.0;
                   const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
-                  //assert(radius > 0.0);
-                  if (radius < 0.0) continue;
-                  cpos = _cpos;
-                  largeNum = 0.0;
-                  lVertex = i;
+                  if (radius > 0.0) 
+                  {
+                    cpos = _cpos;
+                    largeNum = 0.0;
+                    lVertex = i;
+                  }
                 }
               }
-              //              dt_00 += get_wtime() - tA;
-              if (lVertex < 0)
-              {
-                fprintf(stderr, " nb= %d\n", (int)nbList.size());
-              }
+              vtxUse[iVertex] ^= 1;
+              vtxUse[jVertex] ^= 1;
+              vtxUse[kVertex] ^= ~vertexCompleted[kVertex];
               assert(lVertex >= 0);
 
               /* step 4.7:
@@ -600,17 +594,6 @@ namespace Voronoi
                 isVertexQueued[lVertex] = true;
               }
 
-#if 0
-              fprintf(stderr, "(%d,%d)= %d\n", __min(iVertex,jVertex), __max(iVertex,jVertex), triangles(iVertex,jVertex));
-              fprintf(stderr, "(%d,%d)= %d\n", __min(iVertex,lVertex), __max(iVertex,lVertex), triangles(iVertex,lVertex));
-              fprintf(stderr, "(%d,%d)= %d\n", __min(jVertex,lVertex), __max(jVertex,lVertex), triangles(jVertex,lVertex));
-              fprintf(stderr, " --- \n");
-#endif
-#if 0
-              assert(triangles(iVertex, jVertex) < 2);
-              assert(triangles(iVertex, lVertex) < 2);
-              assert(triangles(jVertex, lVertex) < 2);
-#endif
               triangles(iVertex, jVertex)++;
               triangles(iVertex, lVertex)++;
               triangles(jVertex, lVertex)++;
@@ -635,16 +618,13 @@ namespace Voronoi
               for (int i = 0; i < faceVtx[jVertex].size(); i++)
                 complete &= isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex);
               if (complete) break;
-
 #endif
 
               kVertex = jVertex;
               jVertex = lVertex;
-              //              dtA += get_wtime() - tB;
             }
-            //            dt_10 += get_wtime() - t00;
           }
-          //          dt_20 += get_wtime() - tAA;
+          dt_20 += get_wtime() - tY;
 
           /* step 4.8: */
 #if 0   /* sanity check: pass over all tetrahedra to make sure they are all complete */
@@ -652,6 +632,7 @@ namespace Voronoi
             assert(isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex));
 #endif
           vertexCompleted[iVertex] = true;
+          vtxUse         [iVertex] = false;
         }
         dt_30 += get_wtime() - tX;
         return true;

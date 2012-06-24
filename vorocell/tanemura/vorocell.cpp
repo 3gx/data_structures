@@ -1,8 +1,6 @@
 #include "mytimer.h"
 double dt_00, dt_10, dt_20, dt_30, dt_40, dt_44, dt_50, dt_60, dt_70;
 double dtA;
-long long incomplT = 0;
-long long incompl  = 0;
 #include "vorocell.h"
 #include "vorocell_degenerate.h"
 #include <iostream>
@@ -22,8 +20,6 @@ int main(int argc, char * argv[])
   int idum;
   double fdum;
   std::string sdum;
-
-  incomplT = incompl = 0;
 
   std::cin >> eps >> sdum;
   std::cin >> ns >> nrg >> sdum >> sdum;
@@ -294,7 +290,6 @@ int main(int argc, char * argv[])
   fprintf(stderr , " dt_total =  %g sec [ sum= %g ]\n", tend - tbeg,
       dt_search + dt_voro);
   fprintf(stderr, "   nface= %g \n", nface/np);
-  fprintf(stderr, "  ratio= %g \n", incompl*1.0/incomplT);
 
   fprintf(stderr, " volume= %g   exact= %g  diff= %g \n",
       volume, lx*ly*lz, (volume-lx*ly*lz)/(lx*ly*lz));
