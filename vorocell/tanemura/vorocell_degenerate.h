@@ -523,6 +523,7 @@ namespace VoronoiDegenerate
               if (dist < 0.0 && side^sideK && use)
               {
                 if (__abs(dist) < eps) continue; 
+                if (__abs(plane(pos)) < eps*pos.abs()) continue;
 
                 const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
                 if (radius < 0.0) continue;

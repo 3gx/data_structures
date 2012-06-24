@@ -52,6 +52,7 @@ int main(int argc, char * argv[])
     max = maxeach(max, sites[i].pos);
   }
 #else
+  const int N = 10;
   Voronoi::Site::Vector sites;
   sites.reserve(np);
   vec3 min(+HUGE), max(-HUGE);

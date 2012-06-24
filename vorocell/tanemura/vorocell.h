@@ -291,6 +291,7 @@ namespace Voronoi
           if (ix != i)
           {
             const vec3 &pos = siteList[ix].pos;
+            if ((ipos%pos).norm2() == 0.0) continue;
             const real   r2 = triangle(ipos, pos);
             if (r2 < r2min)
             {
@@ -317,23 +318,26 @@ namespace Voronoi
         real     rk =   0.0,     rl =   0.0;
         vec3  cposk(0.0),     cposl(0.0);
         const Plane plane(ipos, jpos, true);
+        const real eps2 = eps*eps;
         for (int ix = 0; ix < nSite; ix++)
           if (ix != i && ix != j)
           {
             const vec3 &pos = siteList[ix].pos;
             const real ploc = plane(pos);
-            if (__abs(ploc) < eps*pos.abs()) continue;
+            if (ploc*ploc < eps2*pos.norm2()) continue;
             const bool side  = ploc > 0.0;
             const real dist1 = pos*(pos + cposk) + largek;
             const real dist2 = pos*(pos + cposl) + largel;
             if (side && dist1 < 0.0)
             {
+              if (__abs(dist1) < eps) continue; 
               cposk = sphere(ipos, jpos, pos, rk)*(real)(-2.0);
               largek = 0.0;
               k = ix;
             }
             else if (!side && dist2 < 0.0)
             {
+              if (__abs(dist2) < eps) continue; 
               cposl = sphere(ipos, jpos, pos, rl)*(real)(-2.0);
               largel = 0.0;
               l = ix;
@@ -578,6 +582,7 @@ namespace Voronoi
               vtxUse[iVertex] ^= 1;
               vtxUse[jVertex] ^= 1;
               vtxUse[kVertex] ^= ~vertexCompleted[kVertex];
+              if (lVertex < 0) return false;
               assert(lVertex >= 0);
 
               /* step 4.7:
