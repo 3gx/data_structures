@@ -8,6 +8,7 @@
 #include <stack>
 #include <deque>
 #include <algorithm>
+#include <cmath>
 #include "vector3.h"
 
 template<class T>
@@ -18,6 +19,9 @@ inline T __max(const T a, const T b) {return a > b ? a : b;}
 
 template<class T>
 inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
+
+template<class T>
+inline T __sign(const T a) {return a < T(0.0) ? (T)-1.0 : (T)+1.0;}
 
 inline float __atan2(float y, float x)
 {
@@ -149,26 +153,50 @@ namespace Voronoi
     struct ConnectivityMatrix2D
     {
       private:
-        int matrix[N][N];
+        int matrix[N*(N+1)/2];
+        std::stack<int> list;
 
       public:
 
         ConnectivityMatrix2D() 
         {
-          clear();
+          for (int i = 0; i < N*(N+1)/2; i++)
+            matrix[i] = 0;
         }
 
         void clear()
         {
-          for (int j = 0; j < N; j++)
-            for (int i = 0; i < N; i++)
-              matrix[j][i] = 0;
+          while (!list.empty())
+          {
+            matrix[list.top()] = 0;
+            list.pop();
+          }
         }
 
         /* i: x
          * j: y */
-        int   operator()(const int i, const int j) const { return matrix[__min(i,j)][__max(i,j)]; }
-        int&  operator()(const int i, const int j)       { return matrix[__min(i,j)][__max(i,j)]; }
+        int   operator()(const int i, const int j) const { return matrix[map(i,j)]; }
+        void inc(const int i, const int j)
+        {
+          const int addr = map(i,j);
+          if (matrix[addr] == 0)
+            list.push(addr);
+          matrix[addr]++;
+        }
+
+      private:
+        int map(const int _i, const int _j) const
+        {
+#if 0   /* LOWER_PACKED */
+          const int i = __max(_i, _j);
+          const int j = __min(_i, _j) + 1;
+          return i + ((2*N-j)*(j-1)>>1);
+#else   /* UPPER_PACKED */
+          const int i = __min(_i, _j);
+          const int j = __max(_i, _j);
+          return i + ((j*(j+1))>>1);
+#endif
+        }
     };
 
   struct Tetrahedron
@@ -222,7 +250,7 @@ namespace Voronoi
 
       private:
       Triangles triangles;
-      real eps;
+      real eps, eps2;
 
       std::deque < int>   vertexQueue    ;
       std::vector<bool> isVertexQueued   ;
@@ -239,7 +267,7 @@ namespace Voronoi
       real cellVolume;
 
       public:
-      Cell(const real _eps = 1.0e-11) : eps(_eps)
+      Cell(const real _eps = 1.0e-11) : eps(_eps), eps2(_eps*_eps)
       {
         angle_vec_pair.reserve(N);
       }
@@ -251,9 +279,9 @@ namespace Voronoi
       {
         const double t00 = get_wtime();
 
-        assert((int)siteList.size() <= N);
-        clear(siteList.size());
         const int nSite = siteList.size();
+        assert(nSite <= N);
+        clear(nSite);
 
         /* step 1: 
          *  find site i, nearest to the origin
@@ -279,7 +307,7 @@ namespace Voronoi
 
         double t2 = get_wtime();
         dt_40 += t2 - t1;
-        t1 = t2;
+        //t1 = t2;
 
         /* step 2:
          *  find site j, so that the triangle (origin, i, j)
@@ -287,12 +315,15 @@ namespace Voronoi
          */
         r2min = HUGE;
         int j = -1;
+        const real ipos2 = ipos.norm2();
         for (int ix = 0; ix < nSite; ix++)
           if (ix != i)
           {
             const vec3 &pos = siteList[ix].pos;
-            if ((ipos%pos).norm2() == 0.0) continue;
-            const real   r2 = triangle(ipos, pos);
+            const real area = (ipos%pos).norm2();
+            const real pos2 =       pos .norm2();
+            if (area < eps2*pos2) continue;
+            const real r2 = ipos2*pos2*(ipos - pos).norm2()/area;
             if (r2 < r2min)
             {
               j     = ix;
@@ -305,7 +336,7 @@ namespace Voronoi
 
         t2 = get_wtime();
         dt_44 += t2 - t1;
-        t1 = t2;
+        //        t1 = t2;
 
         /* step 3:
          *  find site k, so that tetrahedron (origin, i,j,k)
@@ -318,18 +349,17 @@ namespace Voronoi
         real     rk =   0.0,     rl =   0.0;
         vec3  cposk(0.0),     cposl(0.0);
         const Plane plane(ipos, jpos, true);
-        const real eps2 = eps*eps;
         for (int ix = 0; ix < nSite; ix++)
           if (ix != i && ix != j)
           {
             const vec3 &pos = siteList[ix].pos;
             const real ploc = plane(pos);
-            if (ploc*ploc < eps2*pos.norm2()) continue;
             const bool side  = ploc > 0.0;
             const real dist1 = pos*(pos + cposk) + largek;
             const real dist2 = pos*(pos + cposl) + largel;
             if (side && dist1 < 0.0)
             {
+              if (ploc*ploc < eps2*pos.norm2()) continue;
               if (__abs(dist1) < eps) continue; 
               cposk = sphere(ipos, jpos, pos, rk)*(real)(-2.0);
               largek = 0.0;
@@ -337,25 +367,17 @@ namespace Voronoi
             }
             else if (!side && dist2 < 0.0)
             {
+              if (ploc*ploc < eps2*pos.norm2()) continue;
               if (__abs(dist2) < eps) continue; 
               cposl = sphere(ipos, jpos, pos, rl)*(real)(-2.0);
               largel = 0.0;
               l = ix;
             }
           }
-#if 0
-        fprintf(stderr, "i= %d j= %d k= %d l= %d\n", i,j,k,l);
-        fprintf(stderr, "i= %d: %g %g %g\n", i, ipos.x, ipos.y, ipos.z);
-        fprintf(stderr, "j= %d: %g %g %g\n", j, jpos.x, jpos.y, jpos.z);
-#endif
         assert(k >= 0);
         assert(l >= 0);
         const vec3 &kpos = siteList[k].pos;
         const vec3 &lpos = siteList[l].pos;
-#if 0
-        fprintf(stderr, "k= %d: %g %g %g  rk=%g\n", k, kpos.x, kpos.y, kpos.z, rk);
-        fprintf(stderr, "l= %d: %g %g %g  rl=%g\n", l, lpos.x, lpos.y, lpos.z, rl);
-#endif
         assert(k != l);
         assert(k != i);
         assert(k != j);
@@ -365,10 +387,6 @@ namespace Voronoi
         assert(__abs(plane(lpos)) > eps*lpos.abs());
         assert(plane(siteList[k].pos)*plane(siteList[l].pos) < 0.0);
 
-#if 0
-        fprintf(stderr, "cposl= %g %g %g \n", cposl.x, cposl.y, cposl.z);
-        fprintf(stderr, "cposl= %g %g %g \n", cposl.x, cposl.y, cposl.z);
-#endif
         assert(rl > 0.0);
         assert(rk > 0.0);
 
@@ -381,9 +399,9 @@ namespace Voronoi
         assert(triangles(j,k) < 2);
         assert(triangles(i,k) < 2);
 
-        triangles(i,j)++;
-        triangles(i,k)++;
-        triangles(j,k)++;
+        triangles.inc(i,j);
+        triangles.inc(i,k);
+        triangles.inc(j,k);
 
         faceVtx[i].push_back(tetrahedra.size());
         faceVtx[j].push_back(tetrahedra.size());
@@ -393,9 +411,9 @@ namespace Voronoi
         assert(triangles(i,j) < 2);
         assert(triangles(i,l) < 2);
         assert(triangles(j,l) < 2);
-        triangles(i,j)++;
-        triangles(i,l)++;
-        triangles(j,l)++;
+        triangles.inc(i,j);
+        triangles.inc(i,l);
+        triangles.inc(j,l);
 
         vertexQueue.push_back(i);
         isVertexQueued[i] = true;
@@ -429,7 +447,7 @@ namespace Voronoi
             assert(isComplete(tetrahedra[faceVtx[j][i]], j));
 #endif
           if (!buildFace(faceVtx[j], cellVolume, face)) return false;
-            faceList.push_back(face);
+          faceList.push_back(face);
         }
 
         dt_70 += get_wtime() - t00;
@@ -569,6 +587,7 @@ namespace Voronoi
                 const real dist = pos*(pos + cpos) + largeNum;
                 if (dist < 0.0 && side^sideK && vtxUse[i])
                 {
+                  if (__abs(dist) < eps) continue;
                   real radius = 0.0;
                   const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
                   if (radius > 0.0) 
@@ -599,9 +618,9 @@ namespace Voronoi
                 isVertexQueued[lVertex] = true;
               }
 
-              triangles(iVertex, jVertex)++;
-              triangles(iVertex, lVertex)++;
-              triangles(jVertex, lVertex)++;
+              triangles.inc(iVertex, jVertex);
+              triangles.inc(iVertex, lVertex);
+              triangles.inc(jVertex, lVertex);
 
 #if 0         /* sanity check */
               bool complete = true; 
@@ -700,76 +719,49 @@ namespace Voronoi
       bool buildFace(const Array<int, N> vtxList, real &volume, Face &face)
       {
         const int n = vtxList.size();
+        angle_vec_pair.resize(n);
         vec3 cpos(0.0);
         for (int i= 0; i < n; i++)
-          cpos += tetrahedra[vtxList[i]].centre();
-        cpos *= 1.0/(real)n;
-
-        const vec3 &posA = tetrahedra[vtxList[0]].centre() - cpos;
-#if 0
-        int iv = 0;
-        for (iv = 1; iv < n; iv++)
         {
-          const vec3 &posB = tetrahedra[vtxList[iv]].centre() - cpos;
-          const real q = (posA%posB).norm2();
-          if (q*q > eps*eps*eps*eps*posA.norm2()*posB.norm2())
-            break;
+          const vec3 &jpos = tetrahedra[vtxList[i]].centre();
+          cpos += jpos;
+          angle_vec_pair[i].second = jpos;
         }
-        if (iv == n) return false;
-        assert(iv < n);
-#endif
-        const vec3 &posB = tetrahedra[vtxList[1]].centre() - cpos;
-        const vec3 &unitA = posA * (1.0/posA.abs());
-        const vec3 &unitB = posB * (1.0/posB.abs());
-        vec3  unitN  = unitA%unitB;
+        cpos *= 1.0/(real)n;
+        const real eps2c = eps2*cpos.norm2();
+
+        const vec3 &posA = angle_vec_pair[0].second - cpos;
+        const vec3 &posB = angle_vec_pair[1].second - cpos;
+        vec3  unitN  = posA%posB;
         if (unitN.abs() < eps) return false;
         unitN *= 1.0/unitN.abs();
-        angle_vec_pair.clear();
-#if 0
-        angle_vec_pair.push_back(std::make_pair(unitA*unitA, posA));
-        angle_vec_pair.push_back(std::make_pair(unitA*unitB, posB));
-        for (int j = 2; j < n; j++)
+        for (int j = 0; j < n; j++)
         {
-          const vec3 &jpos = tetrahedra[vtxList[j]].centre() - cpos;
-          const vec3 unitj = jpos * (1.0/jpos.abs());
-          const float cos =  unitA * unitj;
-          const float sin = (unitA % unitj) * unitN;
-          if (sin >= 0.0f)  angle_vec_pair.push_back(std::make_pair(  -cos, jpos));
-          else              angle_vec_pair.push_back(std::make_pair(10+cos, jpos));
+          const vec3  jpos = angle_vec_pair[j].second - cpos;
+          const real    r2 = jpos.norm2();
+          if (r2 < eps2c) continue;
+          const real cos    =  posA * jpos;
+          const real sin    = (posA % jpos) * unitN;
+          const real cos2   =  cos*__abs(cos) * (1.0/r2);
+          angle_vec_pair[j] = std::make_pair(sin >= 0.0 ? -cos2 : 2.0+cos2, jpos);
         }
-#error
-#else
-        angle_vec_pair.push_back(std::make_pair(0.0, posA));
-        for (int j = 1; j < n; j++)
-        {
-          const vec3 &jpos = tetrahedra[vtxList[j]].centre() - cpos;
-          const real x =  unitA * jpos;
-          const real y = (unitA % jpos) * unitN;
-          const real dot = jpos * unitN;
-          if (!(__abs(dot) < jpos.abs()*1.0e-10)) 
-            return false;
-          angle_vec_pair.push_back(std::make_pair(std::atan2(y, x), jpos));
-        }
-#endif
-        assert((int)angle_vec_pair.size() == n);
         std::sort(angle_vec_pair.begin(), angle_vec_pair.end(), cmp_data<real, vec3>());
         angle_vec_pair.push_back(angle_vec_pair[0]);
 
         /* comput area & volume */
-        real area = 0.0;
         real vol  = 0.0;
+        vec3 area(0.0);
         const vec3 &v0 = cpos;
         for (int i = 0; i < n; i++)
         {
           const vec3 &v1 = angle_vec_pair[i  ].second;
           const vec3 &v2 = angle_vec_pair[i+1].second;
-          area   += (v1%v2).abs();
-          vol    += __abs(v0*((v1+v0)%(v2+v0)));
+          area  += v1%v2;
+          vol   += __abs(v0*((v1+v0)%(v2+v0)));
         }
-        area   *= 0.5;
         volume += vol*(1.0/6.0);
 
-        face = Face(unitN, area);
+        face = Face(unitN, 0.5*area.abs());
         return true;
       }
 
