@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <vector>
+#include <stack>
 #include <deque>
 #include <algorithm>
 #include "vector3.h"
@@ -423,7 +424,7 @@ namespace Voronoi
           for (int i= 0; i < faceVtx[j].size(); i++)
             assert(isComplete(tetrahedra[faceVtx[j][i]], j));
 #endif
-          if (buildFace(faceVtx[j], cellVolume, face))
+          if (!buildFace(faceVtx[j], cellVolume, face)) return false;
             faceList.push_back(face);
         }
 
@@ -719,6 +720,7 @@ namespace Voronoi
         cpos *= 1.0/(real)n;
 
         const vec3 &posA = tetrahedra[vtxList[0]].centre() - cpos;
+#if 0
         int iv = 0;
         for (iv = 1; iv < n; iv++)
         {
@@ -729,10 +731,12 @@ namespace Voronoi
         }
         if (iv == n) return false;
         assert(iv < n);
-        const vec3 &posB = tetrahedra[vtxList[iv]].centre() - cpos;
+#endif
+        const vec3 &posB = tetrahedra[vtxList[1]].centre() - cpos;
         const vec3 &unitA = posA * (1.0/posA.abs());
         const vec3 &unitB = posB * (1.0/posB.abs());
         vec3  unitN  = unitA%unitB;
+        if (unitN.abs() < eps) return false;
         unitN *= 1.0/unitN.abs();
         angle_vec_pair.clear();
 #if 0
@@ -756,7 +760,8 @@ namespace Voronoi
           const real x =  unitA * jpos;
           const real y = (unitA % jpos) * unitN;
           const real dot = jpos * unitN;
-          assert(__abs(dot) < jpos.abs()*1.0e-10);
+          if (!(__abs(dot) < jpos.abs()*1.0e-10)) 
+            return false;
           angle_vec_pair.push_back(std::make_pair(std::atan2(y, x), jpos));
         }
 #endif

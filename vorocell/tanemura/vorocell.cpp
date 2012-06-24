@@ -4,6 +4,7 @@ double dtA;
 long long incomplT = 0;
 long long incompl  = 0;
 #include "vorocell.h"
+#include "vorocell_degenerate.h"
 #include <iostream>
 
 typedef Voronoi::real real;
@@ -129,7 +130,7 @@ int main(int argc, char * argv[])
     for (int oct = 1; oct < 8; oct++)
     {
       Voronoi::Site s = s0;
-#if 0
+#if 1
       if (oct > 3) continue;
       if (oct == 1)
       {
@@ -211,7 +212,8 @@ int main(int argc, char * argv[])
 
 #pragma omp parallel reduction(+:dt_search, dt_voro, nface, volume, nfailed)
     {
-      Voronoi::Cell<128> cell;
+      Voronoi          ::Cell<128> cell;
+      VoronoiDegenerate::Cell<128> cell_degenerate;
       std::vector< std::pair<real, int> > dist(sitesP.size());
 
       Voronoi::Site::Vector list;
@@ -256,9 +258,19 @@ int main(int argc, char * argv[])
 
         t0 = t1;
         if (!cell.build(list))
+        {
+#if 1
+          assert(cell_degenerate.build(list));
+          volume += cell_degenerate.volume();
+          nface  += cell_degenerate.nb();
+#endif
           nfailed++;
-        volume += cell.volume();
-        nface += cell.nb();
+        }
+        else
+        {
+          volume += cell.volume();
+          nface  += cell.nb();
+        }
         t1 = get_wtime();
         dt_voro += t1 - t0;
       }

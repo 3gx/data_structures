@@ -1,67 +1,15 @@
-#ifndef __VOROCELL_H__
-#define __VOROCELL_H__
+#ifndef __VOROCELL_DEGERATE_H__
+#define __VOROCELL_DEGERATE_H__
 
 /* Tanemura's algorithm */
 
-#include <cassert>
-#include <vector>
-#include <deque>
-#include <stack>
-#include <algorithm>
-#include "vector3.h"
-
-template<class T>
-inline T __min(const T a, const T b) {return a < b ? a : b;}
-
-template<class T>
-inline T __max(const T a, const T b) {return a > b ? a : b;}
-
-template<class T>
-inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
-
-inline float __atan2(float y, float x)
-{
-  float t0, t1, t3, t4;
-
-  t3 = __abs(x);
-  t1 = __abs(y);
-  t0 = __max(t3, t1);
-  t1 = __min(t3, t1);
-  t3 = float(1) / t0;
-  t3 = t1 * t3;
-
-  t4 = t3 * t3;
-  t0 =         - float(0.013480470);
-  t0 = t0 * t4 + float(0.057477314);
-  t0 = t0 * t4 - float(0.121239071);
-  t0 = t0 * t4 + float(0.195635925);
-  t0 = t0 * t4 - float(0.332994597);
-  t0 = t0 * t4 + float(0.999995630);
-  t3 = t0 * t3;
-
-  t3 = (abs(y) > abs(x)) ? float(1.570796327) - t3 : t3;
-  t3 = (x < 0) ?  float(3.141592654) - t3 : t3;
-  t3 = (y < 0) ? -t3 : t3;
-
-  return t3;
-}
-
-
-template<class T1, class T2>
-struct cmp_data
-{
-  bool operator()(const std::pair<T1, T2> &lhs, const std::pair<T1, T2> &rhs) const
-  {
-    return lhs.first < rhs.first;
-  }
-};
-
-
-namespace Voronoi
+namespace VoronoiDegenerate
 {
   typedef double real;
   typedef vector3<real>  vec3;
 
+  typedef Voronoi::Site Site;
+#if 0
   struct Site
   {
     typedef std::vector<Site> Vector;
@@ -70,6 +18,7 @@ namespace Voronoi
     Site() {}
     Site(const vec3 &_pos, const long long _idx) : pos(_pos), idx(_idx) {}
   };
+#endif
 
   struct Plane
   {
@@ -345,19 +294,20 @@ namespace Voronoi
               l = ix;
             }
           }
-#if 1
+#if 0
         fprintf(stderr, "i= %d j= %d k= %d l= %d\n", i,j,k,l);
         fprintf(stderr, "i= %d: %g %g %g\n", i, ipos.x, ipos.y, ipos.z);
         fprintf(stderr, "j= %d: %g %g %g\n", j, jpos.x, jpos.y, jpos.z);
 #endif
         assert(l >= 0);
         const vec3 &lpos = siteList[l].pos;
-        fprintf(stderr, "l= %d: %g %g %g  rl=%g\n", l, lpos.x, lpos.y, lpos.z, rl);
+//        fprintf(stderr, "l= %d: %g %g %g  rl=%g\n", l, lpos.x, lpos.y, lpos.z, rl);
 
         const vec3 &kpos = siteList[k].pos;
         assert(k >= 0);
-        fprintf(stderr, "k= %d: %g %g %g  rk=%g\n", k, kpos.x, kpos.y, kpos.z, rk);
+//        fprintf(stderr, "k= %d: %g %g %g  rk=%g\n", k, kpos.x, kpos.y, kpos.z, rk);
 
+#if 0
         for (int m = 0; m < 10; m++)
         {
           real radius;
@@ -365,6 +315,7 @@ namespace Voronoi
           fprintf(stderr, "m= %d: r= %g side= %g \n",
               m, radius, plane(siteList[m].pos));
         }
+#endif
         assert(k != l);
         assert(k != i);
         assert(k != j);
@@ -374,7 +325,7 @@ namespace Voronoi
         assert(__abs(plane(lpos)) > eps*lpos.abs());
         assert(plane(siteList[k].pos)*plane(siteList[l].pos) < 0.0);
 
-#if 1
+#if 0
         fprintf(stderr, "cposl= %g %g %g \n", cposl.x, cposl.y, cposl.z);
         fprintf(stderr, "cposk= %g %g %g \n", cposk.x, cposk.y, cposk.z);
 #endif
@@ -439,12 +390,12 @@ namespace Voronoi
         const int nnb = nbList.size();
         faceList.reserve(nnb);
         cellVolume = 0.0;
-        fprintf(stderr, " -- nnb= %d\n", nnb);
+//        fprintf(stderr, " -- nnb= %d\n", nnb);
         Face face(0.0, 0.0);
         for (int i = 0; i < nnb; i++)
         {
           const int j = nbList[i];
-#if 1   /* sanity check: pass over all tetrahedra to make sure they are all complete */
+#if 0   /* sanity check: pass over all tetrahedra to make sure they are all complete */
           for (int k= 0; k < faceVtx[j].size()-1; k++)
             for (int l = k+1; l < faceVtx[j].size(); l++)
             assert(tetrahedra[faceVtx[j][k]] != tetrahedra[faceVtx[j][l]]);
@@ -511,7 +462,7 @@ namespace Voronoi
         while (!vertexQueue.empty())
         {
           cnt++;
-          fprintf(stderr, " ^^ cnt= %d\n", cnt);
+//          fprintf(stderr, " ^^ cnt= %d\n", cnt);
           /* step 4.2:
            *  extract vertex from the list
            */
@@ -536,7 +487,7 @@ namespace Voronoi
           for (int i = 0 ;i < nt; i++)
           {
             const real r = tetrahedra[faceVtx[iVertex][i]].radius();
-            fprintf(stderr, "i= %d:  r= %g\n", i, r);
+//            fprintf(stderr, "i= %d:  r= %g\n", i, r);
             assert(r > 0.0);
             if (r < rmin)
             {
@@ -571,7 +522,7 @@ namespace Voronoi
           vtxUsed[jVertex] = true;
           while(triangles(iVertex, jVertex) != 2)
           {
-            fprintf(stderr, "      >> cnt2= %d\n", cnt2++);
+//            fprintf(stderr, "      >> cnt2= %d\n", cnt2++);
             assert(triangles(iVertex, jVertex) < 2);
             /* step 4.5 - 4.6: 
              *  search a vertex on the opposite side of the kVertex 
@@ -619,12 +570,16 @@ namespace Voronoi
               fprintf(stderr, " nb= %d\n", (int)nbList.size());
             }
             assert(lVertex >= 0);
+#if 0
             fprintf(stderr, "i: %g %g %g \n", iVertex, ipos.x, ipos.y, ipos.z);
             fprintf(stderr, "j: %g %g %g \n", jVertex, jpos.x, jpos.y, jpos.z);
             fprintf(stderr, "k: %g %g %g \n", kVertex, kpos.x, kpos.y, kpos.z);
+#endif
+#if 0
             const vec3 &lpos  = siteList[lVertex].pos;
             fprintf(stderr, "l: %g %g %g \n", lVertex, lpos.x, lpos.y, lpos.z);
             fprintf(stderr, "j= %d k= %d l= %d\n", jVertex, kVertex, lVertex);
+#endif
 
 
             vtxUsed[lVertex] = true;
@@ -643,7 +598,7 @@ namespace Voronoi
               isVertexQueued[lVertex] = true;
             }
 
-#if 1
+#if 0
             fprintf(stderr, "(%d,%d)= %d\n", __min(iVertex,jVertex), __max(iVertex,jVertex), triangles(iVertex,jVertex));
             fprintf(stderr, "(%d,%d)= %d\n", __min(iVertex,lVertex), __max(iVertex,lVertex), triangles(iVertex,lVertex));
             fprintf(stderr, "(%d,%d)= %d\n", __min(jVertex,lVertex), __max(jVertex,lVertex), triangles(jVertex,lVertex));
@@ -785,25 +740,32 @@ namespace Voronoi
         {
           const vec3 &posB = tetrahedra[vtxList[iv]].centre() - cpos;
           const real q = (posA%posB).norm2();
-          if (q*q > eps*eps*eps*posA.norm2()*posB.norm2())
+          if (q*q > eps*eps*eps*eps*posA.norm2()*posB.norm2())
             break;
         }
+        if (iv == n) return false;
         const vec3 &posB = tetrahedra[vtxList[iv]].centre() - cpos;
+#if 0
         fprintf(stderr, "c= %g %g %g | %g\n", cpos.x, cpos.y, cpos.z, cpos.abs());
         fprintf(stderr, "a= %g %g %g | %g\n", posA.x, posA.y, posA.z, posA.abs());
         fprintf(stderr, "b= %g %g %g | %g\n", posB.x, posB.y, posB.z, posB.abs());
+#endif
         const vec3 &unitA = posA * (1.0/posA.abs());
         const vec3 &unitB = posB * (1.0/posB.abs());
         vec3  unitN  = unitA%unitB;
+#if 0
         fprintf(stderr, "unitA= %g %g %g | %g\n", unitA.x, unitA.y, unitA.z, unitA.abs());
         fprintf(stderr, "unitB= %g %g %g | %g\n", unitB.x, unitB.y, unitB.z, unitB.abs());
         fprintf(stderr, "unitN= %g %g %g | %g\n", unitN.x, unitN.y, unitN.z, unitN.abs());
+#endif
         if (unitN.abs() == 0.0) return false;
         unitN *= 1.0/unitN.abs();
 
         angle_vec_pair.clear();
         angle_vec_pair.push_back(std::make_pair(0.0, posA));
+#if 0
         fprintf(stderr, " -- nvtx= %d\n", n);
+#endif
         for (int j = 1; j < n; j++)
         {
           const vec3 &jpos = tetrahedra[vtxList[j]].centre() - cpos;
@@ -816,19 +778,23 @@ namespace Voronoi
 #endif
           assert(__abs(dot) < jpos.abs()*1.0e-10);
           angle_vec_pair.push_back(std::make_pair(std::atan2(y, x), jpos));
+#if 0
           fprintf(stderr, " -- i= %d: pos= %g %g %g  phi= %g\n", 
               j, jpos.x, jpos.y, jpos.z, std::atan2(y,x));
+#endif
         }
 
         assert((int)angle_vec_pair.size() == n);
         std::sort(angle_vec_pair.begin(), angle_vec_pair.end(), cmp_data<real, vec3>());
         angle_vec_pair.push_back(angle_vec_pair[0]);
+#if 0
         for (int i = 0; i < n+1; i++)
         {
           const vec3 &jpos = angle_vec_pair[i].second;
           fprintf(stderr, " -- i= %d: pos= %g %g %g  phi= %g\n", 
               i, jpos.x, jpos.y, jpos.z, angle_vec_pair[i].first);
         }
+#endif
 
         /* comput area & volume */
         real area = 0.0;
@@ -844,8 +810,10 @@ namespace Voronoi
         area   *= 0.5;
         volume += vol*(1.0/6.0);
 
+#if 0
         fprintf(stderr, " vol= %g faceA= %g  n= %g %g %g | %g\n",
             vol, area, unitN.x, unitN.y, unitN.z, unitN.abs());
+#endif
         face = Face(unitN, area);
         return true;
       }
@@ -857,4 +825,4 @@ namespace Voronoi
 
 }
 
-#endif /* __VOROCELL_H__ */
+#endif /* __VOROCELL_DEGERATE_H__ */
