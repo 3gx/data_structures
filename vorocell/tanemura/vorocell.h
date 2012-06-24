@@ -593,7 +593,7 @@ namespace Voronoi
                 flop += 16;
                 if (dist < -eps && side^sideK && vtxUse[i])
                 {
-                  flop += 87;
+                  flop += 92;
                   real radius = 0.0;
                   const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
                   if (radius > 0.0) 
