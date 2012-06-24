@@ -747,8 +747,12 @@ namespace Voronoi
           if (r2 < eps2c) continue;
           const real cos    =  posA * jpos;
           const real sin    = (posA % jpos) * unitN;
+#if 1
           const real cos2   =  cos*__abs(cos) * (1.0/r2);
-          angle_vec_pair[j] = std::make_pair(sin >= 0.0 ? -cos2 : 2.0+cos2, jpos);
+          angle_vec_pair[j] = std::make_pair(sin >  0.0 ? -cos2 : 100.0+cos2, jpos);
+#else
+          angle_vec_pair[j] = std::make_pair(std::atan2(sin, cos), jpos);
+#endif
         }
         std::sort(angle_vec_pair.begin(), angle_vec_pair.end(), cmp_data<real, vec3>());
         angle_vec_pair.push_back(angle_vec_pair[0]);
