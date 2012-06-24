@@ -46,7 +46,6 @@ int main(int argc, char * argv[])
       sites[i].pos.x >> 
       sites[i].pos.y >> 
       sites[i].pos.z;
-    vec3 &pos = sites.back().pos;
     sites[i].idx = i;
     min = mineach(min, sites[i].pos);
     max = maxeach(max, sites[i].pos);
@@ -111,7 +110,7 @@ int main(int argc, char * argv[])
       }
     }
   }
-#else /* reflecting */
+#elif 0 /* reflecting */
   const real f = 0.5;
   const real dx = f*lx;
   const real dy = f*ly;
@@ -181,6 +180,9 @@ int main(int argc, char * argv[])
 #endif
     }
   }
+#else
+#define REFLECTING
+  sitesP = sites;
 #endif
 #if 0
   for (int i = 0; i < (int)sitesP.size(); i++)
@@ -228,12 +230,35 @@ int main(int argc, char * argv[])
         double t0 = get_wtime();
         for (int j = 0; j < (const int)sitesP.size(); j++)
           dist[j] = std::make_pair((sitesP[j].pos - s.pos).norm2(), j);
-#if 1
+#if 0
         std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_data<real, int>());
 #else
         std::sort(dist.begin(), dist.end(), cmp_data<real, int>());
 #endif
         list.clear();
+#ifdef REFLECTING
+        for (int j = 0; j < ns+1; j++)
+          if (dist[j].first > 0.0)
+            list.push_back(Voronoi::Site(sitesP[dist[j].second].pos - s.pos, sitesP[dist[j].second].idx));
+        assert((int)list.size() == ns);
+#if 1
+        list.resize(ns-3);
+        if (s.pos.x < 0.5*lx)  list.push_back(Voronoi::Site(vec3(-2.0*      s.pos.x,  0.0, 0.0), -1-s.idx));
+        else                   list.push_back(Voronoi::Site(vec3( 2.0*(lx - s.pos.x), 0.0, 0.0), -1-s.idx));
+        if (s.pos.y < 0.5*ly)  list.push_back(Voronoi::Site(vec3(0.0, -2.0*      s.pos.y,  0.0), -1-s.idx));
+        else                   list.push_back(Voronoi::Site(vec3(0.0,  2.0*(ly - s.pos.y), 0.0), -1-s.idx));
+        if (s.pos.z < 0.5*lz)  list.push_back(Voronoi::Site(vec3(0.0, 0.0, -2.0*      s.pos.z ), -1-s.idx));
+        else                   list.push_back(Voronoi::Site(vec3(0.0, 0.0,  2.0*(lz - s.pos.z)), -1-s.idx));
+#else
+        list.resize(ns-6);
+        list.push_back(Voronoi::Site(vec3(-2.0*      s.pos.x,  0.0, 0.0), -1-s.idx));
+        list.push_back(Voronoi::Site(vec3( 2.0*(lx - s.pos.x), 0.0, 0.0), -1-s.idx));
+        list.push_back(Voronoi::Site(vec3(0.0, -2.0*      s.pos.y,  0.0), -1-s.idx));
+        list.push_back(Voronoi::Site(vec3(0.0,  2.0*(ly - s.pos.y), 0.0), -1-s.idx));
+        list.push_back(Voronoi::Site(vec3(0.0, 0.0, -2.0*      s.pos.z ), -1-s.idx));
+        list.push_back(Voronoi::Site(vec3(0.0, 0.0,  2.0*(lz - s.pos.z)), -1-s.idx));
+#endif
+#else
         for (int j = 0; j < ns+1; j++)
           if (dist[j].first > 0.0f)
           {
@@ -249,6 +274,7 @@ int main(int argc, char * argv[])
                 );
 #endif
           }
+#endif
         assert((int)list.size() == ns);
         double t1 = get_wtime();
         dt_search += t1 - t0;
