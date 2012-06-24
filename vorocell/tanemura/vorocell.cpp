@@ -201,6 +201,7 @@ int main(int argc, char * argv[])
         double t1 = get_wtime();
         dt_search += t1 - t0;
 
+
         t0 = t1;
         if (!cell.build(list))
         {

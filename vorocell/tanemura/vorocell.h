@@ -590,9 +590,8 @@ namespace Voronoi
                 const vec3 &pos = siteList[i].pos;
                 const int  side = plane(pos) > 0.0;
                 const real dist = pos*(pos + cpos) + largeNum;
-                if (dist < 0.0 && side^sideK && vtxUse[i])
+                if (dist < -eps && side^sideK && vtxUse[i])
                 {
-                  if (__abs(dist) < eps) continue;
                   real radius = 0.0;
                   const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
                   if (radius > 0.0) 
@@ -736,7 +735,8 @@ namespace Voronoi
         const real eps2c = eps2*cpos.norm2();
 
         const vec3 &posA = angle_vec_pair[0].second - cpos;
-        assert(posA.norm2() > 0.0);
+        if (posA.norm2() == 0)
+          return false;
         const vec3 unitA = posA * (1.0/posA.abs());
         const vec3 &posB = angle_vec_pair[1].second - cpos;
         vec3  unitN  = posA%posB;

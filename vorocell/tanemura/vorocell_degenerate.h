@@ -527,13 +527,11 @@ namespace VoronoiDegenerate
               const real dist = pos*(pos + cpos) + largeNum;
               const bool  use = vtxCount[i] >= 0;
 
-              if (dist < 0.0 && side^sideK && use)
+              if (dist < -eps && side^sideK && use)
               {
-                if (__abs(dist) < eps) continue; 
                 if (loc*loc < eps2*pos.norm2()) continue;
 
                 const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
-                if (radius < 0.0) continue;
                 cpos = _cpos;
                 largeNum = 0.0;
                 lVertex = i;
@@ -622,11 +620,7 @@ namespace VoronoiDegenerate
 
         D=XI*YJ*ZK+XJ*YK*ZI+XK*YI*ZJ-XK*YJ*ZI-XI*YK*ZJ-XJ*YI*ZK;
 
-#if 0
-        if (__abs(D*D) < eps*DI*DJ*DK) {radius = -1.0; return vec3(0.0);}
-#else
-        if (D == 0.0) {radius = -1.0; return vec3(0.0);}
-#endif
+        assert(__abs(D) > eps);
 
         D=0.50/D;
         XC=DI*YJ*ZK+DJ*YK*ZI+DK*YI*ZJ-DK*YJ*ZI-DI*YK*ZJ-DJ*YI*ZK;
