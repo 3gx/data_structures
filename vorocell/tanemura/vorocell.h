@@ -246,9 +246,10 @@ namespace Voronoi
   template<const int N>
     struct Cell
     {
-      typedef ConnectivityMatrix2D<N>  Triangles;
 
       private:
+      typedef ConnectivityMatrix2D<N>  Triangles;
+      typedef Array<int, N/2> FaceArray;
       Triangles triangles;
       real eps, eps2;
 
@@ -262,14 +263,16 @@ namespace Voronoi
       std::vector< std::pair<real, vec3> > angle_vec_pair;
       std::deque<int> incompleteTetra;
 
-      Array<int,  N> faceVtx[N];
+      FaceArray faceVtx[N];
 
       real cellVolume;
 
       public:
       Cell(const real _eps = 1.0e-11) : eps(_eps), eps2(_eps*_eps)
       {
-        angle_vec_pair.reserve(N);
+        angle_vec_pair .reserve(N);
+        vertexCompleted.reserve(N);
+        isVertexQueued .reserve(N);
       }
 
       int nb() const {return nbList.size();}
@@ -485,14 +488,14 @@ namespace Voronoi
         vertexCompleted.resize(nSites);
         isVertexQueued .resize(nSites);
         for (int i = 0; i < nSites; i++)
+        {
           isVertexQueued[i] = vertexCompleted[i] = false;
+          faceVtx[i].clear();
+        }
 
         tetrahedra.clear();
         nbList    .clear();
         faceList  .clear();
-
-        for (int i = 0; i < N; i++)
-          faceVtx[i].clear();
       }
 
       private:
@@ -716,7 +719,7 @@ namespace Voronoi
         return radius;
       }
 
-      bool buildFace(const Array<int, N> vtxList, real &volume, Face &face)
+      bool buildFace(const FaceArray &vtxList, real &volume, Face &face)
       {
         const int n = vtxList.size();
         angle_vec_pair.resize(n);
