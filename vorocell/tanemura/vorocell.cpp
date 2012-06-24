@@ -40,28 +40,41 @@ int main(int argc, char * argv[])
   fprintf(stderr, " np= %d\n", np);
   fprintf(stderr, " l= %g %g %g \n", lx, ly, lz);
 
+#if 1
   Voronoi::Site::Vector sites(np);
   vec3 min(+HUGE), max(-HUGE);
-#if 0
-  lx *= 1.125;
-  ly *= 1.125;
-  lz *= 1.125;
-#endif
   for (int i = 0; i < np; i++)
   {
     std::cin >> idum >> 
       sites[i].pos.x >> 
       sites[i].pos.y >> 
       sites[i].pos.z;
+    vec3 &pos = sites.back().pos;
     sites[i].idx = i;
-#if 0
-    sites[i].pos.x += lx*0.01;
-    sites[i].pos.y += ly*0.01;
-    sites[i].pos.z += lz*0.01;
-#endif
     min = mineach(min, sites[i].pos);
     max = maxeach(max, sites[i].pos);
   }
+#else
+  Voronoi::Site::Vector sites;
+  sites.reserve(np);
+  vec3 min(+HUGE), max(-HUGE);
+  {
+    const real dx = lx / N;
+    const real dy = lx / N;
+    const real dz = lx / N;
+    for (int k = 0; k < N; k++)
+      for (int j = 0; j < N; j++)
+        for (int i = 0; i < N; i++)
+        {
+          sites.push_back(Voronoi::Site(vec3(dx*(i+0.5), dy*(j+0.5), dz*(k+0.5)), sites.size()));
+          vec3 &pos = sites.back().pos;
+          min = mineach(min, sites.back().pos);
+          max = maxeach(max, sites.back().pos);
+        }
+  }
+  assert((int)sites.size() == np);
+
+#endif
   fprintf(stderr, " min= %g %g %g \n", min.x, min.y, min.z);
   fprintf(stderr, " max= %g %g %g \n", max.x, max.y, max.z);
   assert(min.x > 0.0);
@@ -73,8 +86,8 @@ int main(int argc, char * argv[])
 
   Voronoi::Site::Vector sitesP;
   sitesP.reserve(8*np);
-#if 1 /* periodic */
-  const real  f = 0.25;
+#if 0 /* periodic */
+  const real  f = 0.5;
   assert(f <= 0.5);
   const real dx = (0.5 - f) * lx;
   const real dy = (0.5 - f) * ly;
@@ -84,7 +97,7 @@ int main(int argc, char * argv[])
   {
     const Voronoi::Site &s0 = sites[i];
     sitesP.push_back(s0);
- //   fprintf(stderr, "%g %g %g \n", s0.pos.x, s0.pos.y, s0.pos.z);
+    //   fprintf(stderr, "%g %g %g \n", s0.pos.x, s0.pos.y, s0.pos.z);
     for (int oct = 1; oct < 8; oct++)
     {
       Voronoi::Site s = s0;
@@ -95,7 +108,7 @@ int main(int argc, char * argv[])
       if (oct == ioct)
       {
         s.idx = -1-s.idx;
-//        fprintf(stderr, "%g %g %g \n", s.pos.x, s.pos.y, s.pos.z);
+        //        fprintf(stderr, "%g %g %g \n", s.pos.x, s.pos.y, s.pos.z);
         sitesP.push_back(s);
       }
     }
@@ -105,7 +118,7 @@ int main(int argc, char * argv[])
   const real dx = f*lx;
   const real dy = f*ly;
   const real dz = f*lz;
-  const real ff = 1.0e-5;
+  const real ff = 1.0e-9;
   const real flx = ff*lx;
   const real fly = ff*ly;
   const real flz = ff*lz;
@@ -116,21 +129,21 @@ int main(int argc, char * argv[])
     for (int oct = 1; oct < 8; oct++)
     {
       Voronoi::Site s = s0;
-#if 1
+#if 0
       if (oct > 3) continue;
       if (oct == 1)
       {
-        if (s.pos.x <= 0.5*lx) s.pos.x = -s.pos.x;
+        if (s.pos.x <  0.5*lx) s.pos.x = -s.pos.x;
         else                   s.pos.x = 2.0*lx - s.pos.x;
       }
       if (oct == 2)
       {
-        if (s.pos.y <= 0.5*ly) s.pos.y = -s.pos.y;
+        if (s.pos.y <  0.5*ly) s.pos.y = -s.pos.y;
         else                   s.pos.y = 2.0*ly - s.pos.y;
       }
       if (oct == 3)
       {
-        if (s.pos.z <= 0.5*lz) s.pos.z = -s.pos.z;
+        if (s.pos.z <  0.5*lz) s.pos.z = -s.pos.z;
         else                   s.pos.z = 2.0*lz - s.pos.z;
       }
       if (1)
@@ -149,31 +162,22 @@ int main(int argc, char * argv[])
 #else
       if (oct&1)
       {
-        if      (     s.pos.x <= dx) s.pos.x =        - s.pos.x;
-        else if (lx - s.pos.x <= dx) s.pos.x = 2.0*lx - s.pos.x;
-        else
-          assert(0);
+        if  (s.pos.x <  0.5*lx) s.pos.x =        - s.pos.x;
+        else                   s.pos.x = 2.0*lx - s.pos.x;
       }
       if (oct&2)
       {
-        if      (     s.pos.y <= dy) s.pos.y =        - s.pos.y;
-        else if (ly - s.pos.y <= dy) s.pos.y = 2.0*ly - s.pos.y;
-        else
-          assert(0);
+        if   (s.pos.y <  0.5*ly) s.pos.y =        - s.pos.y;
+        else                     s.pos.y = 2.0*ly - s.pos.y;
       }
       if (oct&4)
       {
-        if      (     s.pos.z <= dz) s.pos.z =        - s.pos.z;
-        else if (lz - s.pos.z <= dz) s.pos.z = 2.0*lz - s.pos.z;
-        else
-          assert(0);
+        if  (s.pos.z < 0.5*lz) s.pos.z =        - s.pos.z;
+        else                   s.pos.z = 2.0*lz - s.pos.z;
       }
-      if (s.pos.x != s0.pos.x || s.pos.y != s0.pos.y || s.pos.z != s0.pos.z)
+      if (1)
       {
         s.idx = -1-s.idx;
-        s.pos.x += flx*(1.0-2.0*drand48());
-        s.pos.y += fly*(1.0-2.0*drand48());
-        s.pos.z += flz*(1.0-2.0*drand48());
         sitesP.push_back(s);
       }
 #endif

@@ -6,6 +6,7 @@
 #include <cassert>
 #include <vector>
 #include <deque>
+#include <stack>
 #include <algorithm>
 #include "vector3.h"
 
@@ -175,14 +176,16 @@ namespace Voronoi
     private:
       int v1, v2, v3;
       vec3 c;
+      real r;
     public:
-      Tetrahedron(const int _v1, const int _v2, const int _v3, const vec3 &_c) : 
-        v1(_v1), v2(_v2), v3(_v3), c(_c) {}
+      Tetrahedron(const int _v1, const int _v2, const int _v3, const vec3 &_c, const real _r) : 
+        v1(_v1), v2(_v2), v3(_v3), c(_c), r(_r) {}
 
       int vertex1() const {return v1;}
       int vertex2() const {return v2;}
       int vertex3() const {return v3;}
       const vec3& centre() const { return c; }
+      real radius() const { return r;}
 
       std::pair<int,int> pair(const int vX) const
       {
@@ -244,6 +247,7 @@ namespace Voronoi
       }
 
       int nb() const {return nbList.size();}
+      int nface() const {return faceList.size();}
       real volume() const {return cellVolume;}
 
       bool build(const Site::Vector &siteList)
@@ -290,6 +294,7 @@ namespace Voronoi
           if (ix != i)
           {
             const vec3 &pos = siteList[ix].pos;
+            if ((ipos%pos).norm2() == 0.0) continue;
             const real   r2 = triangle(ipos, pos);
             if (r2 < r2min)
             {
@@ -327,30 +332,39 @@ namespace Voronoi
             const real dist2 = pos*(pos + cposl) + largel;
             if (side && dist1 < 0.0)
             {
+              if (__abs(dist1) < eps) continue; 
               cposk = sphere(ipos, jpos, pos, rk)*(real)(-2.0);
               largek = 0.0;
               k = ix;
             }
             else if (!side && dist2 < 0.0)
             {
+              if (__abs(dist2) < eps) continue; 
               cposl = sphere(ipos, jpos, pos, rl)*(real)(-2.0);
               largel = 0.0;
               l = ix;
             }
           }
-#if 0
+#if 1
         fprintf(stderr, "i= %d j= %d k= %d l= %d\n", i,j,k,l);
         fprintf(stderr, "i= %d: %g %g %g\n", i, ipos.x, ipos.y, ipos.z);
         fprintf(stderr, "j= %d: %g %g %g\n", j, jpos.x, jpos.y, jpos.z);
 #endif
-        assert(k >= 0);
         assert(l >= 0);
-        const vec3 &kpos = siteList[k].pos;
         const vec3 &lpos = siteList[l].pos;
-#if 0
-        fprintf(stderr, "k= %d: %g %g %g  rk=%g\n", k, kpos.x, kpos.y, kpos.z, rk);
         fprintf(stderr, "l= %d: %g %g %g  rl=%g\n", l, lpos.x, lpos.y, lpos.z, rl);
-#endif
+
+        const vec3 &kpos = siteList[k].pos;
+        assert(k >= 0);
+        fprintf(stderr, "k= %d: %g %g %g  rk=%g\n", k, kpos.x, kpos.y, kpos.z, rk);
+
+        for (int m = 0; m < 10; m++)
+        {
+          real radius;
+          sphere(ipos, jpos, siteList[m].pos, radius);
+          fprintf(stderr, "m= %d: r= %g side= %g \n",
+              m, radius, plane(siteList[m].pos));
+        }
         assert(k != l);
         assert(k != i);
         assert(k != j);
@@ -360,18 +374,25 @@ namespace Voronoi
         assert(__abs(plane(lpos)) > eps*lpos.abs());
         assert(plane(siteList[k].pos)*plane(siteList[l].pos) < 0.0);
 
-#if 0
+#if 1
         fprintf(stderr, "cposl= %g %g %g \n", cposl.x, cposl.y, cposl.z);
-        fprintf(stderr, "cposl= %g %g %g \n", cposl.x, cposl.y, cposl.z);
+        fprintf(stderr, "cposk= %g %g %g \n", cposk.x, cposk.y, cposk.z);
 #endif
         assert(rl > 0.0);
         assert(rk > 0.0);
+        if (rl < rk)
+        {
+          std::swap(k,l);
+          std::swap(rk,rl);
+          std::swap(cposk, cposl);
+        }
 
         faceVtx[i].push_back(tetrahedra.size());
         faceVtx[j].push_back(tetrahedra.size());
         faceVtx[k].push_back(tetrahedra.size());
-        tetrahedra.push_back(Tetrahedron(i,j,k, cposk*(real)(-0.5)));
+        tetrahedra.push_back(Tetrahedron(i,j,k, cposk*(real)(-0.5), rk));
 
+#if 0
         assert(triangles(i,j) < 2);
         assert(triangles(j,k) < 2);
         assert(triangles(i,k) < 2);
@@ -383,7 +404,7 @@ namespace Voronoi
         faceVtx[i].push_back(tetrahedra.size());
         faceVtx[j].push_back(tetrahedra.size());
         faceVtx[l].push_back(tetrahedra.size());
-        tetrahedra.push_back(Tetrahedron(i,j,l, cposl*(real)(-0.5)));
+        tetrahedra.push_back(Tetrahedron(i,j,l, cposl*(real)(-0.5), rl));
 
         assert(triangles(i,j) < 2);
         assert(triangles(i,l) < 2);
@@ -391,6 +412,7 @@ namespace Voronoi
         triangles(i,j)++;
         triangles(i,l)++;
         triangles(j,l)++;
+#endif
 
         vertexQueue.push_back(i);
         isVertexQueued[i] = true;
@@ -401,8 +423,10 @@ namespace Voronoi
         vertexQueue.push_back(k);
         isVertexQueued[k] = true;
 
+#if 0
         vertexQueue.push_back(l);
         isVertexQueued[l] = true;
+#endif
 
         dt_50 += get_wtime() - t1;
 
@@ -415,13 +439,15 @@ namespace Voronoi
         const int nnb = nbList.size();
         faceList.reserve(nnb);
         cellVolume = 0.0;
+        fprintf(stderr, " -- nnb= %d\n", nnb);
         Face face(0.0, 0.0);
         for (int i = 0; i < nnb; i++)
         {
           const int j = nbList[i];
-#if 0   /* sanity check: pass over all tetrahedra to make sure they are all complete */
-          for (int i= 0; i < faceVtx[j].size(); i++)
-            assert(isComplete(tetrahedra[faceVtx[j][i]], j));
+#if 1   /* sanity check: pass over all tetrahedra to make sure they are all complete */
+          for (int k= 0; k < faceVtx[j].size()-1; k++)
+            for (int l = k+1; l < faceVtx[j].size(); l++)
+            assert(tetrahedra[faceVtx[j][k]] != tetrahedra[faceVtx[j][l]]);
 #endif
           if (buildFace(faceVtx[j], cellVolume, face))
             faceList.push_back(face);
@@ -480,8 +506,12 @@ namespace Voronoi
         incompleteTetra.clear();
         const int nSites = siteList.size();
 
+        int cnt = 0;
+
         while (!vertexQueue.empty())
         {
+          cnt++;
+          fprintf(stderr, " ^^ cnt= %d\n", cnt);
           /* step 4.2:
            *  extract vertex from the list
            */
@@ -497,152 +527,183 @@ namespace Voronoi
           /* step 4.3:
            *  the vertex is completed, proceed to the next one
            */
-          assert(incompleteTetra.empty());
-          for (int i = 0; i < faceVtx[iVertex].size(); i++)
-            if (!isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex))
-              incompleteTetra.push_back(faceVtx[iVertex][i]);
 
-          if (!incompleteTetra.empty())
-            assert(!vertexCompleted[iVertex]);
+          assert(!faceVtx[iVertex].empty());
 
-          /* step 4.4:
-           *  find a tetrahedron (i, iVertex, jVertex, kVertex) with at least one
-           *  incomplete face
-           */
-
-          /* otherwise, find the face that lacks adjacent tetrahedron */
-
-          //          const double tAA = get_wtime();
-          if (!incompleteTetra.empty())
-            incomplT++;
-
-          while(!incompleteTetra.empty())
+          const int nt = faceVtx[iVertex].size();
+          int it = -1;
+          real rmin = HUGE;
+          for (int i = 0 ;i < nt; i++)
           {
-            const Tetrahedron &t = tetrahedra[incompleteTetra.front()];
-            incompleteTetra.pop_front();
-            if (isComplete(t, iVertex)) continue;
-            incompl++;
-
-            const std::pair<int,int> vpair = t.pair(iVertex);
-            int jVertex = vpair.first;
-            int kVertex = vpair.second;
-            if (triangles(iVertex, jVertex) != 1)
-              std::swap(jVertex, kVertex);
-
-            if (triangles(iVertex, jVertex) != 1) return false;
-            assert(triangles(iVertex, jVertex) == 1);
-            assert(triangles(iVertex, kVertex) == 2);
-
-            /* step 4.5-4.7 */
-
-            //            const double t00 = get_wtime();
-            while(triangles(iVertex, jVertex) != 2)
+            const real r = tetrahedra[faceVtx[iVertex][i]].radius();
+            fprintf(stderr, "i= %d:  r= %g\n", i, r);
+            assert(r > 0.0);
+            if (r < rmin)
             {
-              if (triangles(iVertex, jVertex) >= 2) return false;
-              assert(triangles(iVertex, jVertex) < 2);
-              /* step 4.5 - 4.6: 
-               *  search a vertex on the opposite side of the kVertex 
-               *  (in the half-space bounded by ijFace that does not contain kVertex)
-               */
-              const vec3 &ipos = siteList[iVertex].pos;
-              const vec3 &jpos = siteList[jVertex].pos;
-              const vec3 &kpos = siteList[kVertex].pos;
-              const Plane plane(ipos, jpos);
-              const int  sideK = plane(kpos) > 0.0;
-              real largeNum = -1e10;
-              vec3  cpos(0.0);
-              int lVertex = -1;
+              it   = faceVtx[iVertex][i];
+              rmin = tetrahedra[it].radius() ;
+            }
+          }
+          assert(it >= 0);
+          assert(rmin > 0.0);
+          const Tetrahedron &t = tetrahedra[it];
 
-              /* hot-spot: finding 4th vertex of the new tetrahedron */
+          triangles.clear();
+          faceVtx[iVertex].clear();
+          faceVtx[iVertex].push_back(it);
 
-              //              const double tA = get_wtime();
-              for (int i = 0; i < nSites; i++)
+          const std::pair<int,int> vpair = t.pair(iVertex);
+          int jVertex = vpair.first;
+          int kVertex = vpair.second;
+
+          assert(triangles(iVertex, jVertex) == 0);
+          assert(triangles(iVertex, kVertex) == 0);
+          triangles(iVertex,jVertex)++;
+          triangles(iVertex,kVertex)++;
+
+          /* step 4.5-4.7 */
+
+          int cnt2 = 0;
+          const int endVertex = kVertex;
+          std::stack<int> vtxTemp;
+          std::vector<bool> vtxUsed(N, false);
+          vtxUsed[iVertex] = true;
+          vtxUsed[jVertex] = true;
+          while(triangles(iVertex, jVertex) != 2)
+          {
+            fprintf(stderr, "      >> cnt2= %d\n", cnt2++);
+            assert(triangles(iVertex, jVertex) < 2);
+            /* step 4.5 - 4.6: 
+             *  search a vertex on the opposite side of the kVertex 
+             *  (in the half-space bounded by ijFace that does not contain kVertex)
+             */
+            const vec3 &ipos = siteList[iVertex].pos;
+            const vec3 &jpos = siteList[jVertex].pos;
+            const vec3 &kpos = siteList[kVertex].pos;
+            const Plane plane(ipos, jpos, true);
+            const int  sideK = plane(kpos) > 0.0;
+            assert(__abs(plane(kpos)) >= eps*kpos.abs());
+            real largeNum = -1e10;
+            vec3  cpos(0.0);
+            int lVertex = -1;
+            real radius = -1;
+
+            /* hot-spot: finding 4th vertex of the new tetrahedron */
+
+            //              const double tA = get_wtime();
+            for (int i = 0; i < nSites; i++)
+            {
+              const vec3 &pos = siteList[i].pos;
+              const int  side = plane(pos) > 0.0;
+              const real dist = pos*(pos + cpos) + largeNum;
+              const bool skip = // vtxUsed[i] ||
+                (i == iVertex) || (i == jVertex) || (i == kVertex);
+
+              if (__abs(dist) < eps) continue; 
+              if (dist < 0.0 && side^sideK && !skip)
               {
-                const vec3 &pos = siteList[i].pos;
-                const int  side = plane(pos) > 0.0;
-                const real dist = pos*(pos + cpos) + largeNum;
-                const bool skip = vertexCompleted[i] || 
-                  (i == iVertex) || (i == jVertex) || (i == kVertex);
-             
-                 
-                if (dist < 0.0 && side^sideK && !skip)
-                {
-                 // if (triangles(iVertex,i)==2 || triangles(jVertex,i)==2) continue;
+            //    if (triangles(iVertex,i)==2) continue;
+                if (__abs(plane(pos)) < eps*pos.abs()) continue;
 
-                  real radius = 0.0;
-                  const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
-                  //assert(radius > 0.0);
-                  if (radius < 0.0) continue;
-                  cpos = _cpos;
-                  largeNum = 0.0;
-                  lVertex = i;
-                }
+                const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
+                assert(radius > 0.0);
+                if (radius < 0.0) continue;
+                cpos = _cpos;
+                largeNum = 0.0;
+                lVertex = i;
               }
-              //              dt_00 += get_wtime() - tA;
-              if (lVertex < 0)
-              {
-                fprintf(stderr, " nb= %d\n", (int)nbList.size());
-              }
-              assert(lVertex >= 0);
+            }
+            //              dt_00 += get_wtime() - tA;
+            if (lVertex < 0)
+            {
+              fprintf(stderr, " nb= %d\n", (int)nbList.size());
+            }
+            assert(lVertex >= 0);
+            fprintf(stderr, "i: %g %g %g \n", iVertex, ipos.x, ipos.y, ipos.z);
+            fprintf(stderr, "j: %g %g %g \n", jVertex, jpos.x, jpos.y, jpos.z);
+            fprintf(stderr, "k: %g %g %g \n", kVertex, kpos.x, kpos.y, kpos.z);
+            const vec3 &lpos  = siteList[lVertex].pos;
+            fprintf(stderr, "l: %g %g %g \n", lVertex, lpos.x, lpos.y, lpos.z);
+            fprintf(stderr, "j= %d k= %d l= %d\n", jVertex, kVertex, lVertex);
 
-              /* step 4.7:
-               *  register new tetrahedron (iVertex, jVertex, lVertex) 
-               */
-              faceVtx[iVertex].push_back(tetrahedra.size());
+
+            vtxUsed[lVertex] = true;
+#if 0
+            vtxTemp.push(lVertex);
+            vertexCompleted[lVertex] = true;
+#endif
+
+
+            /* step 4.7:
+             *  register new tetrahedron (iVertex, jVertex, lVertex) 
+             */
+            if (!isVertexQueued[lVertex])
+            {
+              vertexQueue.push_back(lVertex);
+              isVertexQueued[lVertex] = true;
+            }
+
+#if 1
+            fprintf(stderr, "(%d,%d)= %d\n", __min(iVertex,jVertex), __max(iVertex,jVertex), triangles(iVertex,jVertex));
+            fprintf(stderr, "(%d,%d)= %d\n", __min(iVertex,lVertex), __max(iVertex,lVertex), triangles(iVertex,lVertex));
+            fprintf(stderr, "(%d,%d)= %d\n", __min(jVertex,lVertex), __max(jVertex,lVertex), triangles(jVertex,lVertex));
+            fprintf(stderr, " --- \n");
+#endif
+            assert(radius > 0.0);
+           
+            faceVtx[iVertex].push_back(tetrahedra.size());
+            if (!vertexCompleted[jVertex]) 
               faceVtx[jVertex].push_back(tetrahedra.size());
+            if (!vertexCompleted[lVertex]) 
               faceVtx[lVertex].push_back(tetrahedra.size());
-              tetrahedra.push_back(Tetrahedron(iVertex, jVertex, lVertex, cpos*(real)(-0.5)));
-
-              if (!isVertexQueued[lVertex])
-              {
-                vertexQueue.push_back(lVertex);
-                isVertexQueued[lVertex] = true;
-              }
-
-#if 0
-              fprintf(stderr, "(%d,%d)= %d\n", __min(iVertex,jVertex), __max(iVertex,jVertex), triangles(iVertex,jVertex));
-              fprintf(stderr, "(%d,%d)= %d\n", __min(iVertex,lVertex), __max(iVertex,lVertex), triangles(iVertex,lVertex));
-              fprintf(stderr, "(%d,%d)= %d\n", __min(jVertex,lVertex), __max(jVertex,lVertex), triangles(jVertex,lVertex));
-              fprintf(stderr, " --- \n");
-#endif
-#if 0
-              assert(triangles(iVertex, jVertex) < 2);
-              assert(triangles(iVertex, lVertex) < 2);
-              assert(triangles(jVertex, lVertex) < 2);
-#endif
-              triangles(iVertex, jVertex)++;
-              triangles(iVertex, lVertex)++;
-              triangles(jVertex, lVertex)++;
-
-#if 0         /* sanity check */
-              bool complete = true; 
-              for (int i = 0; i < faceVtx[kVertex].size(); i++)
-                complete &= isComplete(tetrahedra[faceVtx[kVertex][i]], kVertex);
-              if (complete) vertexCompleted[kVertex] = true;
-
-              complete = true; 
-              for (int i = 0; i < faceVtx[lVertex].size(); i++)
-                complete &= isComplete(tetrahedra[faceVtx[lVertex][i]], lVertex);
-              if (complete) vertexCompleted[lVertex] = true;
-
-              complete = true; 
-              for (int i = 0; i < faceVtx[jVertex].size(); i++)
-                complete &= isComplete(tetrahedra[faceVtx[jVertex][i]], jVertex);
-              if (complete) vertexCompleted[jVertex] = true;
-
-              complete = true; 
-              for (int i = 0; i < faceVtx[jVertex].size(); i++)
-                complete &= isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex);
-              if (complete) break;
-
-#endif
-
+            tetrahedra.push_back(Tetrahedron(iVertex, jVertex, lVertex, cpos*(real)(-0.5), radius));
+            assert(triangles(iVertex, jVertex) < 2);
+#if 1
+            if (triangles(iVertex, lVertex) == 2)
+            {
               kVertex = jVertex;
               jVertex = lVertex;
-              //              dtA += get_wtime() - tB;
+              continue;
             }
-            //            dt_10 += get_wtime() - t00;
+#endif
+            assert(triangles(iVertex, lVertex) < 2);
+            triangles(iVertex, jVertex)++;
+            triangles(iVertex, lVertex)++;
+
+
+#if 0        /* sanity check */
+            bool complete = true; 
+            for (int i = 0; i < faceVtx[kVertex].size(); i++)
+              complete &= isComplete(tetrahedra[faceVtx[kVertex][i]], kVertex);
+            if (complete) vertexCompleted[kVertex] = true;
+
+            complete = true; 
+            for (int i = 0; i < faceVtx[lVertex].size(); i++)
+              complete &= isComplete(tetrahedra[faceVtx[lVertex][i]], lVertex);
+            if (complete) vertexCompleted[lVertex] = true;
+
+            complete = true; 
+            for (int i = 0; i < faceVtx[jVertex].size(); i++)
+              complete &= isComplete(tetrahedra[faceVtx[jVertex][i]], jVertex);
+            if (complete) vertexCompleted[jVertex] = true;
+
+            complete = true; 
+            for (int i = 0; i < faceVtx[iVertex].size(); i++)
+              complete &= isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex);
+            if (complete) break;
+
+#endif
+
+            kVertex = jVertex;
+            jVertex = lVertex;
+            //              dtA += get_wtime() - tB;
           }
+          while(!vtxTemp.empty())
+          {
+            vertexCompleted[vtxTemp.top()] = false;
+            vtxTemp.pop();
+          }
+          //            dt_10 += get_wtime() - t00;
           //          dt_20 += get_wtime() - tAA;
 
           /* step 4.8: */
@@ -724,45 +785,50 @@ namespace Voronoi
         {
           const vec3 &posB = tetrahedra[vtxList[iv]].centre() - cpos;
           const real q = (posA%posB).norm2();
-          if (q*q > eps*eps*eps*eps*posA.norm2()*posB.norm2())
+          if (q*q > eps*eps*eps*posA.norm2()*posB.norm2())
             break;
         }
-        if (iv == n) return false;
-        assert(iv < n);
         const vec3 &posB = tetrahedra[vtxList[iv]].centre() - cpos;
+        fprintf(stderr, "c= %g %g %g | %g\n", cpos.x, cpos.y, cpos.z, cpos.abs());
+        fprintf(stderr, "a= %g %g %g | %g\n", posA.x, posA.y, posA.z, posA.abs());
+        fprintf(stderr, "b= %g %g %g | %g\n", posB.x, posB.y, posB.z, posB.abs());
         const vec3 &unitA = posA * (1.0/posA.abs());
         const vec3 &unitB = posB * (1.0/posB.abs());
         vec3  unitN  = unitA%unitB;
+        fprintf(stderr, "unitA= %g %g %g | %g\n", unitA.x, unitA.y, unitA.z, unitA.abs());
+        fprintf(stderr, "unitB= %g %g %g | %g\n", unitB.x, unitB.y, unitB.z, unitB.abs());
+        fprintf(stderr, "unitN= %g %g %g | %g\n", unitN.x, unitN.y, unitN.z, unitN.abs());
+        if (unitN.abs() == 0.0) return false;
         unitN *= 1.0/unitN.abs();
+
         angle_vec_pair.clear();
-#if 0
-        angle_vec_pair.push_back(std::make_pair(unitA*unitA, posA));
-        angle_vec_pair.push_back(std::make_pair(unitA*unitB, posB));
-        for (int j = 2; j < n; j++)
-        {
-          const vec3 &jpos = tetrahedra[vtxList[j]].centre() - cpos;
-          const vec3 unitj = jpos * (1.0/jpos.abs());
-          const float cos =  unitA * unitj;
-          const float sin = (unitA % unitj) * unitN;
-          if (sin >= 0.0f)  angle_vec_pair.push_back(std::make_pair(  -cos, jpos));
-          else              angle_vec_pair.push_back(std::make_pair(10+cos, jpos));
-        }
-#error
-#else
         angle_vec_pair.push_back(std::make_pair(0.0, posA));
+        fprintf(stderr, " -- nvtx= %d\n", n);
         for (int j = 1; j < n; j++)
         {
           const vec3 &jpos = tetrahedra[vtxList[j]].centre() - cpos;
-          const real x =  unitA * jpos;
-          const real y = (unitA % jpos) * unitN;
+          const real x =  posA * jpos;
+          const real y = (posA % jpos) * unitN;
           const real dot = jpos * unitN;
+#if 1
+          if (!(__abs(dot) < jpos.abs()*1.0e-10))
+            return false;
+#endif
           assert(__abs(dot) < jpos.abs()*1.0e-10);
           angle_vec_pair.push_back(std::make_pair(std::atan2(y, x), jpos));
+          fprintf(stderr, " -- i= %d: pos= %g %g %g  phi= %g\n", 
+              j, jpos.x, jpos.y, jpos.z, std::atan2(y,x));
         }
-#endif
+
         assert((int)angle_vec_pair.size() == n);
         std::sort(angle_vec_pair.begin(), angle_vec_pair.end(), cmp_data<real, vec3>());
         angle_vec_pair.push_back(angle_vec_pair[0]);
+        for (int i = 0; i < n+1; i++)
+        {
+          const vec3 &jpos = angle_vec_pair[i].second;
+          fprintf(stderr, " -- i= %d: pos= %g %g %g  phi= %g\n", 
+              i, jpos.x, jpos.y, jpos.z, angle_vec_pair[i].first);
+        }
 
         /* comput area & volume */
         real area = 0.0;
@@ -778,6 +844,8 @@ namespace Voronoi
         area   *= 0.5;
         volume += vol*(1.0/6.0);
 
+        fprintf(stderr, " vol= %g faceA= %g  n= %g %g %g | %g\n",
+            vol, area, unitN.x, unitN.y, unitN.z, unitN.abs());
         face = Face(unitN, area);
         return true;
       }
