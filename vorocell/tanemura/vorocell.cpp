@@ -84,7 +84,7 @@ int main(int argc, char * argv[])
 
   Voronoi::Site::Vector sitesP;
   sitesP.reserve(8*np);
-#if 1 /* periodic */
+#if 0 /* periodic */
   const real  f = 0.5;
   assert(f <= 0.5);
   const real dx = (0.5 - f) * lx;

@@ -466,6 +466,7 @@ namespace VoronoiDegenerate
            */
           const int iVertex = vertexQueue.front();
           vertexQueue.pop_front();
+          const real eps2 = eps*eps;
 
           nbList.push_back(iVertex);
 
@@ -501,8 +502,9 @@ namespace VoronoiDegenerate
             const vec3 &jpos = siteList[jVertex].pos;
             const vec3 &kpos = siteList[kVertex].pos;
             const Plane plane(ipos, jpos, true);
-            const int  sideK = plane(kpos) > 0.0;
-            assert(__abs(plane(kpos)) >= eps*kpos.abs());
+            const real kloc  = plane(kpos);
+            const int  sideK = kloc > 0.0;
+            assert(kloc*kloc >= eps2*kpos.norm2());
             real largeNum = -1e10;
             vec3  cpos(0.0);
             int lVertex = -1;
@@ -516,14 +518,15 @@ namespace VoronoiDegenerate
             for (int i = 0; i < nSites; i++)
             {
               const vec3 &pos = siteList[i].pos;
-              const int  side = plane(pos) > 0.0;
+              const real  loc = plane(pos);
+              const int  side = loc > 0.0;
               const real dist = pos*(pos + cpos) + largeNum;
               const bool  use = vtxCount[i] >= 0;
 
               if (dist < 0.0 && side^sideK && use)
               {
                 if (__abs(dist) < eps) continue; 
-                if (__abs(plane(pos)) < eps*pos.abs()) continue;
+                if (loc*loc < eps2*pos.norm2()) continue;
 
                 const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
                 if (radius < 0.0) continue;
