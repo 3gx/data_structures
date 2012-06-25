@@ -2,7 +2,11 @@
 double dt_00, dt_10, dt_20, dt_30, dt_40, dt_44, dt_50, dt_60, dt_70;
 double dtA;
 unsigned long long flop = 0, myNMX = 0;
+#if 0
 #include "vorocell.h"
+#else
+#include "vorocell_new.h"
+#endif
 #include "vorocell_degenerate.h"
 #include <iostream>
 
@@ -39,7 +43,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, " np= %d\n", np);
   fprintf(stderr, " l= %g %g %g \n", lx, ly, lz);
 
-#if 0
+#if 1
   Voronoi::Site::Vector sites(np);
   vec3 min(+HUGE), max(-HUGE);
   for (int i = 0; i < np; i++)
@@ -67,7 +71,7 @@ int main(int argc, char * argv[])
         {
           sites.push_back(Voronoi::Site(vec3(dx*(i+0.5), dy*(j+0.5), dz*(k+0.5)), sites.size()));
           vec3 &pos = sites.back().pos;
-          const real fac = 0.0e-9;
+          const real fac = 1.0e-9;
           pos.x += fac*(1.0 - 2.0*drand48())*dx;
           pos.y += fac*(1.0 - 2.0*drand48())*dy;
           pos.z += fac*(1.0 - 2.0*drand48())*dz;
@@ -90,7 +94,7 @@ int main(int argc, char * argv[])
 
   Voronoi::Site::Vector sitesP;
   sitesP.reserve(8*np);
-#if 0 /* periodic */
+#if 1 /* periodic */
   const real  f = 0.5;
   assert(f <= 0.5);
   const real dx = (0.5 - f) * lx;
