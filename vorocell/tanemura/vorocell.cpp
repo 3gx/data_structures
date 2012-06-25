@@ -43,7 +43,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, " np= %d\n", np);
   fprintf(stderr, " l= %g %g %g \n", lx, ly, lz);
 
-#if 1
+#if 0
   Voronoi::Site::Vector sites(np);
   vec3 min(+HUGE), max(-HUGE);
   for (int i = 0; i < np; i++)
@@ -71,7 +71,7 @@ int main(int argc, char * argv[])
         {
           sites.push_back(Voronoi::Site(vec3(dx*(i+0.5), dy*(j+0.5), dz*(k+0.5)), sites.size()));
           vec3 &pos = sites.back().pos;
-          const real fac = 1.0e-9;
+          const real fac = 0.0e-9;
           pos.x += fac*(1.0 - 2.0*drand48())*dx;
           pos.y += fac*(1.0 - 2.0*drand48())*dy;
           pos.z += fac*(1.0 - 2.0*drand48())*dz;
@@ -203,7 +203,7 @@ int main(int argc, char * argv[])
         dt_search += t1 - t0;
         t0 = t1;
 
-        std::sort(list.begin(), list.end(), Voronoi::Site());
+//        std::sort(list.begin(), list.end(), Voronoi::Site());
         t1 = get_wtime();
         dt_sort += t1 - t0;
         t0 = t1;

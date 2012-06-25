@@ -552,7 +552,7 @@ namespace Voronoi
         const double tX = get_wtime();
         const int nSites = siteList.size();
         std::vector<int> vtxUse(nSites, 1);
-        std::stack<PackedInt2> vtxList;
+        std::stack<int> vtxList;
 
         while (!vertexQueue.empty())
         {
@@ -581,8 +581,10 @@ namespace Voronoi
           const int endVertex = kVertex;
           const double tY = get_wtime();
           int cnt = 0;
+          assert(vtxList.empty());
           while (jVertex != endVertex)
           {
+//            fprintf(stderr,"size= %d\n", (int)vtxList.size());
             if (cnt++ > 100) assert(0);
             const vec3 &ipos = siteList[iVertex].pos;
             const vec3 &jpos = siteList[jVertex].pos;
@@ -591,15 +593,18 @@ namespace Voronoi
             const Plane plane(ipos, jpos);
             const real kloc  = plane(kpos);
             const int  sideK = kloc > 0.0;
-            assert(kloc*kloc >= eps2*kpos.norm2());
+            assert(kloc*kloc > eps2*kpos.norm2());
             real largeNum = -1e10;
             vec3  cpos(0.0);
             int lVertex = -1;
             
 
+            assert(vtxUse[iVertex] == 1);
             vtxUse[iVertex] ^= 1;
-            vtxUse[jVertex] ^= 1; //-vertexCompleted[jVertex];
-            vtxUse[kVertex] ^= 1; //-vertexCompleted[kVertex];
+            const bool juse = vtxUse[jVertex];
+            const bool kuse = vtxUse[kVertex];
+            if (juse) vtxUse[jVertex] ^= 1;
+            if (kuse) vtxUse[kVertex] ^= 1;
 
 #if 1
             const List &list = triangles(iVertex, jVertex);
@@ -611,16 +616,18 @@ namespace Voronoi
               if (side^sideK && vtxUse[i])
               {
 #if 0
-                assert (loc*loc > eps2*pos.norm2());
+                assert (plane(pos)*plane(pos) > eps2*pos.norm2());
                 real radius = 0.0;
                 const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
                 assert(radius > 0.0);
                 cpos = _cpos;
                 largeNum = 0.0;
                 lVertex = i;
+                break;
 #else
                 lVertex = i;
                 cpos    = tetraList[it->second()].centre();
+                break;
 #endif
               }
             }
@@ -670,7 +677,7 @@ namespace Voronoi
                   assert(it->first() != (unsigned int)jVertex); 
               }
 #endif
-#if 1
+#if 0
               assert(triangles(iVertex,jVertex).size() < 2);
               assert(triangles(jVertex,lVertex).size() < 2);
               assert(triangles(lVertex,iVertex).size() < 2);
@@ -703,9 +710,10 @@ namespace Voronoi
               assert(flag);
             }
 #endif
+
             vtxUse[iVertex] ^= 1;
-            vtxUse[jVertex] ^= 1; //-vertexCompleted[jVertex];
-            vtxUse[kVertex] ^= 1; //-vertexCompleted[kVertex];
+            if (juse) vtxUse[jVertex] ^= 1;
+            if (kuse) vtxUse[kVertex] ^= 1;
             /* vertex must be found at this point */
 
             if (!isVertexQueued[lVertex])
@@ -713,18 +721,23 @@ namespace Voronoi
               vertexQueue.push_back(lVertex);
               isVertexQueued[lVertex] = true;
             }
+              
+            assert(lVertex >= 0);
+            if (vtxUse[lVertex] == 1)
+            {
+              vtxList.push(lVertex);
+              vtxUse[lVertex] = 0;
+            }
 
             //            fprintf(stderr," true: i= %d j= %d k= %d l= %d  end=%d\n",  iVertex, jVertex,kVertex,lVertex, endVertex);
             kVertex = jVertex;
             jVertex = lVertex;
           }
-#if 0
           while(!vtxList.empty())
           {
-            tetraMap.insert(std::make_pair(SortedInt2(iVertex,jVertex), vtxList.top()));
+            vtxUse[vtxList.top()] = 1;
             vtxList.pop();
           }
-#endif
 
           dt_20 += get_wtime() - tY;
 
