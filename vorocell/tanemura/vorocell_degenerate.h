@@ -620,7 +620,7 @@ namespace VoronoiDegenerate
 
         D=XI*YJ*ZK+XJ*YK*ZI+XK*YI*ZJ-XK*YJ*ZI-XI*YK*ZJ-XJ*YI*ZK;
 
-        assert(__abs(D) > eps);
+        assert(__abs(D) > eps2*eps);
 
         D=0.50/D;
         XC=DI*YJ*ZK+DJ*YK*ZI+DK*YI*ZJ-DK*YJ*ZI-DI*YK*ZJ-DJ*YI*ZK;

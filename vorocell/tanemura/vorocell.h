@@ -268,7 +268,7 @@ namespace Voronoi
       real cellVolume;
 
       public:
-      Cell(const real _eps = 1.0e-11) : eps(_eps), eps2(_eps*_eps)
+      Cell(const real _eps = 1.0e-13) : eps(_eps), eps2(_eps*_eps)
       {
         angle_vec_pair .reserve(N);
         vertexCompleted.reserve(N);
@@ -555,7 +555,7 @@ namespace Voronoi
             if (triangles(iVertex, jVertex) != 1)
               std::swap(jVertex, kVertex);
 
-            if (triangles(iVertex, jVertex) != 1) return false;
+//            if (triangles(iVertex, jVertex) != 1) return false;
             assert(triangles(iVertex, jVertex) == 1);
             assert(triangles(iVertex, kVertex) == 2);
 
@@ -563,7 +563,7 @@ namespace Voronoi
 
             while(triangles(iVertex, jVertex) != 2)
             {
-              if (triangles(iVertex, jVertex) >= 2) return false;
+//              if (triangles(iVertex, jVertex) >= 2) return false;
               assert(triangles(iVertex, jVertex) < 2);
               /* step 4.5 - 4.6: 
                *  search a vertex on the opposite side of the kVertex 
@@ -609,7 +609,7 @@ namespace Voronoi
               vtxUse[iVertex] ^= 1;
               vtxUse[jVertex] ^= 1-vertexCompleted[jVertex];
               vtxUse[kVertex] ^= 1-vertexCompleted[kVertex];
-              if (lVertex < 0) return false;
+//              if (lVertex < 0) return false;
               assert(lVertex >= 0);
 
               /* step 4.7:
@@ -739,17 +739,36 @@ namespace Voronoi
         const real eps2c = eps2*cpos.norm2();
 
         const vec3 &posA = angle_vec_pair[0].second - cpos;
+        assert(posA.norm2() > 0.0);
         if (posA.norm2() == 0)
           return false;
         const vec3 unitA = posA * (1.0/posA.abs());
-        const vec3 &posB = angle_vec_pair[1].second - cpos;
+      
+        int iv = 1;
+#if 0
+        const real eps4a = eps2*eps2*posA.norm2();
+        for (iv = 1; iv < n; iv++)
+        {
+          const vec3 &posB = angle_vec_pair[iv].second - cpos;
+          const real q = (posA%posB).norm2();
+          if (q*q > eps4a*posB.norm2())
+            break;
+        }
+        assert(iv < n);
+        if (iv == n) 
+          return false;
+#endif
+        const vec3 &posB = angle_vec_pair[iv].second - cpos;
         vec3  unitN  = posA%posB;
-        if (unitN.abs() < eps) return false;
+        assert(unitN.norm2() > 0.0);
+        if (unitN.norm2() == 0.0)
+          return false;
         unitN *= 1.0/unitN.abs();
         for (int j = 0; j < n; j++)
         {
           const vec3  jpos = angle_vec_pair[j].second - cpos;
           const real    r2 = jpos.norm2();
+          assert(r2 > eps2c);
           if (r2 < eps2c) continue;
           const real cos    =  unitA * jpos;
           const real sin    = (unitA % jpos) * unitN;

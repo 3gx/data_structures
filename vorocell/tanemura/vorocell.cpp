@@ -39,7 +39,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, " np= %d\n", np);
   fprintf(stderr, " l= %g %g %g \n", lx, ly, lz);
 
-#if 1
+#if 0
   Voronoi::Site::Vector sites(np);
   vec3 min(+HUGE), max(-HUGE);
   for (int i = 0; i < np; i++)
@@ -67,10 +67,15 @@ int main(int argc, char * argv[])
         {
           sites.push_back(Voronoi::Site(vec3(dx*(i+0.5), dy*(j+0.5), dz*(k+0.5)), sites.size()));
           vec3 &pos = sites.back().pos;
+          const real fac = 1.0e-6;
+          pos.x += fac*(1.0 - 2.0*drand48())*dx;
+          pos.y += fac*(1.0 - 2.0*drand48())*dy;
+          pos.z += fac*(1.0 - 2.0*drand48())*dz;
           min = mineach(min, sites.back().pos);
           max = maxeach(max, sites.back().pos);
         }
   }
+  std::random_shuffle(sites.begin(), sites.end());
   assert((int)sites.size() == np);
 
 #endif
@@ -162,7 +167,7 @@ int main(int argc, char * argv[])
 #endif
         list.clear();
 #ifdef REFLECTING
-        std::nth_element(dist.begin(), dist.begin() + ns-3, dist.end(), cmp_data<real, int>());
+    //    std::nth_element(dist.begin(), dist.begin() + ns-3, dist.end(), cmp_data<real, int>());
         for (int j = 0; j < ns+1; j++)
           if (dist[j].first > 0.0)
             list.push_back(Voronoi::Site(sitesP[dist[j].second].pos - s.pos, sitesP[dist[j].second].idx));
@@ -209,6 +214,8 @@ int main(int argc, char * argv[])
         t0 = t1;
         if (!cell.build(list))
         {
+          fprintf(stderr, "i =%d\n", i);
+          assert(0);
 #if 1
           assert(cell_degenerate.build(list));
           volume += cell_degenerate.volume();
