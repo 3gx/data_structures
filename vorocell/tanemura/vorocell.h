@@ -582,6 +582,8 @@ namespace Voronoi
 
               /* hot-spot: finding 4th vertex of the new tetrahedron */
 
+              myNMX += nSites;
+
               vtxUse[iVertex] ^= 1;
               vtxUse[jVertex] ^= 1-vertexCompleted[jVertex];
               vtxUse[kVertex] ^= 1-vertexCompleted[kVertex];

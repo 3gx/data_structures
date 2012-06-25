@@ -1,7 +1,7 @@
 #include "mytimer.h"
 double dt_00, dt_10, dt_20, dt_30, dt_40, dt_44, dt_50, dt_60, dt_70;
 double dtA;
-unsigned long long flop = 0;
+unsigned long long flop = 0, myNMX = 0;
 #include "vorocell.h"
 #include "vorocell_degenerate.h"
 #include <iostream>
@@ -250,6 +250,7 @@ int main(int argc, char * argv[])
 
   fprintf(stderr,  "ncell= %d  nfailed= %d : %g \n",      np, nfailed, (real)nfailed/np);
 
+  fprintf(stderr, "myNMX/pp= %g\n", myNMX*1.0/(CNT*np));
 
   return 0;
 };

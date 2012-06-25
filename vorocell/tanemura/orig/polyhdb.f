@@ -1,4 +1,4 @@
-      PROGRAM POLYDB
+      PROGRAM POLYDB;
 *
 C         << ADD COMMENTS FOR BOUNDED CASE: DATE 1989/11/21  M.T.  >>
 C          << VERSION OF BOUNDED CUBIC BOX: DATE 1989/11/17  M.T.  >>
@@ -1111,7 +1111,7 @@ C
       LC(ID) = LC(ID)+1
 C
   450 DO 460 J=1,IEA
-        IF(LED(K,J).LT.2) GO TO 170
+       IF(LED(K,J).LT.2) GO TO 170
   460 CONTINUE
       LC(IA) = LC(IA)+1
       GO TO 150
@@ -1192,7 +1192,7 @@ C
 C
         IF(4.00D0*RMAX.LT.DSQ(NMX)) GO TO 500
 c  COMPLETE        
-c        stop 'error'
+        stop 'error'
       END IF
   490   CONTINUE
       IF (IBOUND .NE. 1) THEN
