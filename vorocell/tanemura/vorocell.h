@@ -23,6 +23,8 @@ inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
 template<class T>
 inline T __sign(const T a) {return a < T(0.0) ? (T)-1.0 : (T)+1.0;}
 
+inline int __iabs(const int a) {return a < 0 ? -1-a : a;}
+
 inline float __atan2(float y, float x)
 {
   float t0, t1, t3, t4;
@@ -266,6 +268,8 @@ namespace Voronoi
       FaceArray faceVtx[N];
 
       real cellVolume;
+      Site::Vector siteList;
+      int          nSites;
 
       public:
       Cell(const real _eps = 1.0e-11) : eps(_eps), eps2(_eps*_eps)
@@ -278,13 +282,17 @@ namespace Voronoi
       int nb() const {return nbList.size();}
       real volume() const {return cellVolume;}
 
-      bool build(const Site::Vector &siteList)
+      bool build(const Site::Vector &_siteList)
       {
         const double t00 = get_wtime();
 
-        const int nSite = siteList.size();
-        assert(nSite <= N);
-        clear(nSite);
+        siteList = _siteList;
+        nSites = siteList.size();
+        assert(nSites <= N);
+        clear (nSites);
+        
+        for (int i = 0; i < nSites; i++)
+          siteList[i].idx = i;
 
         /* step 1: 
          *  find site i, nearest to the origin
@@ -292,7 +300,7 @@ namespace Voronoi
         double t1 = get_wtime();
         int i = -1;
         real r2min = HUGE;
-        for (int ix = 0; ix < nSite; ix++)
+        for (int ix = 0; ix < nSites; ix++)
         {
           const vec3 &pos = siteList[ix].pos;
           const real   r2 = pos.norm2();
@@ -305,7 +313,7 @@ namespace Voronoi
         }
         assert(i >= 0);
 
-        const vec3 &ipos = siteList[i].pos;
+        const vec3 ipos = siteList[i].pos;
         assert(ipos.norm2() > 0.0);
 
         double t2 = get_wtime();
@@ -319,7 +327,7 @@ namespace Voronoi
         r2min = HUGE;
         int j = -1;
         const real ipos2 = ipos.norm2();
-        for (int ix = 0; ix < nSite; ix++)
+        for (int ix = 0; ix < nSites; ix++)
           if (ix != i)
           {
             const vec3 &pos = siteList[ix].pos;
@@ -355,7 +363,7 @@ namespace Voronoi
         real     rk =   0.0,     rl =   0.0;
         vec3  cposk(0.0),     cposl(0.0);
         const Plane plane(ipos, jpos, true);
-        for (int ix = 0; ix < nSite; ix++)
+        for (int ix = 0; ix < nSites; ix++)
           if (ix != i && ix != j)
           {
             const vec3 &pos = siteList[ix].pos;
@@ -507,8 +515,8 @@ namespace Voronoi
       {
         const double tX = get_wtime();
         incompleteTetra.clear();
-        const int nSites = siteList.size();
         std::vector<int> vtxUse(nSites, 1);
+        const Site::Vector &sites = siteList;
 
         while (!vertexQueue.empty())
         {
@@ -543,6 +551,7 @@ namespace Voronoi
           /* otherwise, find the face that lacks adjacent tetrahedron */
 
           const double tY = get_wtime();
+          const vec3 &ipos = siteList[iVertex].pos;
           while(!incompleteTetra.empty())
           {
             const Tetrahedron &t = tetrahedra[incompleteTetra.front()];
@@ -561,6 +570,8 @@ namespace Voronoi
 
             /* step 4.5-4.7 */
 
+            vec3 jpos = siteList[jVertex].pos;
+            vec3 kpos = siteList[kVertex].pos;
             while(triangles(iVertex, jVertex) != 2)
             {
               if (triangles(iVertex, jVertex) >= 2) return false;
@@ -569,16 +580,15 @@ namespace Voronoi
                *  search a vertex on the opposite side of the kVertex 
                *  (in the half-space bounded by ijFace that does not contain kVertex)
                */
-              const vec3 &ipos = siteList[iVertex].pos;
-              const vec3 &jpos = siteList[jVertex].pos;
-              const vec3 &kpos = siteList[kVertex].pos;
               const Plane plane(ipos, jpos);
               const int  sideK = plane(kpos) > 0.0;
               real largeNum = -1e10;
-              vec3  cpos(0.0);
-              int lVertex = -1;
+              vec3  cpos;
+              Site  sl;
+              int   il = -1;
 
               assert(!vertexCompleted[iVertex]);
+              assert(!vertexCompleted[jVertex]);
 
               /* hot-spot: finding 4th vertex of the new tetrahedron */
 
@@ -589,28 +599,32 @@ namespace Voronoi
               vtxUse[kVertex] ^= 1-vertexCompleted[kVertex];
               for (int i = 0; i < nSites; i++)
               {
-                const vec3 &pos = siteList[i].pos;
+                const Site   &s = sites[i];
+                const vec3 &pos = s.pos;
                 const int  side = plane(pos) > 0.0;
                 const real dist = pos*(pos + cpos) + largeNum;
                 flop += 20;
-                if (dist < -eps && side^sideK && vtxUse[i])
+                if (dist < -eps && side^sideK && vtxUse[s.idx])
                 {
-                  flop += 92;
+                  flop += 95;
                   real radius = 0.0;
                   const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
                   if (radius > 0.0) 
                   {
-                    cpos = _cpos;
+                    il = i;
+                    sl = s;
+                    cpos     = _cpos;
                     largeNum = 0.0;
-                    lVertex = i;
                   }
                 }
               }
+
               vtxUse[iVertex] ^= 1;
               vtxUse[jVertex] ^= 1-vertexCompleted[jVertex];
               vtxUse[kVertex] ^= 1-vertexCompleted[kVertex];
-              if (lVertex < 0) return false;
-              assert(lVertex >= 0);
+              if (il < 0) return false;
+              const int lVertex = sl.idx;
+
 
               /* step 4.7:
                *  register new tetrahedron (iVertex, jVertex, lVertex) 
@@ -654,6 +668,8 @@ namespace Voronoi
 
               kVertex = jVertex;
               jVertex = lVertex;
+              kpos = jpos;
+              jpos = sl.pos;
             }
           }
           dt_20 += get_wtime() - tY;
