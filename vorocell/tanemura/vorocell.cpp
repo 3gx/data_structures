@@ -67,7 +67,7 @@ int main(int argc, char * argv[])
         {
           sites.push_back(Voronoi::Site(vec3(dx*(i+0.5), dy*(j+0.5), dz*(k+0.5)), sites.size()));
           vec3 &pos = sites.back().pos;
-          const real fac = 1.0e-3;
+          const real fac = 0.0e-9;
           pos.x += fac*(1.0 - 2.0*drand48())*dx;
           pos.y += fac*(1.0 - 2.0*drand48())*dy;
           pos.z += fac*(1.0 - 2.0*drand48())*dz;
@@ -126,6 +126,7 @@ int main(int argc, char * argv[])
   assert(!sitesP.empty());
 
   double dt_search = 0.0;
+  double dt_sort   = 0.0;
   double dt_voro   = 0.0;
   double nface     = 0.0;
   const double tbeg = get_wtime();
@@ -139,7 +140,7 @@ int main(int argc, char * argv[])
     volume    = 0.0;
     nfailed = 0;
 
-#pragma omp parallel reduction(+:dt_search, dt_voro, nface, volume, nfailed)
+#pragma omp parallel reduction(+:dt_search, dt_sort, dt_voro, nface, volume, nfailed)
     {
       Voronoi          ::Cell<128> cell;
       VoronoiDegenerate::Cell<128> cell_degenerate;
@@ -160,14 +161,10 @@ int main(int argc, char * argv[])
         double t0 = get_wtime();
         for (int j = 0; j < (const int)sitesP.size(); j++)
           dist[j] = std::make_pair((sitesP[j].pos - s.pos).norm2(), j);
-#if 0
-        std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_data<real, int>());
-#else
-        std::sort(dist.begin(), dist.end(), cmp_data<real, int>());
-#endif
+        
         list.clear();
 #ifdef REFLECTING
-    //    std::nth_element(dist.begin(), dist.begin() + ns-3, dist.end(), cmp_data<real, int>());
+        std::nth_element(dist.begin(), dist.begin() + ns-3, dist.end(), cmp_data<real, int>());
         for (int j = 0; j < ns+1; j++)
           if (dist[j].first > 0.0)
             list.push_back(Voronoi::Site(sitesP[dist[j].second].pos - s.pos, sitesP[dist[j].second].idx));
@@ -190,27 +187,21 @@ int main(int argc, char * argv[])
         list.push_back(Voronoi::Site(vec3(0.0, 0.0,  2.0*(lz - s.pos.z)), -1-s.idx));
 #endif
 #else
+        std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_data<real, int>());
         for (int j = 0; j < ns+1; j++)
           if (dist[j].first > 0.0f)
-          {
-            assert(dist[j].first <= dist[ns].first);
             list.push_back(Voronoi::Site(sitesP[dist[j].second].pos - s.pos, sitesP[dist[j].second].idx));
-#if 0
-            fprintf(stdout, " %g %g %g   %g dist= %g  j= %d\n", 
-                list.back().pos.x,
-                list.back().pos.y,
-                list.back().pos.z,
-                list.back().pos.norm2(),
-                dist[j].first, j
-                );
-#endif
-          }
 #endif
         assert((int)list.size() == ns);
+        for (int j = 0; j < ns; j++)
+          list[j].r = list[j].pos.norm2();
         double t1 = get_wtime();
         dt_search += t1 - t0;
+        t0 = t1;
 
-
+        std::sort(list.begin(), list.end(), Voronoi::Site());
+        t1 = get_wtime();
+        dt_sort += t1 - t0;
         t0 = t1;
         if (!cell.build(list))
         {
@@ -236,6 +227,7 @@ int main(int argc, char * argv[])
   const double tend = get_wtime();
 
   fprintf(stderr , " dt_search=  %g sec \n", dt_search);
+  fprintf(stderr , " dt_sort  =  %g sec \n", dt_sort);
   fprintf(stderr , " dt_voro  =  %g sec \n", dt_voro);
   fprintf(stderr,  "   dt_00=  %g \n" ,dt_00);
   fprintf(stderr,  "   dt_10=  %g \n" ,dt_10);

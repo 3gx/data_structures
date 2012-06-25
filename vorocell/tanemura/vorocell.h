@@ -70,9 +70,14 @@ namespace Voronoi
   {
     typedef std::vector<Site> Vector;
     vec3 pos;
-    long long idx;
+    int idx;
+    float r;
     Site() {}
     Site(const vec3 &_pos, const long long _idx) : pos(_pos), idx(_idx) {}
+    bool operator()(const Site &s1, const Site &s2) const
+    {
+      return s1.r < s2.r;
+    }
   };
 
   struct Plane
