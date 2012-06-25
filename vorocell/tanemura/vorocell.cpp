@@ -127,7 +127,9 @@ int main(int argc, char * argv[])
   double volume    = 0.0;
   int nfailed = 0;
 
-  for (int cnt = 0; cnt < 10; cnt++)
+ 
+ const int CNT = 10; 
+  for (int cnt = 0; cnt < CNT; cnt++)
   {
     volume    = 0.0;
     nfailed = 0;
@@ -153,7 +155,7 @@ int main(int argc, char * argv[])
         double t0 = get_wtime();
         for (int j = 0; j < (const int)sitesP.size(); j++)
           dist[j] = std::make_pair((sitesP[j].pos - s.pos).norm2(), j);
-#if 1
+#if 0
         std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_data<real, int>());
 #else
         std::sort(dist.begin(), dist.end(), cmp_data<real, int>());
@@ -230,8 +232,8 @@ int main(int argc, char * argv[])
   fprintf(stderr , " dt_voro  =  %g sec \n", dt_voro);
   fprintf(stderr,  "   dt_00=  %g \n" ,dt_00);
   fprintf(stderr,  "   dt_10=  %g \n" ,dt_10);
-  fprintf(stderr,  "   dt_20=  %g GFLOP/s: %g\n" ,dt_20, flop/dt_20/1e9);
-  fprintf(stderr,  "   dt_30=  %g GFLOP/s: %g\n" ,dt_30, flop/dt_30/1e9);
+  fprintf(stderr,  "   dt_20=  %g GFLOP/s: %g  flop= %llu M\n" ,dt_20, flop/dt_20/1e9, flop/1000000 );
+  fprintf(stderr,  "   dt_30=  %g GFLOP/s: %g rate= %g cell/sec\n" ,dt_30, flop/dt_30/1e9, np*CNT/dt_30);
   fprintf(stderr,  "   dt_40=  %g \n" ,dt_40);
   fprintf(stderr,  "   dt_44=  %g \n" ,dt_44);
   fprintf(stderr,  "   dt_50=  %g \n" ,dt_50);

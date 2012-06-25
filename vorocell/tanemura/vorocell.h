@@ -590,7 +590,7 @@ namespace Voronoi
                 const vec3 &pos = siteList[i].pos;
                 const int  side = plane(pos) > 0.0;
                 const real dist = pos*(pos + cpos) + largeNum;
-                flop += 16;
+                flop += 20;
                 if (dist < -eps && side^sideK && vtxUse[i])
                 {
                   flop += 92;

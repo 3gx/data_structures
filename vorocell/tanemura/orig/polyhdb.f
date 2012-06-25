@@ -439,7 +439,7 @@ C     =================================================
 C     =================================================
 C
       TBEG = rtc()
-      DO 9999 NXN=0,1
+      DO 9999 NXN=0,9
 
       TOTVOL= 0.0D0
       LP    = 0
@@ -940,7 +940,7 @@ c fast version
         mFLAG=(j.ne.ia).and.(j.ne.ib).and.(j.ne.ic).and.(lc(j).eq.0)
         if ((tt1 < 0.0).and.(tt*tt0 < 0.0).and.mFLAG) then
           call sphere(ia, ib, j, tx1, tx2, tx3, rrx)
-          myFLOP = myFLOP + 77
+          myFLOP = myFLOP + 92
           isjk(1)=j
           nn = nn + 1
           t1 = -tx1*2.0
@@ -1350,6 +1350,7 @@ C
       print *, "myCNT/pp:" ,myCNT*1.0/(NP*NXN)
       print *, "myNMX/pp:" ,myNMX*1.0/(NP*NXN), myNMX*1.0/myCNT
       print *, "GFLOP/s:", myFLOP/DT46/1.0e9
+      print *, "FLOP: ", myFLOP/1000000
  9000 CONTINUE
       WRITE(6,662)  TOTVOL,TVOL
   662 FORMAT(/1H ,10X,'TOTAL VOLUME OF POLYHEDRA =',F12.5

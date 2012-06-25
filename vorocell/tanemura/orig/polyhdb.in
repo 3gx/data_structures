@@ -5,7 +5,7 @@
     1               NDATA
     1               NSTP(1)
     0               IFILE
-    0               IBOUND
+    1               IBOUND
     1  500          NSTEP   NP
    7.6656488  7.6656488  7.6656488     BOXLX   BOXLY   BOXLZ
     1   1.43691   7.44623   0.15537
