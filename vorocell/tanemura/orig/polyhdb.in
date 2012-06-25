@@ -1,11 +1,11 @@
   1.00E-11          EPS
-   100   40          NS   NRG
+   100   100          NS   NRG
  0.001            DFACT
     1               ILIST          0
     1               NDATA
     1               NSTP(1)
     0               IFILE
-    1               IBOUND
+    0               IBOUND
     1  500          NSTEP   NP
    7.6656488  7.6656488  7.6656488     BOXLX   BOXLY   BOXLZ
     1   1.43691   7.44623   0.15537

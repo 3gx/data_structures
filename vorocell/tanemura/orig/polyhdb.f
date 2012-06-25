@@ -563,6 +563,8 @@ C       WRITE(6,6998) XLN,YLN,ZLN,(X(L),Y(L),Z(L),L=2,NMX)
       TT11  = rtc();
       DT2  = DT2 + (TT11 - TT00)
       TT00  = TT11
+
+      print *, NMX
 C
 C================<< STEP   3 >>================
 C********** MINIMUM TETRAHEDRON I,I1,I2,I3 **********
