@@ -736,7 +736,6 @@ namespace Voronoi
           angle_vec_pair[i].second = jpos;
         }
         cpos *= 1.0/(real)n;
-        const real eps2c = eps2*cpos.norm2();
 
         const vec3 &posA = angle_vec_pair[0].second - cpos;
         assert(posA.norm2() > 0.0);
@@ -768,8 +767,7 @@ namespace Voronoi
         {
           const vec3  jpos = angle_vec_pair[j].second - cpos;
           const real    r2 = jpos.norm2();
-          assert(r2 > eps2c);
-          if (r2 < eps2c) continue;
+          assert(r2 > 0.0);
           const real cos    =  unitA * jpos;
           const real sin    = (unitA % jpos) * unitN;
 #if 1
