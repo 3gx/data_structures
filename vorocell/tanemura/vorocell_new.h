@@ -24,34 +24,6 @@ inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
 template<class T>
 inline T __sign(const T a) {return a < T(0.0) ? (T)-1.0 : (T)+1.0;}
 
-inline float __atan2(float y, float x)
-{
-  float t0, t1, t3, t4;
-
-  t3 = __abs(x);
-  t1 = __abs(y);
-  t0 = __max(t3, t1);
-  t1 = __min(t3, t1);
-  t3 = float(1) / t0;
-  t3 = t1 * t3;
-
-  t4 = t3 * t3;
-  t0 =         - float(0.013480470);
-  t0 = t0 * t4 + float(0.057477314);
-  t0 = t0 * t4 - float(0.121239071);
-  t0 = t0 * t4 + float(0.195635925);
-  t0 = t0 * t4 - float(0.332994597);
-  t0 = t0 * t4 + float(0.999995630);
-  t3 = t0 * t3;
-
-  t3 = (abs(y) > abs(x)) ? float(1.570796327) - t3 : t3;
-  t3 = (x < 0) ?  float(3.141592654) - t3 : t3;
-  t3 = (y < 0) ? -t3 : t3;
-
-  return t3;
-}
-
-
 struct PackedInt2
 {
   private:
@@ -294,6 +266,7 @@ namespace Voronoi
   {
     vec3 norm;
     real area;
+    Face() {}
     Face(const vec3 &n, const real A) : norm(n), area(A) {}
   };
 
@@ -315,11 +288,13 @@ namespace Voronoi
       std::vector<   int     >     nbList;
       std::vector<  Face     >   faceList;
 
-      std::vector<int> vtxUse;
-      std::stack <int> vtxList;
+      std::vector< int> vtxUse;
+      std::stack < int> vtxList;
+      std::vector<vec3> vtxPos;
       Site::Vector     sites;
-#if 0
+
       std::vector< std::pair<real, vec3> > angle_vec_pair;
+#if 0
       std::deque<int> incompleteTetra;
       FaceArray faceVtx[N];
 #endif
@@ -336,7 +311,9 @@ namespace Voronoi
         nbList         .reserve(N);
         faceList       .reserve(N);
         vtxUse         .reserve(N);
+        vtxPos         .reserve(N);
         sites          .reserve(N);
+        angle_vec_pair .reserve(N);
       }
       
       private:
@@ -355,6 +332,8 @@ namespace Voronoi
         tetraList .clear();
         nbList    .clear();
         faceList  .clear();
+
+        cellVolume = 0.0;
       }
       
       public:
@@ -582,12 +561,6 @@ namespace Voronoi
           const int iVertex = vertexQueue.front();
           vertexQueue.pop_front();
 
-#if 1  /* sanity check: the vertex haven't yet registered in nbList */
-          for (std::vector<int>::const_iterator it = nbList.begin(); it != nbList.end(); it++)
-            assert(*it !=  iVertex);
-#endif
-          nbList.push_back(iVertex);
-          
           /* step 4.3-4.4:
            *  find a tetrahedron (i, iVertex, jVertex, kVertex) with at least one
            *  incomplete face
@@ -611,6 +584,9 @@ namespace Voronoi
           int nSites_loc = siteList.size();
           SWAP(iMap[iVertex], nSites_loc);
           SWAP(iMap[jVertex], nSites_loc);
+
+          vtxPos.clear();
+          vtxPos.push_back(tetraList[triangles(iVertex, jVertex).begin()->second()].centre());
 
           int cnt = 0;
           while (jVertex != endVertex)
@@ -693,7 +669,8 @@ namespace Voronoi
               triangles.add(iVertex, jVertex, PackedInt2(lVertex, tetraList.size()));
               triangles.add(jVertex, lVertex, PackedInt2(iVertex, tetraList.size()));
               triangles.add(lVertex, iVertex, PackedInt2(jVertex, tetraList.size()));
-              tetraList.push_back(Tetrahedron(iVertex, jVertex, lVertex, cpos*(real)(-0.5)));
+              cpos *= (real)(-0.5);
+              tetraList.push_back(Tetrahedron(iVertex, jVertex, lVertex, cpos));
             }
             else
             {
@@ -735,24 +712,51 @@ namespace Voronoi
               SWAP(iMap[lVertex], nSites_loc);
             }
 
+            vtxPos.push_back(cpos);
+
             kVertex = jVertex;
             jVertex = lVertex;
           }
+          dt_20 += get_wtime() - tY;
+
           while(!vtxList.empty())
           {
             vtxUse[vtxList.top()] = 1;
             vtxList.pop();
           }
 
-          dt_20 += get_wtime() - tY;
+          if (!vtxPos.empty())
+          {
+#if 1
+            const int nvtx = vtxPos.size();
+            vec3 cpos(0.0);
+            for (int i = 0; i < nvtx; i++)
+              cpos += vtxPos[i];
+            cpos *= 1.0/(real)nvtx;
 
-          /* step 4.8: */
-#if 0   /* sanity check: pass over all tetrahedra to make sure they are all complete */
-          for (int i= 0; i < faceVtx[iVertex].size(); i++)
-            assert(isComplete(tetrahedra[faceVtx[iVertex][i]], iVertex));
+            vec3 area(0.0);
+            real vol (0.0);
+            vtxPos.push_back(vtxPos[0]);
+            for (int i = 0; i < nvtx; i++)
+            {
+              const vec3 &v1 = vtxPos[i  ];
+              const vec3 &v2 = vtxPos[i+1];
+              area  += (v1-cpos)%(v2-cpos);
+              vol   += __abs(cpos*(v1%v2));
+            }
+            cellVolume += vol*(1.0/6.0);
+            const real A = area.abs();
+            assert(A > 0.0);
+            faceList.push_back(Face(area/A, 0.5*A));
+#else
+            faceList.push_back(Face());
+            traceFace(vtxPos, cellVolume, faceList.back());
 #endif
+            nbList.push_back(iVertex);
+          }
+
+
           vertexCompleted[iVertex] = true;
-          //          vtxUse         [iVertex] = false;
         }
         dt_30 += get_wtime() - tX;
         return true;
@@ -812,15 +816,14 @@ namespace Voronoi
         return radius;
       }
 
-#if 0
-      bool buildFace(const FaceArray &vtxList, real &volume, Face &face)
+      bool traceFace(const std::vector<vec3> &vtxPos, real &volume, Face &face)
       {
-        const int n = vtxList.size();
+        const int n = vtxPos.size();
         angle_vec_pair.resize(n);
         vec3 cpos(0.0);
         for (int i= 0; i < n; i++)
         {
-          const vec3 &jpos = tetrahedra[vtxList[i]].centre();
+          const vec3 &jpos = vtxPos[i];
           cpos += jpos;
           angle_vec_pair[i].second = jpos;
         }
@@ -885,7 +888,6 @@ namespace Voronoi
         face = Face(unitN, 0.5*area.abs());
         return true;
       }
-#endif
 
     };
 
