@@ -548,7 +548,7 @@ namespace Voronoi
 #define SWAP(i,n) {std::swap(sites[i], sites[--n]);  iMap[sites[i].idx] = i; iMap[sites[n].idx] = n; }
         std ::vector<int> iMap(nSites);
         for (int i = 0; i < nSites; i++)
-          sites[i].idx = i;
+          iMap[i] = i;
 
 #else
 #define SWAP(i,n) {}
