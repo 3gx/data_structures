@@ -752,9 +752,12 @@ namespace Voronoi
               nbList.push_back(iVertex);
             }
 #else
-            faceList.push_back(Face());
-            assert(traceFace(vtxPos, cellVolume, faceList.back()));
-            nbList.push_back(iVertex);
+            Face f;
+            if (traceFace(vtxPos, cellVolume, f))
+            {
+              faceList.push_back(f);
+              nbList.push_back(iVertex);
+            }
 #endif
           }
 
@@ -833,7 +836,7 @@ namespace Voronoi
         cpos *= 1.0/(real)n;
 
         const vec3 &posA = angle_vec_pair[0].second - cpos;
-        assert(posA.norm2() > 0.0);
+        //assert(posA.norm2() > 0.0);
         if (posA.norm2() == 0)
           return false;
         const vec3 unitA = posA * (1.0/posA.abs());
@@ -854,7 +857,7 @@ namespace Voronoi
 #endif
         const vec3 &posB = angle_vec_pair[iv].second - cpos;
         vec3  unitN  = posA%posB;
-        assert(unitN.norm2() > 0.0);
+//        assert(unitN.norm2() > 0.0);
         if (unitN.norm2() == 0.0)
           return false;
         unitN *= 1.0/unitN.abs();
@@ -862,6 +865,7 @@ namespace Voronoi
         {
           const vec3  jpos = angle_vec_pair[j].second - cpos;
           const real    r2 = jpos.norm2();
+          if (r2 == 0.0) return false;
           assert(r2 > 0.0);
           const real cos    =  unitA * jpos;
           const real sin    = (unitA % jpos) * unitN;
