@@ -746,13 +746,16 @@ namespace Voronoi
             }
             cellVolume += vol*(1.0/6.0);
             const real A = area.abs();
-            assert(A > 0.0);
-            faceList.push_back(Face(area/A, 0.5*A));
+            if (A > 0.0)
+            {
+              faceList.push_back(Face(area/A, 0.5*A));
+              nbList.push_back(iVertex);
+            }
 #else
             faceList.push_back(Face());
-            traceFace(vtxPos, cellVolume, faceList.back());
-#endif
+            assert(traceFace(vtxPos, cellVolume, faceList.back()));
             nbList.push_back(iVertex);
+#endif
           }
 
 

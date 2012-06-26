@@ -43,7 +43,7 @@ int main(int argc, char * argv[])
   fprintf(stderr, " np= %d\n", np);
   fprintf(stderr, " l= %g %g %g \n", lx, ly, lz);
 
-#if 1
+#if 0
   Voronoi::Site::Vector sites(np);
   vec3 min(+HUGE), max(-HUGE);
   for (int i = 0; i < np; i++)
