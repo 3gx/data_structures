@@ -314,6 +314,10 @@ namespace Voronoi
       std::vector<Tetrahedron> tetraList;
       std::vector<   int     >     nbList;
       std::vector<  Face     >   faceList;
+
+      std::vector<int> vtxUse;
+      std::stack <int> vtxList;
+      Site::Vector     sites;
 #if 0
       std::vector< std::pair<real, vec3> > angle_vec_pair;
       std::deque<int> incompleteTetra;
@@ -331,6 +335,8 @@ namespace Voronoi
         tetraList      .reserve(N);
         nbList         .reserve(N);
         faceList       .reserve(N);
+        vtxUse         .reserve(N);
+        sites          .reserve(N);
       }
       
       private:
@@ -341,6 +347,8 @@ namespace Voronoi
 
         vertexCompleted.resize(nSites);
         isVertexQueued .resize(nSites);
+        vtxUse         .resize(nSites);
+        sites          .resize(nSites);
         for (int i = 0; i < nSites; i++)
           isVertexQueued[i] = vertexCompleted[i] = false;
 
@@ -551,9 +559,21 @@ namespace Voronoi
       {
         const double tX = get_wtime();
         const int nSites = siteList.size();
-        std::vector<int> vtxUse(nSites, 1);
-        std::stack<int> vtxList;
+        for (int i = 0; i < nSites; i++)
+        {
+          sites [i] = Site(siteList[i].pos, i);
+          vtxUse[i] = 1;
+        }
 
+#if 0
+#define SWAP(i,n) {std::swap(sites[i], sites[--n]);  iMap[sites[i].idx] = i; iMap[sites[n].idx] = n; }
+        std ::vector<int> iMap(nSites);
+        for (int i = 0; i < nSites; i++)
+          sites[i].idx = i;
+
+#else
+#define SWAP(i,n) {}
+#endif
         while (!vertexQueue.empty())
         {
           /* step 4.2:
@@ -580,11 +600,21 @@ namespace Voronoi
 
           const int endVertex = kVertex;
           const double tY = get_wtime();
-          int cnt = 0;
           assert(vtxList.empty());
+
+          vtxUse[iVertex] = 0;
+          vtxUse[jVertex] = 0;
+          vtxList.push(iVertex);
+          vtxList.push(jVertex);
+
+
+          int nSites_loc = siteList.size();
+          SWAP(iMap[iVertex], nSites_loc);
+          SWAP(iMap[jVertex], nSites_loc);
+
+          int cnt = 0;
           while (jVertex != endVertex)
           {
-//            fprintf(stderr,"size= %d\n", (int)vtxList.size());
             if (cnt++ > 100) assert(0);
             const vec3 &ipos = siteList[iVertex].pos;
             const vec3 &jpos = siteList[jVertex].pos;
@@ -597,16 +627,7 @@ namespace Voronoi
             real largeNum = -1e10;
             vec3  cpos(0.0);
             int lVertex = -1;
-            
 
-            assert(vtxUse[iVertex] == 1);
-            vtxUse[iVertex] ^= 1;
-            const bool juse = vtxUse[jVertex];
-            const bool kuse = vtxUse[kVertex];
-            if (juse) vtxUse[jVertex] ^= 1;
-            if (kuse) vtxUse[kVertex] ^= 1;
-
-#if 1
             const List &list = triangles(iVertex, jVertex);
             for (List::const_iterator it = list.begin(); it != list.end(); it++)
             {
@@ -615,48 +636,35 @@ namespace Voronoi
               const int  side = plane(pos) > 0.0;
               if (side^sideK && vtxUse[i])
               {
-#if 0
-                assert (plane(pos)*plane(pos) > eps2*pos.norm2());
-                real radius = 0.0;
-                const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
-                assert(radius > 0.0);
-                cpos = _cpos;
-                largeNum = 0.0;
-                lVertex = i;
-                break;
-#else
                 lVertex = i;
                 cpos    = tetraList[it->second()].centre();
                 break;
-#endif
               }
             }
-#endif
 
-//            fprintf(stderr, "l= %d\n", lVertex);
             if (lVertex < 0)
             {
               /* vertex is not found in tetrahedra list, search the siteList*/
               myNMX += nSites;
 
-              for (int i = 0; i < nSites; i++)
+              for (int i = 0; i < nSites_loc; i++)
               {
-                const vec3 &pos = siteList[i].pos;
-                const real  loc = plane(pos);
+                const Site   &s = sites[i];
+                const real  loc = plane(s.pos);
                 const int  side = loc > 0.0;
-                const real dist = pos*(pos + cpos) + largeNum;
+                const real dist = s.pos*(s.pos + cpos) + largeNum;
                 flop += 20;
-                if (dist < -eps && side^sideK && vtxUse[i])
+                if (dist < -eps && side^sideK && vtxUse[s.idx])
                 {
-                  if (loc*loc < eps2*pos.norm2()) continue;
+                  if (loc*loc < eps2*s.pos.norm2()) continue;
                   flop += 92;
                   real radius = 0.0;
-                  const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);
+                  const vec3 _cpos = sphere(ipos, jpos, s.pos, radius)*(real)(-2.0);
                   if (radius > 0.0) 
                   {
                     cpos = _cpos;
                     largeNum = 0.0;
-                    lVertex = i;
+                    lVertex  = s.idx;
                   }
                 }
               }
@@ -687,9 +695,9 @@ namespace Voronoi
               triangles.add(lVertex, iVertex, PackedInt2(jVertex, tetraList.size()));
               tetraList.push_back(Tetrahedron(iVertex, jVertex, lVertex, cpos*(real)(-0.5)));
             }
-#if 0       /* sanity check */
             else
             {
+#if 0       /* sanity check */
               bool flag = false;
               List::const_iterator begin = triangles(iVertex, jVertex).begin();
               List::const_iterator end   = triangles(iVertex, jVertex).end  ();
@@ -708,12 +716,9 @@ namespace Voronoi
               for (List::const_iterator it = begin; it != end; it++)
                 flag |= it->first() == (unsigned int)jVertex;
               assert(flag);
-            }
 #endif
+            }
 
-            vtxUse[iVertex] ^= 1;
-            if (juse) vtxUse[jVertex] ^= 1;
-            if (kuse) vtxUse[kVertex] ^= 1;
             /* vertex must be found at this point */
 
             if (!isVertexQueued[lVertex])
@@ -721,15 +726,15 @@ namespace Voronoi
               vertexQueue.push_back(lVertex);
               isVertexQueued[lVertex] = true;
             }
-              
+
             assert(lVertex >= 0);
             if (vtxUse[lVertex] == 1)
             {
               vtxList.push(lVertex);
               vtxUse[lVertex] = 0;
+              SWAP(iMap[lVertex], nSites_loc);
             }
 
-            //            fprintf(stderr," true: i= %d j= %d k= %d l= %d  end=%d\n",  iVertex, jVertex,kVertex,lVertex, endVertex);
             kVertex = jVertex;
             jVertex = lVertex;
           }
