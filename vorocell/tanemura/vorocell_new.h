@@ -738,7 +738,7 @@ namespace Voronoi
 
           if (!vtxPos.empty())
           {
-#if 1
+#if 0
             const int nvtx = vtxPos.size();
             vec3 cpos(0.0);
             for (int i = 0; i < nvtx; i++)
@@ -755,17 +755,19 @@ namespace Voronoi
               area  += (v1-cpos)%(v2-cpos);
               vol   += __abs(cpos*(v1%v2));
             }
-            cellVolume += vol*(1.0/6.0);
             const real A = area.abs();
             if (A > 0.0)
             {
+              cellVolume += vol*(1.0/6.0);
               faceList.push_back(Face(area/A, 0.5*A));
               nbList.push_back(iVertex);
             }
 #else
             Face f;
-            if (traceFace(vtxPos, cellVolume, f))
+            real vol = 0.0;
+            if (traceFace(vtxPos, vol, f))
             {
+              cellVolume += vol;
               faceList.push_back(f);
               nbList.push_back(iVertex);
             }
@@ -833,6 +835,7 @@ namespace Voronoi
         return radius;
       }
 
+#if 0
       bool traceFace(const std::vector<vec3> &vtxPos, real &volume, Face &face)
       {
         const int n = vtxPos.size();
@@ -853,7 +856,7 @@ namespace Voronoi
         const vec3 unitA = posA * (1.0/posA.abs());
 
         int iv = 1;
-#if 0
+#if 1
         const real eps4a = eps2*eps2*posA.norm2();
         for (iv = 1; iv < n; iv++)
         {
@@ -862,7 +865,6 @@ namespace Voronoi
           if (q*q > eps4a*posB.norm2())
             break;
         }
-        assert(iv < n);
         if (iv == n) 
           return false;
 #endif
@@ -906,6 +908,80 @@ namespace Voronoi
         face = Face(unitN, 0.5*area.abs());
         return true;
       }
+#else
+      bool traceFace(const std::vector<vec3> &vtxPos, real &volume, Face &face)
+      {
+        const int n = vtxPos.size();
+        angle_vec_pair.resize(n);
+        vec3 cpos(0.0);
+        for (int i= 0; i < n; i++)
+        {
+          const vec3 &jpos = vtxPos[i];
+          cpos += jpos;
+          angle_vec_pair[i].second = jpos;
+        }
+        cpos *= 1.0/(real)n;
+
+        const vec3 &posA = angle_vec_pair[0].second - cpos;
+        //assert(posA.norm2() > 0.0);
+        if (posA.norm2() == 0)
+          return false;
+        const vec3 unitA = posA * (1.0/posA.abs());
+
+        int iv = 1;
+#if 1
+        const real eps4a = eps2*eps2*posA.norm2();
+        for (iv = 1; iv < n; iv++)
+        {
+          const vec3 &posB = angle_vec_pair[iv].second - cpos;
+          const real q = (posA%posB).norm2();
+          if (q*q > eps4a*posB.norm2())
+            break;
+        }
+        if (iv == n) 
+          return false;
+#endif
+        const vec3 &posB = angle_vec_pair[iv].second - cpos;
+        vec3  unitN  = posA%posB;
+        //        assert(unitN.norm2() > 0.0);
+        if (unitN.norm2() == 0.0)
+          return false;
+        unitN *= 1.0/unitN.abs();
+        for (int j = 0; j < n; j++)
+        {
+          const vec3  jpos = angle_vec_pair[j].second - cpos;
+          const real    r2 = jpos.norm2();
+          if (r2 == 0.0) return false;
+          assert(r2 > 0.0);
+          const real cos    =  unitA * jpos;
+          const real sin    = (unitA % jpos) * unitN;
+#if 1
+          const real cos2   =  cos*__abs(cos) * (1.0/r2);
+          angle_vec_pair[j] = std::make_pair(sin >  0.0 ? -cos2 : 2.0+cos2, jpos);
+#else
+          angle_vec_pair[j] = std::make_pair(std::atan2(sin, cos), jpos);
+#endif
+        }
+        std::sort(angle_vec_pair.begin(), angle_vec_pair.end(), cmp_data<real, vec3>());
+        angle_vec_pair.push_back(angle_vec_pair[0]);
+
+        /* comput area & volume */
+        real vol  = 0.0;
+        vec3 area(0.0);
+        const vec3 &v0 = cpos;
+        for (int i = 0; i < n; i++)
+        {
+          const vec3 &v1 = angle_vec_pair[i  ].second;
+          const vec3 &v2 = angle_vec_pair[i+1].second;
+          area  += v1%v2;
+          vol   += __abs(v0*((v1+v0)%(v2+v0)));
+        }
+        volume += vol*(1.0/6.0);
+
+        face = Face(unitN, 0.5*area.abs());
+        return true;
+      }
+#endif
 
     };
 
