@@ -595,7 +595,7 @@ namespace Voronoi
               const int i = it->first();
               const vec3 &pos = siteList[i].pos;
               const int  side = plane(pos) > 0.0;
-              if (side^sideK && i != kVertex)
+              if (side^sideK)
               {
                 lVertex = i;
                 cpos    = tetraList[it->second()].centre();
