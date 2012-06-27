@@ -715,29 +715,33 @@ namespace Voronoi
             vtxList.pop();
           }
 
+          vertexCompleted[iVertex] = true;
+
           if (!vtxPos.empty())
           {
 #if 0
             const int nvtx = vtxPos.size();
+            flop += nvtx*3 + 2 + nvtx*(6+9+3)+6+5;
+
             vec3 cpos(0.0);
             for (int i = 0; i < nvtx; i++)
               cpos += vtxPos[i];
             cpos *= 1.0/(real)nvtx;
 
             vec3 area(0.0);
-            real vol (0.0);
             vtxPos.push_back(vtxPos[0]);
             for (int i = 0; i < nvtx; i++)
             {
-              const vec3 &v1 = vtxPos[i  ];
-              const vec3 &v2 = vtxPos[i+1];
-              area  += (v1-cpos)%(v2-cpos);
-              vol   += __abs(cpos*(v1%v2));
+              const vec3 v1 = vtxPos[i  ] - cpos;
+              const vec3 v2 = vtxPos[i+1] - cpos;
+              area  += v1%v2;
             }
-            const real A = area.abs();
+            const real A   = area.abs();
+            const real vol = area*cpos;
+            if (vol < 0.0) area *= -1.0;
             if (A > 0.0)
             {
-              cellVolume += vol*(1.0/6.0);
+              cellVolume += __abs(vol)*(1.0/6.0);
               faceList.push_back(Face(area/A, 0.5*A));
               nbList.push_back(iVertex);
             }
@@ -753,8 +757,6 @@ namespace Voronoi
 #endif
           }
 
-
-          vertexCompleted[iVertex] = true;
         }
         dt_30 += get_wtime() - tX;
         return true;
@@ -945,19 +947,21 @@ namespace Voronoi
         angle_vec_pair.push_back(angle_vec_pair[0]);
 
         /* comput area & volume */
-        real vol  = 0.0;
         vec3 area(0.0);
-        const vec3 &v0 = cpos;
         for (int i = 0; i < n; i++)
         {
           const vec3 &v1 = angle_vec_pair[i  ].second;
           const vec3 &v2 = angle_vec_pair[i+1].second;
           area  += v1%v2;
-          vol   += __abs(v0*((v1+v0)%(v2+v0)));
         }
-        volume += vol*(1.0/6.0);
+        const real vol = area*cpos;
+        const real  A  = area.abs();
+        if (A == 0.0) return false;
 
-        face = Face(unitN, 0.5*area.abs());
+        if (vol < 0.0) area *= -1.0;
+
+        volume += __abs(vol)*(1.0/6.0);
+        face = Face(area/A, 0.5*A);
         return true;
       }
 #endif
