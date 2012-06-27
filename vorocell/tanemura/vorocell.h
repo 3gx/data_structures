@@ -273,7 +273,7 @@ namespace Voronoi
       real cellVolume;
 
       public:
-      Cell(const real _eps = 1.0e-13) : eps(_eps), eps2(_eps*_eps)
+      Cell(const real _eps = 1.0e-19) : eps(_eps), eps2(_eps*_eps)
       {
         angle_vec_pair .reserve(N);
         vertexCompleted.reserve(N);
@@ -370,16 +370,17 @@ namespace Voronoi
             const real dist2 = pos*(pos + cposl) + largel;
             if (side && dist1 < 0.0)
             {
-              if (ploc*ploc < eps2*pos.norm2()) continue;
-              if (__abs(dist1) < eps) continue; 
+              if (ploc*ploc <= eps2*pos.norm2()) continue;
+              if (__abs(dist1) <= 0.0*eps) continue; 
               cposk = sphere(ipos, jpos, pos, rk)*(real)(-2.0);
               largek = 0.0;
               k = ix;
             }
             else if (!side && dist2 < 0.0)
             {
-              if (ploc*ploc < eps2*pos.norm2()) continue;
-              if (__abs(dist2) < eps) continue; 
+              if (ploc*ploc <= eps2*pos.norm2()) continue;
+              if (__abs(dist2) <= 0.0*eps) continue; 
+
               cposl = sphere(ipos, jpos, pos, rl)*(real)(-2.0);
               largel = 0.0;
               l = ix;
@@ -596,10 +597,13 @@ namespace Voronoi
               {
                 const vec3 &pos = siteList[i].pos;
                 const int  side = plane(pos) > 0.0;
-                const real dist = pos*(pos + cpos) + largeNum;
+                const real p2   = pos*pos;
+                const real p3   = pos*cpos;
+                const real dist = p2 + p3 + largeNum;
                 flop += 20;
                 if (dist < -eps && side^sideK && vtxUse[i])
                 {
+//                  if (dist*dist > -eps2*(p2 + __abs(p3))) continue;
                   flop += 92;
                   real radius = 0.0;
                   const vec3 _cpos = sphere(ipos, jpos, pos, radius)*(real)(-2.0);

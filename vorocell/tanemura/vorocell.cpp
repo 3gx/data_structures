@@ -71,7 +71,7 @@ int main(int argc, char * argv[])
         {
           sites.push_back(Voronoi::Site(vec3(dx*(i+0.5), dy*(j+0.5), dz*(k+0.5)), sites.size()));
           vec3 &pos = sites.back().pos;
-          const real fac = 0.0e-9;
+          const real fac = 0.0e-12;
           pos.x += fac*(1.0 - 2.0*drand48())*dx;
           pos.y += fac*(1.0 - 2.0*drand48())*dy;
           pos.z += fac*(1.0 - 2.0*drand48())*dz;
