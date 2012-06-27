@@ -571,15 +571,15 @@ namespace Voronoi
           assert(!triangles(iVertex, jVertex).empty());
           int kVertex = triangles(iVertex, jVertex).begin()->first();
 
-          const int endVertex = kVertex;
           const double tY = get_wtime();
           assert(vtxList.empty());
 
           vtxUse[iVertex] = 0;
           vtxUse[jVertex] = 0;
+          vtxUse[kVertex] = 0;
           vtxList.push(iVertex);
           vtxList.push(jVertex);
-
+          vtxList.push(kVertex);
 
           int nSites_loc = siteList.size();
           SWAP(iMap[iVertex], nSites_loc);
@@ -589,7 +589,8 @@ namespace Voronoi
           vtxPos.push_back(tetraList[triangles(iVertex, jVertex).begin()->second()].centre());
 
           int cnt = 0;
-          while (jVertex != endVertex)
+//          const int endVertex = kVertex;
+          while (1) //jVertex != endVertex)
           {
             if (cnt++ > 100) assert(0);
             const vec3 &ipos = siteList[iVertex].pos;
@@ -610,7 +611,7 @@ namespace Voronoi
               const int i = it->first();
               const vec3 &pos = siteList[i].pos;
               const int  side = plane(pos) > 0.0;
-              if (side^sideK && vtxUse[i])
+              if (side^sideK && i != kVertex)
               {
                 lVertex = i;
                 cpos    = tetraList[it->second()].centre();
@@ -623,6 +624,9 @@ namespace Voronoi
               /* vertex is not found in tetrahedra list, search the siteList*/
               myNMX += nSites;
 
+              sites[iVertex].idx = -1-sites[iVertex].idx;
+              sites[jVertex].idx = -1-sites[jVertex].idx;
+              sites[kVertex].idx = -1-sites[kVertex].idx;
               for (int i = 0; i < nSites_loc; i++)
               {
                 const Site   &s = sites[i];
@@ -630,7 +634,7 @@ namespace Voronoi
                 const int  side = loc > 0.0;
                 const real dist = s.pos*(s.pos + cpos) + largeNum;
                 flop += 20;
-                if (dist < -eps && side^sideK && vtxUse[s.idx])
+                if (dist < -eps && side^sideK && s.idx >= 0)
                 {
                   if (loc*loc < eps2*s.pos.norm2()) continue;
                   flop += 92;
@@ -644,6 +648,9 @@ namespace Voronoi
                   }
                 }
               }
+              sites[iVertex].idx = -1-sites[iVertex].idx;
+              sites[jVertex].idx = -1-sites[jVertex].idx;
+              sites[kVertex].idx = -1-sites[kVertex].idx;
               assert(lVertex >= 0);
 #if 0      /* sanity check */
               {
@@ -703,6 +710,9 @@ namespace Voronoi
               vertexQueue.push_back(lVertex);
               isVertexQueued[lVertex] = true;
             }
+            
+            vtxPos.push_back(cpos);
+
 
             assert(lVertex >= 0);
             if (vtxUse[lVertex] == 1)
@@ -711,11 +721,12 @@ namespace Voronoi
               vtxUse[lVertex] = 0;
               SWAP(iMap[lVertex], nSites_loc);
             }
-
-            vtxPos.push_back(cpos);
-
+            else
+              break;
+            
             kVertex = jVertex;
             jVertex = lVertex;
+
           }
           dt_20 += get_wtime() - tY;
 
@@ -857,7 +868,7 @@ namespace Voronoi
 #endif
         const vec3 &posB = angle_vec_pair[iv].second - cpos;
         vec3  unitN  = posA%posB;
-//        assert(unitN.norm2() > 0.0);
+        //        assert(unitN.norm2() > 0.0);
         if (unitN.norm2() == 0.0)
           return false;
         unitN *= 1.0/unitN.abs();
