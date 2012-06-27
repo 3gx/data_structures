@@ -294,10 +294,6 @@ namespace Voronoi
       Site::Vector     sites;
 
       std::vector< std::pair<real, vec3> > angle_vec_pair;
-#if 0
-      std::deque<int> incompleteTetra;
-      FaceArray faceVtx[N];
-#endif
 
       real cellVolume;
 
@@ -544,15 +540,6 @@ namespace Voronoi
           vtxUse[i] = 1;
         }
 
-#if 0
-#define SWAP(i,n) {std::swap(sites[i], sites[--n]);  iMap[sites[i].idx] = i; iMap[sites[n].idx] = n; }
-        std ::vector<int> iMap(nSites);
-        for (int i = 0; i < nSites; i++)
-          iMap[i] = i;
-
-#else
-#define SWAP(i,n) {}
-#endif
         while (!vertexQueue.empty())
         {
           /* step 4.2:
@@ -582,17 +569,14 @@ namespace Voronoi
           vtxList.push(kVertex);
 
           int nSites_loc = siteList.size();
-          SWAP(iMap[iVertex], nSites_loc);
-          SWAP(iMap[jVertex], nSites_loc);
 
           vtxPos.clear();
           vtxPos.push_back(tetraList[triangles(iVertex, jVertex).begin()->second()].centre());
 
-          int cnt = 0;
-//          const int endVertex = kVertex;
-          while (1) //jVertex != endVertex)
+          int cnt = 100;
+          while (1) 
           {
-            if (cnt++ > 100) assert(0);
+            assert(cnt-- > 0);
             const vec3 &ipos = siteList[iVertex].pos;
             const vec3 &jpos = siteList[jVertex].pos;
             const vec3 &kpos = siteList[kVertex].pos;
@@ -624,9 +608,10 @@ namespace Voronoi
               /* vertex is not found in tetrahedra list, search the siteList*/
               myNMX += nSites;
 
-              sites[iVertex].idx = -1-sites[iVertex].idx;
-              sites[jVertex].idx = -1-sites[jVertex].idx;
-              sites[kVertex].idx = -1-sites[kVertex].idx;
+              std::swap(sites[iVertex], sites[--nSites_loc]);
+              std::swap(sites[jVertex], sites[--nSites_loc]);
+              std::swap(sites[kVertex], sites[--nSites_loc]);
+              const real meps = -eps;
               for (int i = 0; i < nSites_loc; i++)
               {
                 const Site   &s = sites[i];
@@ -634,7 +619,7 @@ namespace Voronoi
                 const int  side = loc > 0.0;
                 const real dist = s.pos*(s.pos + cpos) + largeNum;
                 flop += 20;
-                if (dist < -eps && side^sideK && s.idx >= 0)
+                if (dist < meps && side^sideK) 
                 {
                   if (loc*loc < eps2*s.pos.norm2()) continue;
                   flop += 92;
@@ -648,11 +633,11 @@ namespace Voronoi
                   }
                 }
               }
-              sites[iVertex].idx = -1-sites[iVertex].idx;
-              sites[jVertex].idx = -1-sites[jVertex].idx;
-              sites[kVertex].idx = -1-sites[kVertex].idx;
+              std::swap(sites[kVertex], sites[nSites_loc++]);
+              std::swap(sites[jVertex], sites[nSites_loc++]);
+              std::swap(sites[iVertex], sites[nSites_loc++]);
               assert(lVertex >= 0);
-#if 0      /* sanity check */
+#if 0         /* sanity check */
               {
                 List::const_iterator begin = triangles(iVertex, jVertex).begin();
                 List::const_iterator end   = triangles(iVertex, jVertex).end  ();
@@ -668,11 +653,6 @@ namespace Voronoi
                   assert(it->first() != (unsigned int)jVertex); 
               }
 #endif
-#if 0
-              assert(triangles(iVertex,jVertex).size() < 2);
-              assert(triangles(jVertex,lVertex).size() < 2);
-              assert(triangles(lVertex,iVertex).size() < 2);
-#endif
               triangles.add(iVertex, jVertex, PackedInt2(lVertex, tetraList.size()));
               triangles.add(jVertex, lVertex, PackedInt2(iVertex, tetraList.size()));
               triangles.add(lVertex, iVertex, PackedInt2(jVertex, tetraList.size()));
@@ -681,7 +661,7 @@ namespace Voronoi
             }
             else
             {
-#if 0       /* sanity check */
+#if 0         /* sanity check */
               bool flag = false;
               List::const_iterator begin = triangles(iVertex, jVertex).begin();
               List::const_iterator end   = triangles(iVertex, jVertex).end  ();
@@ -710,7 +690,7 @@ namespace Voronoi
               vertexQueue.push_back(lVertex);
               isVertexQueued[lVertex] = true;
             }
-            
+
             vtxPos.push_back(cpos);
 
 
@@ -719,11 +699,10 @@ namespace Voronoi
             {
               vtxList.push(lVertex);
               vtxUse[lVertex] = 0;
-              SWAP(iMap[lVertex], nSites_loc);
             }
             else
               break;
-            
+
             kVertex = jVertex;
             jVertex = lVertex;
 
