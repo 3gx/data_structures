@@ -293,7 +293,7 @@ namespace Voronoi
       std::vector<vec3> vtxPos;
       Site::Vector     sites;
 
-      std::vector< std::pair<real, vec3> > angle_vec_pair;
+      std::vector< std::pair<real, int> > angle_vec_pair;
 
       real cellVolume;
 
@@ -322,6 +322,7 @@ namespace Voronoi
         isVertexQueued .resize(nSites);
         vtxUse         .resize(nSites);
         sites          .resize(nSites);
+        angle_vec_pair .resize(nSites);
         for (int i = 0; i < nSites; i++)
           isVertexQueued[i] = vertexCompleted[i] = false;
 
@@ -719,42 +720,14 @@ namespace Voronoi
 
           if (!vtxPos.empty())
           {
-#if 0
-            const int nvtx = vtxPos.size();
-            flop += nvtx*3 + 2 + nvtx*(6+9+3)+6+5;
-
-            vec3 cpos(0.0);
-            for (int i = 0; i < nvtx; i++)
-              cpos += vtxPos[i];
-            cpos *= 1.0/(real)nvtx;
-
-            vec3 area(0.0);
-            vtxPos.push_back(vtxPos[0]);
-            for (int i = 0; i < nvtx; i++)
-            {
-              const vec3 v1 = vtxPos[i  ] - cpos;
-              const vec3 v2 = vtxPos[i+1] - cpos;
-              area  += v1%v2;
-            }
-            const real A   = area.abs();
-            const real vol = area*cpos;
-            if (vol < 0.0) area *= -1.0;
-            if (A > 0.0)
-            {
-              cellVolume += __abs(vol)*(1.0/6.0);
-              faceList.push_back(Face(area/A, 0.5*A));
-              nbList.push_back(iVertex);
-            }
-#else
             Face f;
-            real vol = 0.0;
+            real vol;
             if (traceFace(vtxPos, vol, f))
             {
               cellVolume += vol;
               faceList.push_back(f);
               nbList.push_back(iVertex);
             }
-#endif
           }
 
         }
@@ -816,143 +789,105 @@ namespace Voronoi
         return radius;
       }
 
+      bool traceFace(const std::vector<vec3> &vtxPos, real &volume, Face &face)
+      {
+        const int n = vtxPos.size();
+            
+        flop += n*3 + 2 + n*(6+9+3)+6+5;
+
+        vec3 cpos(0.0);
+        for (int i = 0; i < n; i++)
+          cpos += vtxPos[i];
+        cpos *= 1.0/(real)n;
+
 #if 0
-      bool traceFace(const std::vector<vec3> &vtxPos, real &volume, Face &face)
-      {
-        const int n = vtxPos.size();
-        angle_vec_pair.resize(n);
-        vec3 cpos(0.0);
-        for (int i= 0; i < n; i++)
         {
-          const vec3 &jpos = vtxPos[i];
-          cpos += jpos;
-          angle_vec_pair[i].second = jpos;
-        }
-        cpos *= 1.0/(real)n;
+          vec3 area(0.0);
+          vec3 v1  = vtxPos[n-1] - cpos;
+          vec3 v2  = vtxPos[0  ] - cpos;
+          const vec3 norm = v1%v2;
+          area += norm;
+          v1 = v2;
 
-        const vec3 &posA = angle_vec_pair[0].second - cpos;
+          bool fail = false;
+          for (int i = 1; i < n; i++)
+          {
+            v2 = vtxPos[i] - cpos;
+            const vec3 da = v1%v2;
+            if (norm*da <= 0.0) 
+            {
+              fail = true;
+              break;
+            }
+            area += da;
+            v1 = v2;
+          }
+          const real A   = area.abs();
+          const real vol = area*cpos;
+          if (vol < 0.0) area *= -1.0;
+          if (A > 0.0 && !fail)
+          {
+            volume = __abs(vol)*1.0/6.0;
+            face   = Face(area/A, 0.5*A);
+            return true;
+          }
+        }
+#endif
+
+        const vec3 &posA = vtxPos[0] - cpos;
         //assert(posA.norm2() > 0.0);
         if (posA.norm2() == 0)
           return false;
-        const vec3 unitA = posA * (1.0/posA.abs());
 
         int iv = 1;
-#if 1
         const real eps4a = eps2*eps2*posA.norm2();
         for (iv = 1; iv < n; iv++)
         {
-          const vec3 &posB = angle_vec_pair[iv].second - cpos;
+          const vec3 &posB = vtxPos[iv] - cpos;
           const real q = (posA%posB).norm2();
           if (q*q > eps4a*posB.norm2())
             break;
         }
         if (iv == n) 
           return false;
-#endif
-        const vec3 &posB = angle_vec_pair[iv].second - cpos;
-        vec3  unitN  = posA%posB;
-        //        assert(unitN.norm2() > 0.0);
-        if (unitN.norm2() == 0.0)
+
+        const vec3 &posB = vtxPos[iv] - cpos;
+
+        const Plane plane(posA, posB);
+        if (plane.n.norm2() == 0.0)
           return false;
-        unitN *= 1.0/unitN.abs();
+
+        bool need_sort = false;
         for (int j = 0; j < n; j++)
         {
-          const vec3  jpos = angle_vec_pair[j].second - cpos;
+          const vec3  jpos = vtxPos[j] - cpos;
           const real    r2 = jpos.norm2();
           if (r2 == 0.0) return false;
           assert(r2 > 0.0);
-          const real cos    =  unitA * jpos;
-          const real sin    = (unitA % jpos) * unitN;
+          const real cos    =       posA * jpos;
+          const real sin    = plane(posA % jpos);
 #if 1
-          const real cos2   =  cos*__abs(cos) * (1.0/r2);
-          angle_vec_pair[j] = std::make_pair(sin >  0.0 ? -cos2 : 2.0+cos2, jpos);
+          const real cos2   =  cos*__abs(cos)* (1.0/r2);
+          angle_vec_pair[j] = std::make_pair(sin >  0.0 ? -cos2 : 2.0+cos2, j);
 #else
-          angle_vec_pair[j] = std::make_pair(std::atan2(sin, cos), jpos);
+          angle_vec_pair[j] = std::make_pair(std::atan2(sin, cos), j);
 #endif
+          if (j > 0)
+            need_sort = angle_vec_pair[j-1].first > angle_vec_pair[j].first;
+//          fprintf(stderr," j= %d: val= %g\n", j, angle_vec_pair[j].first);
         }
-        std::sort(angle_vec_pair.begin(), angle_vec_pair.end(), cmp_data<real, vec3>());
-        angle_vec_pair.push_back(angle_vec_pair[0]);
-
-        /* comput area & volume */
-        real vol  = 0.0;
-        vec3 area(0.0);
-        const vec3 &v0 = cpos;
-        for (int i = 0; i < n; i++)
-        {
-          const vec3 &v1 = angle_vec_pair[i  ].second;
-          const vec3 &v2 = angle_vec_pair[i+1].second;
-          area  += v1%v2;
-          vol   += __abs(v0*((v1+v0)%(v2+v0)));
-        }
-        volume += vol*(1.0/6.0);
-
-        face = Face(unitN, 0.5*area.abs());
-        return true;
-      }
-#else
-      bool traceFace(const std::vector<vec3> &vtxPos, real &volume, Face &face)
-      {
-        const int n = vtxPos.size();
-        angle_vec_pair.resize(n);
-        vec3 cpos(0.0);
-        for (int i= 0; i < n; i++)
-        {
-          const vec3 &jpos = vtxPos[i];
-          cpos += jpos;
-          angle_vec_pair[i].second = jpos;
-        }
-        cpos *= 1.0/(real)n;
-
-        const vec3 &posA = angle_vec_pair[0].second - cpos;
-        //assert(posA.norm2() > 0.0);
-        if (posA.norm2() == 0)
-          return false;
-        const vec3 unitA = posA * (1.0/posA.abs());
-
-        int iv = 1;
-#if 1
-        const real eps4a = eps2*eps2*posA.norm2();
-        for (iv = 1; iv < n; iv++)
-        {
-          const vec3 &posB = angle_vec_pair[iv].second - cpos;
-          const real q = (posA%posB).norm2();
-          if (q*q > eps4a*posB.norm2())
-            break;
-        }
-        if (iv == n) 
-          return false;
-#endif
-        const vec3 &posB = angle_vec_pair[iv].second - cpos;
-        vec3  unitN  = posA%posB;
-        //        assert(unitN.norm2() > 0.0);
-        if (unitN.norm2() == 0.0)
-          return false;
-        unitN *= 1.0/unitN.abs();
-        for (int j = 0; j < n; j++)
-        {
-          const vec3  jpos = angle_vec_pair[j].second - cpos;
-          const real    r2 = jpos.norm2();
-          if (r2 == 0.0) return false;
-          assert(r2 > 0.0);
-          const real cos    =  unitA * jpos;
-          const real sin    = (unitA % jpos) * unitN;
-#if 1
-          const real cos2   =  cos*__abs(cos) * (1.0/r2);
-          angle_vec_pair[j] = std::make_pair(sin >  0.0 ? -cos2 : 2.0+cos2, jpos);
-#else
-          angle_vec_pair[j] = std::make_pair(std::atan2(sin, cos), jpos);
-#endif
-        }
-        std::sort(angle_vec_pair.begin(), angle_vec_pair.end(), cmp_data<real, vec3>());
-        angle_vec_pair.push_back(angle_vec_pair[0]);
+        //if (need_sort)
+            std::sort(angle_vec_pair.begin(), angle_vec_pair.begin()+n, cmp_data<real, int>());
+        angle_vec_pair[n] = angle_vec_pair[0];
 
         /* comput area & volume */
         vec3 area(0.0);
+        vec3 v1 = vtxPos[angle_vec_pair[0].second] - cpos;
         for (int i = 0; i < n; i++)
         {
-          const vec3 &v1 = angle_vec_pair[i  ].second;
-          const vec3 &v2 = angle_vec_pair[i+1].second;
+          const vec3 v2 = vtxPos[angle_vec_pair[i+1].second] - cpos;
           area  += v1%v2;
+          v1 = v2;
         }
         const real vol = area*cpos;
         const real  A  = area.abs();
@@ -960,11 +895,10 @@ namespace Voronoi
 
         if (vol < 0.0) area *= -1.0;
 
-        volume += __abs(vol)*(1.0/6.0);
-        face = Face(area/A, 0.5*A);
+        volume = __abs(vol)*(1.0/6.0);
+        face   = Face(area/A, 0.5*A);
         return true;
       }
-#endif
 
     };
 

@@ -10,6 +10,17 @@ unsigned long long flop = 0, myNMX = 0;
 #include "vorocell_degenerate.h"
 #include <iostream>
 
+inline double round(const double x)
+{
+  return x;
+  unsigned long long i = *(unsigned long long*)&x;
+  const int bit = 4;
+  const unsigned long long mask =  (unsigned long long)(-1ULL) ^ ((unsigned long long)((1LLU<<bit)-1));
+  i &= mask;
+  const double y = *(double*)&i;
+  return y;
+}
+
 typedef Voronoi::real real;
 typedef Voronoi::vec3 vec3;
 
@@ -71,10 +82,13 @@ int main(int argc, char * argv[])
         {
           sites.push_back(Voronoi::Site(vec3(dx*(i+0.5), dy*(j+0.5), dz*(k+0.5)), sites.size()));
           vec3 &pos = sites.back().pos;
-          const real fac = 0.0e-8;
+          const real fac = 0.0e-7;
           pos.x += fac*(1.0 - 2.0*drand48())*dx;
           pos.y += fac*(1.0 - 2.0*drand48())*dy;
           pos.z += fac*(1.0 - 2.0*drand48())*dz;
+          pos.x = round(pos.x);
+          pos.y = round(pos.y);
+          pos.z = round(pos.z);
           min = mineach(min, sites.back().pos);
           max = maxeach(max, sites.back().pos);
         }
