@@ -6,8 +6,7 @@ F90 = gfortran
 ifeq ($(OMP), 1)
 	OMPFLAGS  = -fopenmp
 endif
-
-ifeq ($(OMPCXX), 1)
+ifeq ($(OMPGLIBC), 1)
 	OMPFLAGS += -D_GLIBCXX_PARALLEL
 endif
 
@@ -15,11 +14,21 @@ OFLAGS = -O3 -g -Wall
 ifeq ($(GDB), 1)
 	OFLAGS = -O0 -g -Wall
 endif
-
-CXXFLAGS =  -fPIC $(OFLAGS) -Wstrict-aliasing=2 $(OMPFLAGS)
+	
+OFLAGS  += -funroll-all-loops
+CXXFLAGS = $(OFLAGS) -Wstrict-aliasing=2 $(OMPFLAGS)
 
 ifeq ($(SSE), 1)
-	CXXFLAGS += -D__mySSE__
+	CXXFLAGS += -D__mySSE__ -msse4.1
+endif
+ifeq ($(AVX), 1)
+	CXXFLAGS += -D__myAVX__ -mavx -mtune=corei7-avx -march=corei7-avx
+endif
+ifeq ($(SSE1), 1)
+	CXXFLAGS += -D__mySSE1__ -msse4.1
+endif
+ifeq ($(RELEASE), 1)
+	CXXFLAGS += -DNDEBUG
 endif
 
 
@@ -27,10 +36,10 @@ endif
 LDFLAGS = 
 
 SRCPATH = ./
-SRC = kdtree.cpp
+SRC = testdirect.cpp
 OBJ = $(SRC:%.cpp=%.o) 
 
-PROG  = kdtree
+PROG = testdirect
 
 RM = /bin/rm
 
@@ -50,11 +59,5 @@ clean:
 clean_all:
 	/bin/rm -rf *.o $(PROG) plummer.dat *~
 
-$(OBJ): kdtree.h plummer.h mytimer.h
-
-
-
-
-
-
+$(OBJ): vector3.h vorocell.h mytimer.h DirectPoly.h
 

@@ -5,7 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <stack>
-#include <parallel/partition.h>
+//#include <parallel/partition.h>
 #include "vector3.h"
 
 typedef float real;
