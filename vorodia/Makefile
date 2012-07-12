@@ -36,10 +36,10 @@ endif
 LDFLAGS = 
 
 SRCPATH = ./
-SRC = testdirect.cpp
+SRC = SeidelLP.cpp
 OBJ = $(SRC:%.cpp=%.o) 
 
-PROG = testdirect
+PROG = SeidelLP
 
 RM = /bin/rm
 
@@ -59,5 +59,5 @@ clean:
 clean_all:
 	/bin/rm -rf *.o $(PROG) plummer.dat *~
 
-$(OBJ): vector3.h vorocell.h mytimer.h DirectPoly.h
+$(OBJ): vector3.h vorocell.h mytimer.h DirectPoly.h SeidelLP.h
 

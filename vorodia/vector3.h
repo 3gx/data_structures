@@ -1,6 +1,8 @@
 #ifndef __VECTOR3_H
 #define __VECTOR3_H
 
+#include "real.h"
+
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -133,7 +135,6 @@ template <class REAL> struct vector3{
 
 typedef vector3<double> dvec3;
 typedef vector3<float>  fvec3;
-
-
+typedef vector3<real >   vec3;
 
 #endif //  __VECTOR3_H
