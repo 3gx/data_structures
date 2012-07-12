@@ -124,10 +124,14 @@ struct SeidelLP
       fprintf(stderr, "n2= %d\n", n2);
       fprintf(stderr, "n1= %d\n", n1);
 #endif
+      fprintf(stderr, "  pos= %g %g %g   \n", v.x, v.y, v.z);
 
 #if 0  /* sanity check */
       for (int i = 0; i < n; i++)
+      {
+        fprintf(stderr, "i= %d: d= %g\n", i, halfSpaceList[i].dist(v));
         assert(!halfSpaceList[i].outside(v));
+      }
 #endif
 
       return v;
@@ -144,7 +148,7 @@ struct SeidelLP
 
     vec3 solve_lp3D(const int n)
     {
-#if 0
+#if 1
       const real x = bmax.x;
       const real y = bmax.y;
       const real z = bmax.z;
@@ -178,33 +182,41 @@ struct SeidelLP
       }
 #endif
 
+      v.x = -1.0;
+
+      v = 0.0;
+
+
       for (int i = 0; i < n; i++)
       {
         n3++;
         const HalfSpace &h = halfSpaceList[i];
-        if (h.outside(v))
-          v = solve_lp2D(i, v, h);
+        if (h.outside(v)) //|| v.x == -1.0)
+          v = solve_lp2D(i, h);
       }
       return v;
     }
 
-    vec3 solve_lp2D(const int n, vec3 v, const HalfSpace h1)
+    vec3 solve_lp2D(const int n, const HalfSpace h1)
     {
-      v = vec3(-HUGE);
+      vec3 v = vec3(-HUGE);
+      v.x = -1.0;
+      v = 0.0;
       for (int i = 0; i < n; i++)
       {
         n2++;
         const HalfSpace &h = halfSpaceList[i];
-        if (h.outside(v))
-          v = solve_lp1D(i, v, h1, h);
+        if (h.outside(v)) // || v.x == -1);
+          v = solve_lp1D(i,  h1, h);
       }
       return v;
     }
 
-    vec3 solve_lp1D(const int n, vec3 v, const HalfSpace h1, const HalfSpace h2)
+    vec3 solve_lp1D(const int n, const HalfSpace h1, const HalfSpace h2)
     {
       const real norm2 = h1.n.norm2() * h2.n.norm2();
       const real n12   = h1.n * h2.n  * (1.0/std::sqrt(norm2));
+//      if (n12*n12 == 1.0) return v;
       assert(n12*n12 < 1.0);
       const real f   = 1.0/(1.0 - n12*n12);
       const real c1  = (h1.h - h2.h*n12)*f;
@@ -242,9 +254,8 @@ struct SeidelLP
       }
 
       assert(tang*cvec != 0.0);
-      if (tang*cvec > 0.0) v = orig + tang*tmax;
-      else                 v = orig + tang*tmin;
-
+     
+      const vec3 v = orig + tang * (tang*cvec > 0.0 ? tmax : tmin); 
       return v;
     }
 

@@ -9,7 +9,7 @@ int main(int argc, char * argv [])
 
 #if 1
   srand48(123345);
-  int n = 100;
+  int n = 1000;
   for (int i = 0; i < n; i++)
   {
     const real lx = 0.1;
@@ -30,8 +30,8 @@ int main(int argc, char * argv [])
     lp.push(HalfSpace(vec3(0.0, -1.0, 0.0), vec3(0.5, 0.75, 0.5)));
     lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.25)));
     lp.push(HalfSpace(vec3(0.0, 0.0, -1.0), vec3(0.5, 0.5, 0.75)));
-    lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.40)));
-//    lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.30)));
+ //   lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.40)));
+//    lp.push(HalfSpace(vec3(0.0, 0.0, -1.0), vec3(0.5, 0.5, 0.30)));
 //    lp.push(HalfSpace(vec3(0.0, +1.0, 0.0), vec3(0.5, 0.3, 0.30)));
     lp.push(HalfSpace(vec3(-1.0, -1.0,  0.0), vec3(0.3, 0.3, 0.0)));
 #endif
@@ -40,15 +40,7 @@ int main(int argc, char * argv [])
   const int nrep = 100;
 
 
-  const vec3 cvec(-0.1, 0.1, 1.2);
-  {
-    const double t0 = get_wtime();
-    vec3 pos;
-    for (int i = 0; i < nrep; i++)
-      pos = lp.solve(cvec, true);
-    const double dt = get_wtime() - t0;
-    fprintf(stderr, " rpos= %g %g %g   done in %g sec\n", pos.x, pos.y, pos.z, dt/nrep);
-  }
+  const vec3 cvec(-1.0);
   {
     const double t0 = get_wtime();
     vec3 pos;
@@ -56,6 +48,14 @@ int main(int argc, char * argv [])
       pos = lp.solve(cvec, false);
     const double dt = get_wtime() - t0;
     fprintf(stderr, "  pos= %g %g %g   done in %g sec\n", pos.x, pos.y, pos.z, dt/nrep);
+  }
+  {
+    const double t0 = get_wtime();
+    vec3 pos;
+    for (int i = 0; i < nrep; i++)
+      pos = lp.solve(cvec, true);
+    const double dt = get_wtime() - t0;
+    fprintf(stderr, " rpos= %g %g %g   done in %g sec\n", pos.x, pos.y, pos.z, dt/nrep);
   }
 
   return 0;
