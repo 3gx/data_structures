@@ -7,9 +7,9 @@ int main(int argc, char * argv [])
   const int N = 100000;
   SeidelLP<N> lp;
 
-#if 0
+#if 1
   srand48(12345);
-  int n = 1000;
+  int n = 100000;
   for (int i = 0; i < n; i++)
   {
     const real lx = 0.1;
@@ -30,15 +30,16 @@ int main(int argc, char * argv [])
     lp.push(HalfSpace(vec3(0.0, -1.0, 0.0), vec3(0.5, 0.75, 0.5)));
     lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.25)));
     lp.push(HalfSpace(vec3(0.0, 0.0, -1.0), vec3(0.5, 0.5, 0.75)));
-    lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.40)));
-    lp.push(HalfSpace(vec3(1.0/sqrt(2.0), 1.0/sqrt(2.0), 0.0), vec3(0.3, 0.3, 0.0)));
+//    lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.40)));
+    lp.push(HalfSpace(vec3(0.0, +1.0, 0.0), vec3(0.5, 0.3, 0.30)));
+    lp.push(HalfSpace(vec3(-1.0, -1.0,  0.0), vec3(0.3, 0.3, 0.0)));
 #endif
 
   fprintf(stderr, " nspace= %d\n", lp.nspace());
 
 
   const double t0 = get_wtime();
-  const vec3 pos = lp.solve();
+  const vec3 pos = lp.solve(vec3(-0.01, -0.01, +1.0));
   const double dt = get_wtime() - t0;
   fprintf(stderr, " pos= %g %g %g   done in %g sec\n", pos.x, pos.y, pos.z, dt);
 
