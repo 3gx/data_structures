@@ -5,6 +5,19 @@
 #include <vector>
 #include <cassert>
 
+template<class T>
+inline T __min(const T a, const T b) {return a < b ? a : b;}
+
+template<class T>
+inline T __max(const T a, const T b) {return a > b ? a : b;}
+
+template<class T>
+inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
+
+template<class T>
+inline T __sign(const T a) {return a < T(0.0) ? (T)-1.0 : (T)+1.0;}
+
+
 struct HalfSpace
 {
   typedef std::vector<HalfSpace> Vector;
@@ -97,26 +110,25 @@ struct SeidelLP
       boundaryBox[5] = HalfSpace(vec3( 0.0, 0.0,-1.0), vec3(0.0,0.0, z ));
     }
 
-    vec3 solve(const vec3 &cvec)
+    vec3 solve(const vec3 &cvec, const bool randomize = false)
     {
       this->cvec = cvec;
 
       n1 = n2 = n3 = 0;
-      //std::random_shuffle(halfSpaceList, halfSpaceList+n);
+      if (randomize)
+        std::random_shuffle(halfSpaceList, halfSpaceList+n);
       const vec3 v = solve_lp3D(n);
 
+#if 0
       fprintf(stderr, "n3= %d\n", n3);
       fprintf(stderr, "n2= %d\n", n2);
       fprintf(stderr, "n1= %d\n", n1);
+#endif
 
 #if 0  /* sanity check */
       for (int i = 0; i < n; i++)
         assert(!halfSpaceList[i].outside(v));
 #endif
-
-      const HalfSpace &h = halfSpaceList[n-1];
-      fprintf(stderr, "%g \n",  h.dist(v));
-      fprintf(stderr, "%g \n",  h.dist(vec3(0.3, 0.3, 0.0)));
 
       return v;
     }
@@ -132,6 +144,7 @@ struct SeidelLP
 
     vec3 solve_lp3D(const int n)
     {
+#if 0
       const real x = bmax.x;
       const real y = bmax.y;
       const real z = bmax.z;
@@ -153,12 +166,17 @@ struct SeidelLP
 
       std::sort(fval, fval+8, cmp_data<real, int>());
       vec3 v = vtx[fval[7].second];
+#else
+      vec3 v(HUGE);
+#endif
 
+#if 0
       for (int i = 0; i < 8; i++)
       {
         fprintf(stderr, "i= %d : c= %g  idx= %d\n",
             i, fval[i].first, fval[i].second);
       }
+#endif
 
       for (int i = 0; i < n; i++)
       {
@@ -172,9 +190,7 @@ struct SeidelLP
 
     vec3 solve_lp2D(const int n, vec3 v, const HalfSpace h1)
     {
-//      fprintf(stderr, " n2= %d  v= %g %g %g", n, v.x, v.y, v.z);
-      v = h1.project(v);
-//      fprintf(stderr, " vp= %g %g %g \n", v.x, v.y, v.z);
+      v = vec3(-HUGE);
       for (int i = 0; i < n; i++)
       {
         n2++;
@@ -187,22 +203,48 @@ struct SeidelLP
 
     vec3 solve_lp1D(const int n, vec3 v, const HalfSpace h1, const HalfSpace h2)
     {
-      v = h2.project(v);
-//      fprintf(stderr, "  n1= %d\n", n);
+      const real norm2 = h1.n.norm2() * h2.n.norm2();
+      const real n12   = h1.n * h2.n  * (1.0/std::sqrt(norm2));
+      assert(n12*n12 < 1.0);
+      const real f   = 1.0/(1.0 - n12*n12);
+      const real c1  = (h1.h - h2.h*n12)*f;
+      const real c2  = (h2.h - h1.h*n12)*f;
+
+      const vec3 orig = h1.n*c1 + h2.n*c2;
+      const vec3 tang = h1.n%h2.n;
+
+      real tmin = -HUGE;
+      real tmax = +HUGE;
+
+#if 0
       for (int i = 0; i < 6; i++)
       {
         const HalfSpace &h = boundaryBox[i];
-        if (h.outside(v))
-          v = intersect(h, h1, h2);
+        const real dot = h.n * tang;
+        if (dot*dot == 0.0) continue;
+        assert(dot*dot > 0.0);
+        const real tau = (h.h - h.n*orig)*(1.0/dot);
+        if (dot > 0.0) tmin = __max(tmin, tau);
+        else           tmax = __min(tmax, tau);
       }
+#endif
 
       for (int i = 0; i < n; i++)
       {
         n1++;
         const HalfSpace &h = halfSpaceList[i];
-        if (h.outside(v))
-          v = intersect(h, h1, h2);
+        const real     dot = h.n * tang;
+        if (dot*dot == 0.0) continue;
+        assert(dot*dot > 0.0);
+        const real tau = (h.h - h.n*orig)*(1.0/dot);
+        if (dot > 0.0) tmin = __max(tmin, tau);
+        else           tmax = __min(tmax, tau);
       }
+
+      assert(tang*cvec != 0.0);
+      if (tang*cvec > 0.0) v = orig + tang*tmax;
+      else                 v = orig + tang*tmin;
+
       return v;
     }
 

@@ -8,8 +8,8 @@ int main(int argc, char * argv [])
   SeidelLP<N> lp;
 
 #if 1
-  srand48(12345);
-  int n = 100000;
+  srand48(123345);
+  int n = 100;
   for (int i = 0; i < n; i++)
   {
     const real lx = 0.1;
@@ -30,18 +30,33 @@ int main(int argc, char * argv [])
     lp.push(HalfSpace(vec3(0.0, -1.0, 0.0), vec3(0.5, 0.75, 0.5)));
     lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.25)));
     lp.push(HalfSpace(vec3(0.0, 0.0, -1.0), vec3(0.5, 0.5, 0.75)));
-//    lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.40)));
-    lp.push(HalfSpace(vec3(0.0, +1.0, 0.0), vec3(0.5, 0.3, 0.30)));
+    lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.40)));
+//    lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.30)));
+//    lp.push(HalfSpace(vec3(0.0, +1.0, 0.0), vec3(0.5, 0.3, 0.30)));
     lp.push(HalfSpace(vec3(-1.0, -1.0,  0.0), vec3(0.3, 0.3, 0.0)));
 #endif
 
   fprintf(stderr, " nspace= %d\n", lp.nspace());
+  const int nrep = 100;
 
 
-  const double t0 = get_wtime();
-  const vec3 pos = lp.solve(vec3(-0.01, -0.01, +1.0));
-  const double dt = get_wtime() - t0;
-  fprintf(stderr, " pos= %g %g %g   done in %g sec\n", pos.x, pos.y, pos.z, dt);
+  const vec3 cvec(-0.1, 0.1, 1.2);
+  {
+    const double t0 = get_wtime();
+    vec3 pos;
+    for (int i = 0; i < nrep; i++)
+      pos = lp.solve(cvec, true);
+    const double dt = get_wtime() - t0;
+    fprintf(stderr, " rpos= %g %g %g   done in %g sec\n", pos.x, pos.y, pos.z, dt/nrep);
+  }
+  {
+    const double t0 = get_wtime();
+    vec3 pos;
+    for (int i = 0; i < nrep; i++)
+      pos = lp.solve(cvec, false);
+    const double dt = get_wtime() - t0;
+    fprintf(stderr, "  pos= %g %g %g   done in %g sec\n", pos.x, pos.y, pos.z, dt/nrep);
+  }
 
   return 0;
 }
