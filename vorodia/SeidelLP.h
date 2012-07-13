@@ -68,6 +68,7 @@ struct SeidelLP
     int n;
     vec3 bmax;
     vec3 cvec;
+    vec3 vbeg;
     HalfSpace halfSpaceList[N];
     HalfSpace boundaryBox  [6];
     int n1, n2, n3;
@@ -148,6 +149,7 @@ struct SeidelLP
 
     vec3 solve_lp3D(const int n)
     {
+      vbeg = vec3(HUGE);
 #if 1
       const real x = bmax.x;
       const real y = bmax.y;
@@ -169,9 +171,7 @@ struct SeidelLP
         fval[i] = std::make_pair(vtx[i]*cvec, i);
 
       std::sort(fval, fval+8, cmp_data<real, int>());
-      vec3 v = vtx[fval[7].second];
-#else
-      vec3 v(HUGE);
+      vbeg = vtx[fval[7].second];
 #endif
 
 #if 0
@@ -182,11 +182,9 @@ struct SeidelLP
       }
 #endif
 
-      v.x = -1.0;
-
-      v = 0.0;
 
 
+      vec3 v(vbeg);
       for (int i = 0; i < n; i++)
       {
         n3++;
@@ -199,9 +197,8 @@ struct SeidelLP
 
     vec3 solve_lp2D(const int n, const HalfSpace h1)
     {
-      vec3 v = vec3(-HUGE);
+      vec3 v = vbeg;
       v.x = -1.0;
-      v = 0.0;
       for (int i = 0; i < n; i++)
       {
         n2++;

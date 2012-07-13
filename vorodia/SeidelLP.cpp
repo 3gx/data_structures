@@ -40,7 +40,7 @@ int main(int argc, char * argv [])
   const int nrep = 100;
 
 
-  const vec3 cvec(-1.0);
+  const vec3 cvec(1.0,0.0,+1.0);
   {
     const double t0 = get_wtime();
     vec3 pos;
