@@ -26,7 +26,7 @@ struct HalfSpace
   HalfSpace() {}
   HalfSpace(const vec3 &_n, const vec3 &p) : n(_n)
   {
-#if 1
+#if 0
     const real fn = n.abs();
     assert(fn > 0.0);
     n *= 1.0/fn;
@@ -35,7 +35,7 @@ struct HalfSpace
   }
   HalfSpace(const vec3 &p) 
   {
-#if 1
+#if 0
     const real fn = p.abs();
     assert(fn >  0.0);
     n = p*(1.0/fn);
@@ -82,8 +82,8 @@ struct SeidelLP
   private:
     int n;
     vec3 bmax, cvec;
-    vec3 vmax;
     HalfSpace halfSpaceList[N];
+    HalfSpace bnd[3];
 
   public:
     SeidelLP(const vec3 &_bmax = 1.0) : n(0), bmax(_bmax) {}
@@ -107,10 +107,10 @@ struct SeidelLP
     vec3 solve(const vec3 &cvec, const bool randomize = false)
     {
       this->cvec = cvec;
-      vmax = vec3(
-        cvec.x > 0.0 ? bmax.x : -bmax.x,
-        cvec.y > 0.0 ? bmax.y : -bmax.y,
-        cvec.z > 0.0 ? bmax.z : -bmax.z);
+      bnd[0] = HalfSpace(vec3(cvec.x > 0.0 ? bmax.x : -bmax.x, 0.0, 0.0));
+      bnd[1] = HalfSpace(vec3(0.0, cvec.y > 0.0 ? bmax.y : -bmax.y, 0.0));
+      bnd[2] = HalfSpace(vec3(0.0, 0.0, cvec.z > 0.0 ? bmax.z : -bmax.z));
+
       if (randomize)
         std::random_shuffle(halfSpaceList, halfSpaceList+n);
 
@@ -119,7 +119,7 @@ struct SeidelLP
 
     inline vec3 solve_lp3D(const int n) const
     {
-      vec3 v = vmax;
+      vec3 v = intersect(bnd[0], bnd[1], bnd[2]);
       for (int i = 0; i < n; i++)
       {
         const HalfSpace &h = halfSpaceList[i];
@@ -131,9 +131,9 @@ struct SeidelLP
 
     inline vec3 solve_lp2D(const int n, const HalfSpace &h1) const
     {
-      const vec3 v1 = intersect(h1, vec3(vmax.x, 0.0, 0.0), vec3(0.0, vmax.y, 0.0));
-      const vec3 v2 = intersect(h1, vec3(vmax.x, 0.0, 0.0), vec3(0.0, 0.0, vmax.z));
-      const vec3 v3 = intersect(h1, vec3(0.0, vmax.y, 0.0), vec3(0.0, 0.0, vmax.z));
+      const vec3 v1 = intersect(h1, bnd[0], bnd[1]);
+      const vec3 v2 = intersect(h1, bnd[0], bnd[2]);
+      const vec3 v3 = intersect(h1, bnd[1], bnd[2]);
       const real f1 = cvec*v1;
       const real f2 = cvec*v2;
       const real f3 = cvec*v3;
@@ -151,6 +151,7 @@ struct SeidelLP
       return v;
     }
 
+#if 0
     inline vec3 solve_lp1D(const int n, const HalfSpace &h1, const HalfSpace &h2) const
     {
       const real norm2 = h1.n.norm2() * h2.n.norm2();
@@ -183,6 +184,30 @@ struct SeidelLP
       const vec3 v = orig + tang * (tang*cvec > 0.0 ? tmax : tmin); 
       return v;
     }
+#else
+    inline vec3 solve_lp1D(const int n, const HalfSpace &h1, const HalfSpace &h2) const
+    {
+      const vec3 v1 = intersect(h1, h2, bnd[0]);
+      const vec3 v2 = intersect(h1, h2, bnd[1]);
+      const vec3 v3 = intersect(h1, h2, bnd[2]);
+      const real f1 = cvec*v1;
+      const real f2 = cvec*v2;
+      const real f3 = cvec*v3;
+      
+      vec3 v = v1;
+      real f = f1;
+      if (f2 > f) {f = f2; v = v2;}
+      if (f3 > f) {f = f3; v = v3;}
+      
+      for (int i = 0; i < n; i++)
+      {
+        const HalfSpace &h = halfSpaceList[i];
+        if (h.outside(v)) 
+          v = intersect(h1, h2, h);
+      }
+      return v;
+    }
+#endif
 
 };
 

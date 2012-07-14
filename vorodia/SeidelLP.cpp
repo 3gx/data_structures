@@ -41,14 +41,14 @@ int main(int argc, char * argv [])
  //   lp.push(HalfSpace(vec3(0.0, 0.0, +1.0), vec3(0.5, 0.5, 0.40)));
 //    lp.push(HalfSpace(vec3(0.0, 0.0, -1.0), vec3(0.5, 0.5, 0.30)));
 //    lp.push(HalfSpace(vec3(0.0, +1.0, 0.0), vec3(0.5, 0.3, 0.30)));
-    lp.push(HalfSpace(vec3(-1.0, -1.0,  0.0), vec3(0.3, 0.3, 0.0)));
+    lp.push(HalfSpace(vec3(-1.0, -1.0,  0.0), vec3(0.3, 0.3, 0.01)));
 #endif
 
   fprintf(stderr, " nspace= %d\n", lp.nspace());
-  const int nrep = 100;
+  const int nrep = 1000;
 
 
-  vec3 cvec(-0.0, 0.0, +1.0);
+  vec3 cvec(-1.0, -1.0, +1.0);
   cvec = vec3(drand48(), drand48(), drand48());
   vec3 pos = lp.solve(cvec, false);
   {
