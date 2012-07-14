@@ -47,12 +47,12 @@ struct HalfSpace
   }
 
 
-  bool outside(const vec3 &p) const 
+  bool outside(const vec3 &p) const __attribute__((always_inline))
   {
     nflops += 6;
     return n*p < h;
   }
-  friend vec3 intersect(const HalfSpace &p1, const HalfSpace &p2, const HalfSpace &p3)
+  friend vec3 intersect(const HalfSpace &p1, const HalfSpace &p2, const HalfSpace &p3) __attribute__((always_inline))
   {
     nflops += 9*3 + 5+1+3*3+3*3+3*2;
     const vec3 w1 = p2.n%p3.n;
@@ -122,8 +122,9 @@ struct SeidelLP
       return solve_lp3D(n);
     }
 
-    inline vec3 solve_lp3D(const int n) const
+    inline vec3 solve_lp3D(const int n) const 
     {
+      asm("#test1");
       vec3 v = intersect(bnd[0], bnd[1], bnd[2]);
       for (int i = 0; i < n; i++)
       {
@@ -131,10 +132,11 @@ struct SeidelLP
         if (h.outside(v)) 
           v = solve_lp2D(i, h);
       }
+      asm("#test2");
       return v;
     }
 
-    inline vec3 solve_lp2D(const int n, const HalfSpace &h1) const
+    inline vec3 solve_lp2D(const int n, const HalfSpace &h1) const __attribute__((always_inline))
     {
       const vec3 v1 = intersect(h1, bnd[0], bnd[1]);
       const vec3 v2 = intersect(h1, bnd[0], bnd[2]);
@@ -190,7 +192,7 @@ struct SeidelLP
       return v;
     }
 #else
-    inline vec3 solve_lp1D(const int n, const HalfSpace &h1, const HalfSpace &h2) const
+    inline vec3 solve_lp1D(const int n, const HalfSpace &h1, const HalfSpace &h2) const __attribute__((always_inline))
     {
       const vec3 v1 = intersect(h1, h2, bnd[0]);
       const vec3 v2 = intersect(h1, h2, bnd[1]);
