@@ -49,7 +49,7 @@ int main(int argc, char * argv [])
 
 
   vec3 cvec(-1.0, -1.0, +1.0);
-  cvec = vec3(drand48(), drand48(), drand48());
+  cvec = vec3(1.0 - 2.0*drand48(), 1.0 - 2.0*drand48(), 1.0 - 2.0*drand48());
   vec3 pos = lp.solve(cvec, false);
   {
     const double t0 = get_wtime();
@@ -73,6 +73,19 @@ int main(int argc, char * argv [])
     }
     const double dt = get_wtime() - t0;
     fprintf(stderr, " rand  done in %g sec\n", dt/nrep);
+  }
+  
+  {
+    int nrep = 100000;
+    std::vector<vec3> vecList(nrep);
+    const double t0 = get_wtime();
+    for (int i = 0; i < nrep; i++)
+    {
+      const vec3 cvec(1.0 - 2.0*drand48(), 1.0 - 2.0*drand48(), 1.0 - 2.0*drand48());
+      vecList[i] = lp.solve(cvec, false);
+    }
+    const double dt = get_wtime() - t0;
+    fprintf(stderr, " norm  done in %g sec [%g sec per element]\n", dt, dt/nrep);
   }
 
   return 0;
