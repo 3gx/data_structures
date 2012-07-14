@@ -77,7 +77,7 @@ int main(int argc, char * argv [])
   
   {
     nflops = 0;
-    int nrep = 100000;
+ //   int nrep = 100000;
     std::vector<vec3> vecList(nrep);
     const double t0 = get_wtime();
     for (int i = 0; i < nrep; i++)
@@ -86,8 +86,8 @@ int main(int argc, char * argv [])
       vecList[i] = lp.solve(cvec, false);
     }
     const double dt = get_wtime() - t0;
-    fprintf(stderr, " norm  done in %g sec [%g sec per element]\n", dt, dt/nrep);
-    fprintf(stderr, " performance: %g GFLOP/s \n", nflops*1.0/dt/1e9);
+    fprintf(stderr, " test  done in %g sec [%g sec per element]\n", dt, dt/nrep);
+    fprintf(stderr, " performance: %g GFLOP %g GFLOP/s \n", nflops*1.0/1e9, nflops*1.0/dt/1e9);
   }
 
   return 0;

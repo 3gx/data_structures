@@ -117,78 +117,49 @@ struct MSW
 
       if (randomize)
         std::random_shuffle(halfSpaceList, halfSpaceList+n);
-
+      
       return solve_lp3D(n);
     }
 
-    inline vec3 solve_lp3D(const int n) const
+    vec3 solve_lp3D(const int n) const
     {
-      vec3 v = intersect(bnd[0], bnd[1], bnd[2]);
-      for (int i = 0; i < n; i++)
-      {
-        const HalfSpace &h = halfSpaceList[i];
-        if (h.outside(v)) 
-          v = solve_lp2D(i, h);
-      }
+
+      if (n == 0)
+        return intersect(bnd[0], bnd[1], bnd[2]);
+
+      const HalfSpace &h = halfSpaceList[n-1];
+      const vec3 v = solve_lp3D(n-1);
+      if (h.outside(v))
+        return solve_lp2D(n-1, h);
       return v;
     }
 
-    inline vec3 solve_lp2D(const int n, const HalfSpace &h1) const
+    vec3 solve_lp2D(const int n, const HalfSpace &h1) const
     {
-      const vec3 v1 = intersect(h1, bnd[0], bnd[1]);
-      const vec3 v2 = intersect(h1, bnd[0], bnd[2]);
-      const vec3 v3 = intersect(h1, bnd[1], bnd[2]);
-      const real f1 = cvec*v1;
-      const real f2 = cvec*v2;
-      const real f3 = cvec*v3;
-      vec3 v = v1;
-      real f = f1;
-      if (f2 > f) {f = f2; v = v2;}
-      if (f3 > f) {f = f3; v = v3;}
 
-      for (int i = 0; i < n; i++)
+      if (n == 0)
       {
-        const HalfSpace &h = halfSpaceList[i];
-        if (h.outside(v)) 
-          v = solve_lp1D(i,  h1, h);
+        const vec3 v1 = intersect(h1, bnd[0], bnd[1]);
+        const vec3 v2 = intersect(h1, bnd[0], bnd[2]);
+        const vec3 v3 = intersect(h1, bnd[1], bnd[2]);
+        const real f1 = cvec*v1;
+        const real f2 = cvec*v2;
+        const real f3 = cvec*v3;
+        vec3 v = v1;
+        real f = f1;
+        if (f2 > f) {f = f2; v = v2;}
+        if (f3 > f) {f = f3; v = v3;}
+
+        return v;
       }
+
+      const HalfSpace &h = halfSpaceList[n-1];
+      const vec3 v = solve_lp2D(n-1, h1);
+      if (h.outside(v)) 
+        return solve_lp1D(n-1, h1, h);
       return v;
     }
 
-#if 0
-    inline vec3 solve_lp1D(const int n, const HalfSpace &h1, const HalfSpace &h2) const
-    {
-      const real norm2 = h1.n.norm2() * h2.n.norm2();
-      const real n12   = h1.n * h2.n  * (1.0/std::sqrt(norm2));
-//      if (n12*n12 == 1.0) return v;
-      assert(n12*n12 < 1.0);
-      const real f   = 1.0/(1.0 - n12*n12);
-      const real c1  = (h1.h - h2.h*n12)*f;
-      const real c2  = (h2.h - h1.h*n12)*f;
-
-      const vec3 orig = h1.n*c1 + h2.n*c2;
-      const vec3 tang = h1.n%h2.n;
-
-      real tmin = -HUGE;
-      real tmax = +HUGE;
-
-      for (int i = 0; i < n; i++)
-      {
-        const HalfSpace &h = halfSpaceList[i];
-        const real     dot = h.n * tang;
-        if (dot*dot == 0.0) continue;
-        assert(dot*dot > 0.0);
-        const real tau = (h.h - h.n*orig)*(1.0/dot);
-        if (dot > 0.0) tmin = __max(tmin, tau);
-        else           tmax = __min(tmax, tau);
-      }
-
-      assert(tang.z != 0.0);
-    
-      const vec3 v = orig + tang * (tang*cvec > 0.0 ? tmax : tmin); 
-      return v;
-    }
-#else
     inline vec3 solve_lp1D(const int n, const HalfSpace &h1, const HalfSpace &h2) const
     {
       const vec3 v1 = intersect(h1, h2, bnd[0]);
@@ -197,12 +168,11 @@ struct MSW
       const real f1 = cvec*v1;
       const real f2 = cvec*v2;
       const real f3 = cvec*v3;
-      
       vec3 v = v1;
       real f = f1;
       if (f2 > f) {f = f2; v = v2;}
       if (f3 > f) {f = f3; v = v3;}
-      
+
       for (int i = 0; i < n; i++)
       {
         const HalfSpace &h = halfSpaceList[i];
@@ -211,7 +181,6 @@ struct MSW
       }
       return v;
     }
-#endif
 
 };
 
