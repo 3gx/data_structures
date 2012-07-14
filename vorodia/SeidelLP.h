@@ -26,11 +26,26 @@ struct HalfSpace
   HalfSpace() {}
   HalfSpace(const vec3 &_n, const vec3 &p) : n(_n)
   {
+#if 1
     const real fn = n.abs();
     assert(fn > 0.0);
     n *= 1.0/fn;
+#endif
     h  = p*n;
   }
+  HalfSpace(const vec3 &p) 
+  {
+#if 1
+    const real fn = p.abs();
+    assert(fn >  0.0);
+    n = p*(1.0/fn);
+#else
+    n = p;
+#endif
+    h = p*n;
+  }
+
+
   bool outside(const vec3 &p) const 
   {
     return n*p < h;
@@ -66,25 +81,21 @@ struct SeidelLP
 {
   private:
     int n;
-    vec3 bmax;
-    vec3 cvec;
-    vec3 vbeg;
+    vec3 bmax, cvec;
+    vec3 vmax;
     HalfSpace halfSpaceList[N];
-    HalfSpace boundaryBox  [6];
-    int n1, n2, n3;
 
   public:
-    SeidelLP() : n(0) { set_bnd(vec3(1.0)); }
-    SeidelLP(const HalfSpace::Vector &plist, const vec3 bmax = 1.0)
+    SeidelLP(const vec3 &_bmax = 1.0) : n(0), bmax(_bmax) {}
+    SeidelLP(const HalfSpace::Vector &plist, const vec3 &_bmax = 1.0) : bmax(_bmax)
     {
       assert((int)plist.size() <= N);
-      set_bnd(bmax);
       n = plist.size();
       for (int i = 0; i < n; i++)
         halfSpaceList[i] = plist[i];
     }
 
-    void clear(const vec3 bmax = 1.0) { set_bnd(); }
+    void clear(const vec3 &_bmax = 1.0) { n = 0; bmax = _bmax; }
     bool push(const HalfSpace &p)
     {
       assert(n < N);
@@ -93,123 +104,53 @@ struct SeidelLP
     }
     int nspace() const { return n; }
 
-    void rotate(const vec3 &line)
-    {
-    }
-
-    void set_bnd(const vec3 &bmax)
-    {
-      this->bmax = bmax;
-      const real x = bmax.x;
-      const real y = bmax.y;
-      const real z = bmax.z;
-      boundaryBox[0] = HalfSpace(vec3(+1.0, 0.0, 0.0), vec3(0.0,0.0,0.0));
-      boundaryBox[1] = HalfSpace(vec3(-1.0, 0.0, 0.0), vec3( x ,0.0,0.0));
-      boundaryBox[2] = HalfSpace(vec3( 0.0,+1.0, 0.0), vec3(0.0,0.0,0.0));
-      boundaryBox[3] = HalfSpace(vec3( 0.0,-1.0, 0.0), vec3(0.0, y ,0.0));
-      boundaryBox[4] = HalfSpace(vec3( 0.0, 0.0,+1.0), vec3(0.0,0.0,0.0));
-      boundaryBox[5] = HalfSpace(vec3( 0.0, 0.0,-1.0), vec3(0.0,0.0, z ));
-    }
-
     vec3 solve(const vec3 &cvec, const bool randomize = false)
     {
       this->cvec = cvec;
-
-      n1 = n2 = n3 = 0;
+      vmax = vec3(
+        cvec.x > 0.0 ? bmax.x : -bmax.x,
+        cvec.y > 0.0 ? bmax.y : -bmax.y,
+        cvec.z > 0.0 ? bmax.z : -bmax.z);
       if (randomize)
         std::random_shuffle(halfSpaceList, halfSpaceList+n);
-      const vec3 v = solve_lp3D(n);
 
-#if 0
-      fprintf(stderr, "n3= %d\n", n3);
-      fprintf(stderr, "n2= %d\n", n2);
-      fprintf(stderr, "n1= %d\n", n1);
-#endif
-      fprintf(stderr, "  pos= %g %g %g   \n", v.x, v.y, v.z);
-
-#if 0  /* sanity check */
-      for (int i = 0; i < n; i++)
-      {
-        fprintf(stderr, "i= %d: d= %g\n", i, halfSpaceList[i].dist(v));
-        assert(!halfSpaceList[i].outside(v));
-      }
-#endif
-
-      return v;
+      return solve_lp3D(n);
     }
 
-    template<class T1, class T2>
-      struct cmp_data
-      {
-        bool operator()(const std::pair<T1, T2> &lhs, const std::pair<T1, T2> &rhs) const
-        {
-          return lhs.first < rhs.first;
-        }
-      };
-
-    vec3 solve_lp3D(const int n)
+    inline vec3 solve_lp3D(const int n) const
     {
-      vbeg = vec3(HUGE);
-#if 1
-      const real x = bmax.x;
-      const real y = bmax.y;
-      const real z = bmax.z;
-
-      vec3 vtx[8];
-      std::pair<real, int> fval[8];
-
-      vtx[0] = vec3(0.0, 0.0, 0.0);
-      vtx[1] = vec3( x , 0.0, 0.0);
-      vtx[2] = vec3(0.0,  y , 0.0);
-      vtx[3] = vec3( x,   y , 0.0);
-      vtx[4] = vec3(0.0, 0.0,  z );
-      vtx[5] = vec3( x , 0.0,  z );
-      vtx[6] = vec3(0.0,  y ,  z );
-      vtx[7] = vec3( x,   y ,  z );
-
-      for (int i = 0; i < 8; i++)
-        fval[i] = std::make_pair(vtx[i]*cvec, i);
-
-      std::sort(fval, fval+8, cmp_data<real, int>());
-      vbeg = vtx[fval[7].second];
-#endif
-
-#if 0
-      for (int i = 0; i < 8; i++)
-      {
-        fprintf(stderr, "i= %d : c= %g  idx= %d\n",
-            i, fval[i].first, fval[i].second);
-      }
-#endif
-
-
-
-      vec3 v(vbeg);
+      vec3 v = vmax;
       for (int i = 0; i < n; i++)
       {
-        n3++;
         const HalfSpace &h = halfSpaceList[i];
-        if (h.outside(v)) //|| v.x == -1.0)
+        if (h.outside(v)) 
           v = solve_lp2D(i, h);
       }
       return v;
     }
 
-    vec3 solve_lp2D(const int n, const HalfSpace h1)
+    inline vec3 solve_lp2D(const int n, const HalfSpace &h1) const
     {
-      vec3 v = vbeg;
-      v.x = -1.0;
+      const vec3 v1 = intersect(h1, vec3(vmax.x, 0.0, 0.0), vec3(0.0, vmax.y, 0.0));
+      const vec3 v2 = intersect(h1, vec3(vmax.x, 0.0, 0.0), vec3(0.0, 0.0, vmax.z));
+      const vec3 v3 = intersect(h1, vec3(0.0, vmax.y, 0.0), vec3(0.0, 0.0, vmax.z));
+      const real f1 = cvec*v1;
+      const real f2 = cvec*v2;
+      const real f3 = cvec*v3;
+      vec3 v = v1;
+      real f = f1;
+      if (f2 > f) {f = f2; v = v2;}
+      if (f3 > f) {f = f3; v = v3;}
       for (int i = 0; i < n; i++)
       {
-        n2++;
         const HalfSpace &h = halfSpaceList[i];
-        if (h.outside(v)) // || v.x == -1);
+        if (h.outside(v)) 
           v = solve_lp1D(i,  h1, h);
       }
       return v;
     }
 
-    vec3 solve_lp1D(const int n, const HalfSpace h1, const HalfSpace h2)
+    inline vec3 solve_lp1D(const int n, const HalfSpace &h1, const HalfSpace &h2) const
     {
       const real norm2 = h1.n.norm2() * h2.n.norm2();
       const real n12   = h1.n * h2.n  * (1.0/std::sqrt(norm2));
@@ -225,22 +166,8 @@ struct SeidelLP
       real tmin = -HUGE;
       real tmax = +HUGE;
 
-#if 0
-      for (int i = 0; i < 6; i++)
-      {
-        const HalfSpace &h = boundaryBox[i];
-        const real dot = h.n * tang;
-        if (dot*dot == 0.0) continue;
-        assert(dot*dot > 0.0);
-        const real tau = (h.h - h.n*orig)*(1.0/dot);
-        if (dot > 0.0) tmin = __max(tmin, tau);
-        else           tmax = __min(tmax, tau);
-      }
-#endif
-
       for (int i = 0; i < n; i++)
       {
-        n1++;
         const HalfSpace &h = halfSpaceList[i];
         const real     dot = h.n * tang;
         if (dot*dot == 0.0) continue;
@@ -250,8 +177,8 @@ struct SeidelLP
         else           tmax = __min(tmax, tau);
       }
 
-      assert(tang*cvec != 0.0);
-     
+      assert(tang.z != 0.0);
+    
       const vec3 v = orig + tang * (tang*cvec > 0.0 ? tmax : tmin); 
       return v;
     }
