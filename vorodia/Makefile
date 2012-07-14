@@ -36,10 +36,14 @@ endif
 LDFLAGS = 
 
 SRCPATH = ./
-SRC = SeidelLP.cpp
-OBJ = $(SRC:%.cpp=%.o) 
 
+SRC  = SeidelLP.cpp
 PROG = SeidelLP
+
+SRC  = MSW.cpp
+PROG = MSW
+
+OBJ = $(SRC:%.cpp=%.o) 
 
 RM = /bin/rm
 
