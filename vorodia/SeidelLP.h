@@ -17,6 +17,7 @@ inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
 template<class T>
 inline T __sign(const T a) {return a < T(0.0) ? (T)-1.0 : (T)+1.0;}
 
+unsigned long long nflops = 0;
 
 struct HalfSpace
 {
@@ -48,14 +49,12 @@ struct HalfSpace
 
   bool outside(const vec3 &p) const 
   {
+    nflops += 6;
     return n*p < h;
-  }
-  real dist(const vec3 &p) const
-  {
-    return n*p - h;
   }
   friend vec3 intersect(const HalfSpace &p1, const HalfSpace &p2, const HalfSpace &p3)
   {
+    nflops += 9*3 + 5+1+3*3+3*3+3*2;
     const vec3 w1 = p2.n%p3.n;
     const vec3 w2 = p3.n%p1.n;
     const vec3 w3 = p1.n%p2.n;
@@ -69,10 +68,16 @@ struct HalfSpace
     return w1*d1 + w2*d2 + w3*d3;
   }
 
+#if 0
+  real dist(const vec3 &p) const
+  {
+    return n*p - h;
+  }
   vec3 project(const vec3 &p) const
   {
     return p - n*(p*n - h);
   }
+#endif
 };
 
 
