@@ -3,14 +3,21 @@
 
 int main(int argc, char * argv [])
 {
+  int n = 1000;
+  srand48(120);
+//  srand48(123);
+
+  if (argc > 1)
+    srand48(atoi(argv[1]));
+
+  if (argc > 2)
+    n = atoi(argv[2]);
+  fprintf(stderr, "n= %d\n", n);
 
   const int N = 100000;
   SeidelLP<N> lp(1.0);
 
 #if 1
-  srand48(120);
-//  srand48(123);
-  int n = 1000;
   for (int i = 0; i < n; i++)
   {
     const real lx = 0.1;
@@ -41,7 +48,8 @@ int main(int argc, char * argv [])
   const int nrep = 100;
 
 
-  const vec3 cvec(-1.0, 0.0, +1.0);
+  vec3 cvec(-0.0, 0.0, +1.0);
+  cvec = vec3(drand48(), drand48(), drand48());
   vec3 pos = lp.solve(cvec, false);
   {
     const double t0 = get_wtime();

@@ -141,6 +141,7 @@ struct SeidelLP
       real f = f1;
       if (f2 > f) {f = f2; v = v2;}
       if (f3 > f) {f = f3; v = v3;}
+
       for (int i = 0; i < n; i++)
       {
         const HalfSpace &h = halfSpaceList[i];
