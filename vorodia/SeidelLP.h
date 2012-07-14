@@ -60,7 +60,7 @@ struct HalfSpace
     const vec3 w2 = p3.n%p1.n;
     const vec3 w3 = p1.n%p2.n;
     const real  w = p1.n*w1;
-    if (w == 0.0) return vec3(HUGE);
+//    if (w == 0.0) return vec3(HUGE);
     assert(w != 0.0);
     const real iw = 1.0/w;
     const real d1 = p1.h * iw;
