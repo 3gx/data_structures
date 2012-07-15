@@ -14,7 +14,7 @@ int main(int argc, char * argv [])
     n = atoi(argv[2]);
   fprintf(stderr, "n= %d\n", n);
 
-  const int N = 100000;
+  const int N = 1000;
   MSW<N> lp(1.0);
 
 #if 1

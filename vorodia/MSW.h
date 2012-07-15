@@ -117,7 +117,9 @@ struct MSW
     {
       assert(n > 2);
       assert(n < N);
-      halfSpaceList[n++] = p;
+      halfSpaceList[n] = p;
+      halfSpaceID  [n] = n+1;
+      n++;
       return true;
     }
     int nspace() const { return n-3; }
