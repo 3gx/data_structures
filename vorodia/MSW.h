@@ -151,14 +151,8 @@ struct MSW
     vec3 solve_lp3D(const int n, vec3 v)
     {
       for (int i = 3; i < n; i++)
-      {
-        const HalfSpace &h = halfSpaceList[i];
-        if (h.outside(v))
-        {
-          v = newBasis(i);
-          v = solve_lp3D(i+1, v);
-        }
-      }
+        if (halfSpaceList[i].outside(v))
+          v = solve_lp3D(i+1, newBasis(i));
       return v;
     }
 
@@ -188,7 +182,7 @@ struct MSW
 
       j = vc[j];
 
-#if 1
+#if 0
       {
         for (int j = 0; j < 3; j++)
           assert(!hs[i].outside(v[j].first));
