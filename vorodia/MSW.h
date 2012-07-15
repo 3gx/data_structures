@@ -24,25 +24,22 @@ struct HalfSpace
   typedef std::vector<HalfSpace> Vector;
   vec3 n;
   real h;
-  int id;
   HalfSpace() {}
-  HalfSpace(const vec3 &_n, const vec3 &p, const int _id = 1) : n(_n), id(_id)
+  HalfSpace(const vec3 &_n, const vec3 &p) : n(_n)
   {
-#if 1
+#if 0
     const real fn = n.abs();
     assert(fn > 0.0);
     n *= 1.0/fn;
 #endif
     h  = p*n;
   }
-  HalfSpace(const vec3 &p, const int _id = 1) : id(_id) 
+  HalfSpace(const vec3 &p) : n(p)
   {
-#if 1
-    const real fn = p.abs();
+#if 0
+    const real fn = n.abs();
     assert(fn >  0.0);
-    n = p*(1.0/fn);
-#else
-    n = p;
+    n *= 1.0/fn;
 #endif
     h = p*n;
   }
@@ -100,7 +97,7 @@ struct MSW
     int n;
     vec3 bmax, cvec;
     HalfSpace halfSpaceList[N];
-    HalfSpace bnd[3];
+    int       halfSpaceID  [N];
 
   public:
     MSW(const vec3 &_bmax = 1.0) : n(3), bmax(_bmax) {}
@@ -109,7 +106,10 @@ struct MSW
       assert((int)plist.size() <= N);
       n = plist.size() + 3;
       for (int i = 3; i < n; i++)
+      {
         halfSpaceList[i] = plist[i];
+        halfSpaceID  [i] = i;
+      }
     }
 
     void clear(const vec3 &_bmax = 1.0) { n = 3; bmax = _bmax; }
@@ -129,9 +129,12 @@ struct MSW
           cvec.x > 0.0 ? bmax.x : -bmax.x,
           cvec.y > 0.0 ? bmax.y : -bmax.y,
           cvec.z > 0.0 ? bmax.z : -bmax.z);
-      halfSpaceList[0] = HalfSpace(vec3(-bvec.x,0.0,0.0), vec3(bvec.x,0.0,0.0), -1);
-      halfSpaceList[1] = HalfSpace(vec3(0.0,-bvec.y,0.0), vec3(0.0,bvec.y,0.0), -2);
-      halfSpaceList[2] = HalfSpace(vec3(0.0,0.0,-bvec.z), vec3(0.0,0.0,bvec.z), -3);
+      halfSpaceList[0] = HalfSpace(vec3(-bvec.x,0.0,0.0), vec3(bvec.x,0.0,0.0));
+      halfSpaceList[1] = HalfSpace(vec3(0.0,-bvec.y,0.0), vec3(0.0,bvec.y,0.0));
+      halfSpaceList[2] = HalfSpace(vec3(0.0,0.0,-bvec.z), vec3(0.0,0.0,bvec.z));
+      halfSpaceID  [0] = -1;
+      halfSpaceID  [1] = -2;
+      halfSpaceID  [2] = -3;
 
       if (randomize)
         std::random_shuffle(halfSpaceList+3, halfSpaceList+n);
@@ -142,8 +145,11 @@ struct MSW
       int i = 2;
       int j = 0;
       while (++i < n)
-        if (halfSpaceList[i].id < 0)
-          std::swap(halfSpaceList[i--], halfSpaceList[j++]);
+        if (halfSpaceID[i] < 0)
+        {
+          std::swap(halfSpaceList[i  ], halfSpaceList[j  ]);
+          std::swap(halfSpaceID  [i--], halfSpaceID  [j++]);
+        }
 
       return v;
     }
@@ -188,7 +194,8 @@ struct MSW
       }
 #endif
 
-      std::swap(hs[i], hs[j]);
+      std::swap(halfSpaceList[i], halfSpaceList[j]);
+      std::swap(halfSpaceID  [i], halfSpaceID  [j]);
       return v[j].first;
     }
 
