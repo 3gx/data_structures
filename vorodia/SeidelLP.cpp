@@ -77,7 +77,7 @@ int main(int argc, char * argv [])
   
   {
     nflops = 0;
-//    int nrep = 100000;
+    int nrep = 100000;
     std::vector<vec3> vecList(nrep);
     const double t0 = get_wtime();
     for (int i = 0; i < nrep; i++)
