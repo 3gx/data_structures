@@ -160,7 +160,7 @@ struct MSW
     vec3 newBasis(const int i) __attribute__((always_inline))
     {
       HalfSpace *hs = halfSpaceList;
-#if 1
+
       std::pair<vec3, real> v[3] = {
         intersect(hs[i], hs[1], hs[2], cvec),
         intersect(hs[0], hs[i], hs[2], cvec),
@@ -190,51 +190,6 @@ struct MSW
 
       std::swap(hs[i], hs[j]);
       return v[j].first;
-
-
-#endif
-
-#if 0
-      std::pair<vec3, real> v[3] = {
-        intersect(hs[i], hs[1], hs[2], cvec),
-        intersect(hs[0], hs[i], hs[2], cvec),
-        intersect(hs[0], hs[1], hs[i], cvec)
-      };
-
-      int vc[3];
-      int nv = 0;
-      if (!hs[0].outside(v[0].first))  vc[nv++] = 0;
-      if (!hs[1].outside(v[1].first))  vc[nv++] = 1;
-      if (!hs[2].outside(v[2].first))  vc[nv++] = 2;
-      assert(nv > 0);
-
-      int  j = 0;
-      if (nv > 1)
-        if (v[vc[1]].second > v[vc[j]].second) j = 1;
-      if (nv > 2)
-        if (v[vc[2]].second > v[vc[j]].second) j = 2;
-
-      assert(j < nv);
-
-      j = vc[j];
-
-#if 1
-      {
-        for (int j = 0; j < 3; j++)
-          assert(!hs[i].outside(v[j].first));
-      }
-
-      {
-        assert(!hs[i].outside(v[j].first));
-        for (int k = 0; k < 3; k++)
-          assert(!hs[k].outside(v[j].first));
-      }
-#endif
-      
-      std::swap(hs[i], hs[j]);
-      return v[j].first;
-
-#endif
     }
 
 };
