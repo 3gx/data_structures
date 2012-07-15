@@ -219,8 +219,17 @@ struct MSW
       }
 #endif
 
-      std::swap(halfSpaceList[i], halfSpaceList[j]);
+#if 0
+      if (halfSpaceFlag[j] == 0)
+      {
+        halfSpaceFlag[i] = 0;
+        halfSpaceFlag[j] = 1;
+      }
+#else
       std::swap(halfSpaceFlag[i], halfSpaceFlag[j]);
+#endif
+      
+      std::swap(halfSpaceList[i], halfSpaceList[j]);
       return v[j].first;
     }
 
