@@ -173,10 +173,12 @@ struct MSW
       bool flag = true;
       while(flag)
       {
+        flag = false;
         for (int i = 3; i < n; i++)
-          if (flag = halfSpaceList[i].outside(v))
+          if (halfSpaceList[i].outside(v) && halfSpaceFlag[i])
           {
             v = newBasis(i);
+            flag = true;
             break;
           }
       }
