@@ -59,7 +59,7 @@ struct HalfSpace
   }
   friend std::pair<vec3, real> intersect(const HalfSpace &p1, const HalfSpace &p2, const HalfSpace &p3, const vec3 &c)
   {
-    nflops += 9*3 + 5+1+3*3+3*3+3*2;
+    nflops += 9*3 + 5+1+3*3+3*3+3*2 + 5;
     const vec3 w1 = p2.n%p3.n;
     const vec3 w2 = p3.n%p1.n;
     const vec3 w3 = p1.n%p2.n;
@@ -148,7 +148,7 @@ struct MSW
       return v;
     }
 
-    vec3 solve_lp3D(const int n, vec3 v)
+    vec3 solve_lp3D(const int n, vec3 v) __attribute__((always_inline))
     {
       for (int i = 3; i < n; i++)
         if (halfSpaceList[i].outside(v))
@@ -156,14 +156,50 @@ struct MSW
       return v;
     }
 
-    vec3 newBasis(const int i)
+
+    vec3 newBasis(const int i) __attribute__((always_inline))
     {
-      assert(i > 2);
       HalfSpace *hs = halfSpaceList;
-      const std::pair<vec3, real> v[3] = {
+#if 1
+      std::pair<vec3, real> v[3] = {
         intersect(hs[i], hs[1], hs[2], cvec),
         intersect(hs[0], hs[i], hs[2], cvec),
-        intersect(hs[0], hs[1], hs[i], cvec)};
+        intersect(hs[0], hs[1], hs[i], cvec) };
+      if (hs[0].outside(v[0].first)) v[0].second = -HUGE;
+      if (hs[1].outside(v[1].first)) v[1].second = -HUGE;
+      if (hs[2].outside(v[2].first)) v[2].second = -HUGE;
+      
+      int j = 0;
+      if (v[1].second > v[j].second) j = 1;
+      if (v[2].second > v[j].second) j = 2;
+
+      assert(v[j].second > -HUGE);
+
+#if 0
+      {
+        for (int j = 0; j < 3; j++)
+          assert(!hs[i].outside(v[j].first));
+      }
+
+      {
+        assert(!hs[i].outside(v[j].first));
+        for (int k = 0; k < 3; k++)
+          assert(!hs[k].outside(v[j].first));
+      }
+#endif
+
+      std::swap(hs[i], hs[j]);
+      return v[j].first;
+
+
+#endif
+
+#if 0
+      std::pair<vec3, real> v[3] = {
+        intersect(hs[i], hs[1], hs[2], cvec),
+        intersect(hs[0], hs[i], hs[2], cvec),
+        intersect(hs[0], hs[1], hs[i], cvec)
+      };
 
       int vc[3];
       int nv = 0;
@@ -182,7 +218,7 @@ struct MSW
 
       j = vc[j];
 
-#if 0
+#if 1
       {
         for (int j = 0; j < 3; j++)
           assert(!hs[i].outside(v[j].first));
@@ -194,9 +230,11 @@ struct MSW
           assert(!hs[k].outside(v[j].first));
       }
 #endif
-
+      
       std::swap(hs[i], hs[j]);
       return v[j].first;
+
+#endif
     }
 
 };
