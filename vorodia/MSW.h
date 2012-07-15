@@ -160,6 +160,7 @@ struct MSW
     {
       vec3 v = intersect(halfSpaceList[0], halfSpaceList[1], halfSpaceList[2], cvec).first;
 
+#if 0
       int i = 2;
       while (++i < n)
         if (halfSpaceList[i].outside(v))
@@ -167,6 +168,19 @@ struct MSW
           v = newBasis(i);
           i = 2;
         }
+#else
+      bool flag = true;
+      while(flag)
+      {
+        flag = false;
+        for (int i = 3; i < n; i++)
+          if (halfSpaceList[i].outside(v))
+          {
+            v = newBasis(i);
+            flag = true;
+          }
+      }
+#endif
 
       return v;
     }
