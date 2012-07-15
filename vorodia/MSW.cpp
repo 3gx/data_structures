@@ -1,4 +1,8 @@
+#if 0
 #include "MSW.h"
+#else
+#include "MSWnew.h"
+#endif
 #include "mytimer.h"
 
 int main(int argc, char * argv [])
@@ -19,9 +23,9 @@ int main(int argc, char * argv [])
 #if 1
   for (int i = 0; i < n; i++)
   {
-    const real lx = 0.1;
-    const real ly = 0.1;
-    const real lz = 0.1;
+    const real lx = 0.75;
+    const real ly = 0.75;
+    const real lz = 0.75;
     const real nx = (1.0-2.0*drand48())*lx;
     const real ny = (1.0-2.0*drand48())*ly;
     const real nz = (1.0-2.0*drand48())*lz;
