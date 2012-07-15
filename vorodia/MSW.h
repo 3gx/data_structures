@@ -3,6 +3,7 @@
 #include "vector3.h"
 #include <vector>
 #include <cassert>
+#include <algorithm>
 #include <cfloat>
 
 template<class T>
@@ -160,7 +161,7 @@ struct MSW
     {
       for (int i = 3; i < n; i++)
         if (halfSpaceList[i].outside(v))
-          v = solve_lp3D(i+1, newBasis(i));
+          v = solve_lp3D(i, newBasis(i));
 
       return v;
     }

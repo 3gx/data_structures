@@ -3,6 +3,7 @@
 
 #include "vector3.h"
 #include <vector>
+#include <algorithm>
 #include <cassert>
 
 template<class T>
