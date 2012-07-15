@@ -90,9 +90,9 @@ struct Basis
 };
 
 
-template<const int N>
 struct MSW
 {
+  enum {N = 1000};
   private:
     int n;
     vec3 bmax, cvec;
@@ -161,6 +161,7 @@ struct MSW
       for (int i = 3; i < n; i++)
         if (halfSpaceList[i].outside(v))
           v = solve_lp3D(i+1, newBasis(i));
+
       return v;
     }
 
@@ -176,7 +177,7 @@ struct MSW
       if (hs[0].outside(v[0].first)) v[0].second = -HUGE;
       if (hs[1].outside(v[1].first)) v[1].second = -HUGE;
       if (hs[2].outside(v[2].first)) v[2].second = -HUGE;
-      
+
       int j = 0;
       if (v[1].second > v[j].second) j = 1;
       if (v[2].second > v[j].second) j = 2;
@@ -202,4 +203,5 @@ struct MSW
     }
 
 };
+
 
