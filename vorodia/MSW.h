@@ -98,19 +98,22 @@ struct MSW
     int n;
     vec3 bmax, cvec;
     HalfSpace halfSpaceList[N];
-    int       halfSpaceID  [N];
+    int       halfSpaceFlag[N];
 
   public:
-    MSW(const vec3 &_bmax = 1.0) : n(3), bmax(_bmax) {}
+    MSW(const vec3 &_bmax = 1.0) : n(3), bmax(_bmax) 
+    {
+      for (int i = 0; i < N; i++)
+        halfSpaceFlag[i] = 1;
+    }
     MSW(const HalfSpace::Vector &plist, const vec3 &_bmax = 1.0) : bmax(_bmax)
     {
       assert((int)plist.size() <= N);
       n = plist.size() + 3;
       for (int i = 3; i < n; i++)
-      {
         halfSpaceList[i] = plist[i];
-        halfSpaceID  [i] = i;
-      }
+      for (int i = 0; i < N; i++)
+        halfSpaceFlag[i] = 1;
     }
 
     void clear(const vec3 &_bmax = 1.0) { n = 3; bmax = _bmax; }
@@ -118,9 +121,7 @@ struct MSW
     {
       assert(n > 2);
       assert(n < N);
-      halfSpaceList[n] = p;
-      halfSpaceID  [n] = n+1;
-      n++;
+      halfSpaceList[n++] = p;
       return true;
     }
     int nspace() const { return n-3; }
@@ -135,9 +136,9 @@ struct MSW
       halfSpaceList[0] = HalfSpace(vec3(-bvec.x,0.0,0.0), vec3(bvec.x,0.0,0.0));
       halfSpaceList[1] = HalfSpace(vec3(0.0,-bvec.y,0.0), vec3(0.0,bvec.y,0.0));
       halfSpaceList[2] = HalfSpace(vec3(0.0,0.0,-bvec.z), vec3(0.0,0.0,bvec.z));
-      halfSpaceID  [0] = -1;
-      halfSpaceID  [1] = -2;
-      halfSpaceID  [2] = -3;
+      halfSpaceFlag[0] = 0;
+      halfSpaceFlag[1] = 0;
+      halfSpaceFlag[2] = 0;
 
       if (randomize)
         std::random_shuffle(halfSpaceList+3, halfSpaceList+n);
@@ -147,10 +148,10 @@ struct MSW
       int i = 2;
       int j = 0;
       while (++i < n)
-        if (halfSpaceID[i] < 0)
+        if (halfSpaceFlag[i] == 0)
         {
           std::swap(halfSpaceList[i  ], halfSpaceList[j  ]);
-          std::swap(halfSpaceID  [i--], halfSpaceID  [j++]);
+          std::swap(halfSpaceFlag[i--], halfSpaceFlag[j++]);
         }
 
       return v;
@@ -160,10 +161,10 @@ struct MSW
     {
       vec3 v = intersect(halfSpaceList[0], halfSpaceList[1], halfSpaceList[2], cvec).first;
 
-#if 0
+#if 1
       int i = 2;
       while (++i < n)
-        if (halfSpaceList[i].outside(v))
+        if (halfSpaceList[i].outside(v) && halfSpaceFlag[i])
         {
           v = newBasis(i);
           i = 2;
@@ -217,7 +218,7 @@ struct MSW
 #endif
 
       std::swap(halfSpaceList[i], halfSpaceList[j]);
-      std::swap(halfSpaceID  [i], halfSpaceID  [j]);
+      std::swap(halfSpaceFlag[i], halfSpaceFlag[j]);
       return v[j].first;
     }
 
