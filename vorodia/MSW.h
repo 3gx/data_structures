@@ -142,8 +142,7 @@ struct MSW
       if (randomize)
         std::random_shuffle(halfSpaceList+3, halfSpaceList+n);
       
-      vec3 v = intersect(halfSpaceList[0], halfSpaceList[1], halfSpaceList[2], cvec).first;
-      v  = solve_lp3D(n, v);
+      const vec3 v  = solve_lp3D(n);
 
       int i = 2;
       int j = 0;
@@ -157,11 +156,17 @@ struct MSW
       return v;
     }
 
-    vec3 solve_lp3D(const int n, vec3 v) __attribute__((always_inline))
+    vec3 solve_lp3D(const int n) __attribute__((always_inline))
     {
-      for (int i = 3; i < n; i++)
+      vec3 v = intersect(halfSpaceList[0], halfSpaceList[1], halfSpaceList[2], cvec).first;
+
+      int i = 2;
+      while (++i < n)
         if (halfSpaceList[i].outside(v))
-          v = solve_lp3D(i, newBasis(i));
+        {
+          v = newBasis(i);
+          i = 2;
+        }
 
       return v;
     }
