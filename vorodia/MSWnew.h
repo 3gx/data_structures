@@ -98,8 +98,7 @@ struct MSW
     int n;
     vec3 bmax, cvec;
     HalfSpace halfSpaceList[N];
-    bool      halfSpaceFlag[N];
-    int       basis[3];
+    int       halfSpaceFlag[N];
 
   public:
     MSW(const vec3 &_bmax = 1.0) : n(3), bmax(_bmax) 
@@ -139,38 +138,32 @@ struct MSW
       halfSpaceList[1] = HalfSpace(vec3(0.0,-bvec.y,0.0), vec3(0.0,bvec.y,0.0));
       halfSpaceList[2] = HalfSpace(vec3(0.0,0.0,-bvec.z), vec3(0.0,0.0,bvec.z));
 
-      basis[0] = 0;
-      basis[1] = 1;
-      basis[2] = 2;
-      halfSpaceFlag[basis[0]] = false;
-      halfSpaceFlag[basis[1]] = false;
-      halfSpaceFlag[basis[2]] = false;
-
       if (randomize)
         std::random_shuffle(halfSpaceList+3, halfSpaceList+n);
 
       const vec3 v  = solve_lp3D(n);
 
-      halfSpaceFlag[basis[0]] = true;
-      halfSpaceFlag[basis[1]] = true;
-      halfSpaceFlag[basis[2]] = true;
-      
       return v;
     }
 
     vec3 solve_lp3D(const int n) __attribute__((always_inline))
     {
       vec3 v = intersect(halfSpaceList[0], halfSpaceList[1], halfSpaceList[2], cvec).first;
+      
+      Basis basis(0,1,2);
+      halfSpaceFlag[basis.x] = false;
+      halfSpaceFlag[basis.y] = false;
+      halfSpaceFlag[basis.z] = false;
+
 
 #if 1
       int i = 2;
       while (++i < n)
-        if (halfSpaceFlag[i])
-          if (halfSpaceList[i].outside(v))
-          {
-            v = newBasis(i);
-            i = 2;
-          }
+        if (halfSpaceList[i].outside(v) && halfSpaceFlag[i])
+        {
+          v = newBasis(i, basis);
+          i = 2;
+        }
 #else
       bool flag = true;
       while(flag)
@@ -179,24 +172,29 @@ struct MSW
         for (int i = 3; i < n; i++)
           if (halfSpaceList[i].outside(v) && halfSpaceFlag[i])
           {
-            v = newBasis(i);
+            v = newBasis(i, basis);
             flag = true;
             break;
           }
       }
 #endif
 
+      halfSpaceFlag[basis.x] = true;
+      halfSpaceFlag[basis.y] = true;
+      halfSpaceFlag[basis.z] = true;
+
+
       return v;
     }
 
 
-    vec3 newBasis(const int bi) __attribute__((always_inline))
+    vec3 newBasis(const int bi, Basis &basis) __attribute__((always_inline))
     {
       HalfSpace *hs = halfSpaceList;
 
-      const int b0 = basis[0];
-      const int b1 = basis[1];
-      const int b2 = basis[2];
+      const int b0 = basis.x;
+      const int b1 = basis.y;
+      const int b2 = basis.z;
 
       std::pair<vec3, real> v[3] = {
         intersect(hs[bi], hs[b1], hs[b2], cvec),
@@ -212,9 +210,11 @@ struct MSW
 
       assert(v[j].second > -HUGE);
 
-      halfSpaceFlag[basis[j]] = true;
-      basis[j] = bi;
-      halfSpaceFlag[basis[j]] = false;
+      halfSpaceFlag[bi] = false;
+      if      (j == 0) { halfSpaceFlag[basis.x] = true; basis.x = bi; }
+      else if (j == 1) { halfSpaceFlag[basis.y] = true; basis.y = bi; }
+      else             { halfSpaceFlag[basis.z] = true; basis.z = bi; }
+
       return v[j].first;
     }
 
