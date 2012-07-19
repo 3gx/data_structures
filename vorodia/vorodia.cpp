@@ -4,6 +4,9 @@
 #include "plummer.h"
 #include "mytimer.h"
 
+enum {NGROUP = 256};
+typedef Octree::GroupT<NGROUP> octGroup;
+
 int main(int argc, char * argv[])
 {
   int n_bodies = 10240;
@@ -131,7 +134,30 @@ int main(int argc, char * argv[])
   tree.buildLeafList<true>();
 
   /* ready to construct vorocells ... */
+  
+  const bool SORT = 0 ? true : false;  /* use peano-sort inside the group */
+  octGroup::Vector groupList;
+  tree.buildGroupList<SORT, true>(groupList);
+ 
 
+#if 0
+  for (int i = 0; i < ngroup; i++)
+  {
+    int nb[NGROUP];
+    const octGroup &group = groupList[i];
+    tree.range_search<true>(nb, group);
+    for (int j = 0; j < group.nb(); j++)
+    {
+#if 0
+      const int idx = group[j].idx();
+      const int nb0 = ptcl[idx].nb;
+      if (nb0 != nb[j] && nb0 > 0)
+        fprintf(stderr, "nb0= %d  nb= %d\n", nb0, nb[j]);
+#endif
+      nbL += nb[j];
+    }
+  }
+#endif
 
   return 0;
 
