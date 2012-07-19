@@ -25,12 +25,7 @@ typedef float  v4sf  __attribute__((vector_size(16)));
 
 typedef float real;
 typedef vector3<real> vec3;
-#if 0
-#include "boundary.h"
-typedef Boundary<real> boundary;
-#else
 #include "boundary4.h"
-#endif
 
 
 struct Particle
@@ -38,12 +33,10 @@ struct Particle
   typedef std::vector<Particle> Vector;
   vec3 pos;
   int  id;
-  real h;
-  int nb;
 
   Particle() {}
-  Particle(const vec3 &_pos, const int _id, const real _h = 0.0) :
-    pos(_pos), id(_id), h(_h), nb(0) {}
+  Particle(const vec3 &_pos, const int _id) :
+    pos(_pos), id(_id) {}
 };
 
 
@@ -58,20 +51,16 @@ struct Octree
     typedef std::vector<Body> Vector;
     private:
     float4 Packed_pos;
-    int _idx;
-    int iPad1, iPad2, iPad3; /* padding */
 
     public:
     Body() 
     {
-      assert(sizeof(Body) == sizeof(float)*8);
+      assert(sizeof(Body) == sizeof(float)*4);
     }
-    Body(const vec3 &pos, const int idx, const float h = 0.0f) : Packed_pos(float4(pos.x, pos.y, pos.z, h)), _idx(idx) {}
-    Body(const Particle &p, const int idx) : Packed_pos(float4(p.pos.x, p.pos.y, p.pos.z, p.h)), _idx(idx) {}
-    Body(const vec3 &pos, const float h, const int idx = -1) : Packed_pos(pos.x, pos.y, pos.z, h), _idx(idx) {};
-    int idx() const {return _idx;}
+    Body(const vec3 &pos, const int idx) : Packed_pos(float4(pos.x, pos.y, pos.z, idx)) {}
+    Body(const Particle &p, const int idx) : Packed_pos(float4(p.pos.x, p.pos.y, p.pos.z, idx)) {}
+    int idx() const {return (int)Packed_pos.w();}
     float4 packed_pos() const {return Packed_pos;}
-    float          h()  const {return Packed_pos.w();}
     vec3   vector_pos() const {return vec3(Packed_pos.x(), Packed_pos.y(), Packed_pos.z());}
   };
 
@@ -118,21 +107,16 @@ struct Octree
     typedef std::vector<Boundaries> Vector;
     private:
     boundary _inner;
-    boundary _outer;
 
     public:
-    Boundaries(const boundary &inner = boundary(), const boundary &outer = boundary()) :
-      _inner(inner), _outer(outer) {}
+    Boundaries(const boundary &inner = boundary()) : _inner(inner) {}
     Boundaries& merge(const Boundaries &rhs) 
     {
       _inner.merge(rhs._inner);
-      _outer.merge(rhs._outer);
       return *this;
     }
 
     const boundary& inner() const { return _inner; }
-    const boundary& outer() const { return _outer; }
-
   };
 
   template<const int N>
@@ -173,21 +157,14 @@ struct Octree
           bnd.merge(_list[i].vector_pos());
         return bnd;
       }
-      boundary outerBoundary() const
-      {
-        boundary bnd;
-        for (int i = 0; i < _nb; i++)
-          bnd.merge(_list[i].packed_pos());
-        return bnd;
-      }
       Boundaries computeBoundaries() const
       {
-        return Boundaries(innerBoundary(), outerBoundary());
+        return Boundaries(innerBoundary());
       }
 
       boundary sort()   /* does peano-hilbert sort and returns outer boundary */
       {
-        const boundary bnd = outerBoundary();
+        const boundary bnd = innerBoundary();
         const vec3    hlen = bnd.hlen();
         const float   size = __max(hlen.x, __max(hlen.y, hlen.z)) * 2.0f;
         const int     dfac = 1.0f / size * (PeanoHilbert::Key(1) << PeanoHilbert::BITS_PER_DIMENSION);
@@ -524,17 +501,6 @@ struct Octree
       }
     return bnd;
   }
-  boundary root_outerBoundary()
-  {
-    boundary bnd;
-    for (int k = 0; k < 8; k++)
-      if (!cellList[k].isEmpty())
-      {
-        assert(!cellList[k].isTouched());
-        bnd.merge(bndsList[cellList[k].id()].outer());
-      }
-    return bnd;
-  }
 
   template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
     Boundaries computeBoundaries(const int addr = 0)
@@ -609,7 +575,6 @@ struct Octree
           {
             const vec3 jpos = leaf[i].vector_pos();
             assert(overlapped(bndsList[cell.id()].inner(), jpos));
-            assert(overlapped(bndsList[cell.id()].outer(), leaf[i].packed_pos()));
             nb++;
           }
         }
@@ -714,6 +679,7 @@ struct Octree
 
   /**************/
 
+#if 0
   template<const bool ROOT>  /* must be ROOT = true on the root node (first call) */
     int range_search(const Body &ibody, const boundary &ibnd = boundary(), const int addr = 0, int nb = 0) const
     {
@@ -803,5 +769,6 @@ struct Octree
         }
       }
     }
+#endif
 };
 
