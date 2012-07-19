@@ -37,8 +37,11 @@ LDFLAGS =
 
 SRCPATH = ./
 
-SRC  = vorodia.cpp
-PROG = vorodia
+SRC  = SeidelLP.cpp
+PROG = SeidelLP
+
+SRC  = MSW.cpp
+PROG = MSW
 
 OBJ = $(SRC:%.cpp=%.o) 
 
@@ -60,5 +63,5 @@ clean:
 clean_all:
 	/bin/rm -rf *.o $(PROG) plummer.dat *~
 
-$(OBJ): vector3.h vorocell.h mytimer.h DirectPoly.h MSW.h
+$(OBJ): vector3.h vorocell.h mytimer.h DirectPoly.h SeidelLP.h MSW.h MSWnew.h
 

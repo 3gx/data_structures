@@ -1,5 +1,5 @@
-#ifndef __VOROCELL_H__
-#define __VOROCELL_H__
+#pragma once
+
 
 /* Tanemura's algorithm */
 
@@ -890,4 +890,3 @@ namespace Voronoi
 
 }
 
-#endif /* __VOROCELL_H__ */
