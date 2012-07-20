@@ -1,5 +1,4 @@
-#ifndef __DIRECTPOLY_H__
-#define __DIRECTPOLY_H__
+#pragma once
 
 #include <cassert>
 #include "vector3.h"
@@ -75,6 +74,4 @@ struct DirectPolyhedron
     return true;
   }
 };
-
-#endif /* __DIRECTPOLY_H__ */
 

@@ -60,5 +60,6 @@ clean:
 clean_all:
 	/bin/rm -rf *.o $(PROG) plummer.dat *~
 
-$(OBJ): vector3.h vorocell.h mytimer.h DirectPoly.h MSW.h octree.h boundary4.h
+$(OBJ): vector3.h vorocell.h mytimer.h DirectPoly.h MSW.h octree.h boundary4.h \
+	octree_direct.h
 

@@ -140,23 +140,25 @@ int main(int argc, char * argv[])
   tree.buildGroupList<SORT, true>(groupList);
  
 
-#if 0
-  for (int i = 0; i < ngroup; i++)
+#if 1
+  const int NFMAX = 1024;
+  DirectPolyhedron<NFMAX> direct;
+  const double t0 = get_wtime();
+  for (int i = 0; i < n_bodies; i++)
   {
-    int nb[NGROUP];
-    const octGroup &group = groupList[i];
-    tree.range_search<true>(nb, group);
-    for (int j = 0; j < group.nb(); j++)
-    {
-#if 0
-      const int idx = group[j].idx();
-      const int nb0 = ptcl[idx].nb;
-      if (nb0 != nb[j] && nb0 > 0)
-        fprintf(stderr, "nb0= %d  nb= %d\n", nb0, nb[j]);
+    fprintf(stderr, "i= %d\n", i);
+    direct.clear();
+#if 1
+    tree.buildDirectPolyhedron(octBodies[i], direct);
+#else
+    const real f = 1.2;
+    for (int j= 0; j < n_bodies; j++)
+      if (i != j)
+        direct.push(octBodies[j].vector_pos() - octBodies[i].vector_pos(), j, f);
 #endif
-      nbL += nb[j];
-    }
   }
+  const double t1 = get_wtime();
+  fprintf(stderr, " -- done in %g sec -- \n", t1 - t0);
 #endif
 
   return 0;

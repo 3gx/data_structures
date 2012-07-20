@@ -5,6 +5,7 @@
 #include <cassert>
 #include <stack>
 #include <algorithm>
+#include "DirectPoly.h"
 
 template<class T>
 static inline T __min(const T &a, const T &b) {return a < b ? a : b;}
@@ -770,5 +771,6 @@ struct Octree
       }
     }
 #endif
+#include "octree_direct.h"
 };
 
