@@ -66,12 +66,25 @@ int main(int argc, char * argv[])
     rmin = mineach(rmin, ptcl[i].pos);
     rmax = maxeach(rmax, ptcl[i].pos);
   }
-  const vec3 centre = (rmax + rmin)*0.5;
+  vec3 centre = (rmax + rmin)*0.5;
   const vec3 vsize  =  rmax - rmin;
   const real  size  = __max(__max(vsize.x, vsize.y), vsize.z);
   real size2 = 1.0;
   while (size2 > size) size2 *= 0.5;
   while (size2 < size) size2 *= 2.0;
+  centre = 0.0;
+  rmin = vec3(-size2);
+  rmax = vec3(+size2);
+  for (int i = 0; i < n_bodies; i++)
+  {
+    assert(ptcl[i].pos.x >= rmin.x);
+    assert(ptcl[i].pos.y >= rmin.y);
+    assert(ptcl[i].pos.z >= rmin.z);
+    assert(ptcl[i].pos.x <= rmax.x);
+    assert(ptcl[i].pos.y <= rmax.y);
+    assert(ptcl[i].pos.z <= rmax.z);
+  }
+
 
   const int n_nodes = n_bodies;
   Octree tree(centre, size2, n_nodes);
@@ -140,26 +153,32 @@ int main(int argc, char * argv[])
   tree.buildGroupList<SORT, true>(groupList);
  
 
-#if 1
   const int NFMAX = 1024;
   DirectPolyhedron<NFMAX> direct;
   const double t0 = get_wtime();
   for (int i = 0; i < n_bodies; i++)
   {
-    fprintf(stderr, "i= %d\n", i);
     direct.clear();
-#if 1
-    tree.buildDirectPolyhedron(octBodies[i], direct);
+    const vec3 ipos = octBodies[i].vector_pos();
+
+    const real f = 1.0;
+    direct.push(vec3(2.0*(rmin.x-ipos.x), 0.0, 0.0), -1, f);
+    direct.push(vec3(2.0*(rmax.x-ipos.x), 0.0, 0.0), -2, f);
+    direct.push(vec3(0.0, 2.0*(rmin.y-ipos.y), 0.0), -3, f);
+    direct.push(vec3(0.0, 2.0*(rmax.y-ipos.y), 0.0), -4, f);
+    direct.push(vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)), -5, f);
+    direct.push(vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z)), -6, f);
+#if 0
+    tree.buildDirectPolyhedron(octBodies[i], direct, f);
 #else
-    const real f = 1.2;
     for (int j= 0; j < n_bodies; j++)
       if (i != j)
-        direct.push(octBodies[j].vector_pos() - octBodies[i].vector_pos(), j, f);
+        direct.push(octBodies[j].vector_pos() - ipos, j, f);
 #endif
+    fprintf(stderr, "i= %d  nface= %d\n", i, direct.nface());
   }
   const double t1 = get_wtime();
   fprintf(stderr, " -- done in %g sec -- \n", t1 - t0);
-#endif
 
   return 0;
 
