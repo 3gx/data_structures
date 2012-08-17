@@ -233,7 +233,7 @@ public:
     return *this;
   }
 
-  const vector3<REAL> operator - (){
+  const vector3<REAL> operator - () const {
     return vector3<REAL> (-x, -y, -z);
   }
   const vector3<REAL> &operator += (const vector3<REAL> &v){

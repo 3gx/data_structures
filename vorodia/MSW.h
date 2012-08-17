@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cfloat>
 
+#if 0
 template<class T>
 inline T __min(const T a, const T b) {return a < b ? a : b;}
 
@@ -17,8 +18,7 @@ inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
 
 template<class T>
 inline T __sign(const T a) {return a < T(0.0) ? (T)-1.0 : (T)+1.0;}
-
-unsigned long long nflops = 0;
+#endif
 
 struct HalfSpace
 {
@@ -48,7 +48,6 @@ struct HalfSpace
 
   bool outside(const vec3 &p) const 
   {
-    nflops += 6;
 #if 0
     return n*p < h;
 #else
@@ -57,7 +56,6 @@ struct HalfSpace
   }
   friend std::pair<vec3, real> intersect(const HalfSpace &p1, const HalfSpace &p2, const HalfSpace &p3, const vec3 &c)
   {
-    nflops += 9*3 + 5+1+3*3+3*3+3*2 + 5;
     const vec3 w1 = p2.n%p3.n;
     const vec3 w2 = p3.n%p1.n;
     const vec3 w3 = p1.n%p2.n;
