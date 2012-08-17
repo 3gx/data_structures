@@ -1,7 +1,6 @@
 CXX = g++
-CC  = gcc
-LD  = g++
-F90 = gfortran
+# CXX = g++-mp-4.7
+LD  = $(CXX)
 
 ifeq ($(OMP), 1)
 	OMPFLAGS  = -fopenmp

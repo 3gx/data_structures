@@ -1,15 +1,16 @@
 #include "octree.h"
 #include "DirectPoly.h"
+#include "vorocell.h"
 
 #include "plummer.h"
 #include "mytimer.h"
 
-enum {NGROUP = 256};
+enum {NGROUP = 128};
 typedef Octree::GroupT<NGROUP> octGroup;
 
 int main(int argc, char * argv[])
 {
-  int n_bodies = 10240;
+  int n_bodies = 1024;
   if (argc > 1) n_bodies = atoi(argv[1]);
   assert(n_bodies > 0);
   fprintf(stderr, "n_bodies= %d\n", n_bodies);
@@ -19,7 +20,7 @@ int main(int argc, char * argv[])
 
   /*  generate or import particles */
 
-#if 1
+#if 0
 #define PLUMMER
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
@@ -39,14 +40,12 @@ int main(int argc, char * argv[])
   }
 #elif 1
   {
-    const int nb_mean = 128;
-    const real s = std::pow(3.0/(4.0*M_PI)*(double)nb_mean/(double)n_bodies, 1.0/3.0);
     for (int i = 0; i < n_bodies; i++)
-    {
-      ptcl.push_back(Particle(
-            vec3(drand48(), drand48(), drand48()),
-            1.0/n_bodies, s));
-    }
+      ptcl.push_back(Particle(vec3(
+              1.0-2.0*drand48(), 
+              1.0-2.0*drand48(), 
+              1.0-2.0*drand48())*0.5,
+            1.0/n_bodies));
   }
 #endif
   
@@ -153,9 +152,21 @@ int main(int argc, char * argv[])
   tree.buildGroupList<SORT, true>(groupList);
  
 
+  double t0 = get_wtime();
+  int nface_min = 1<<30;
+  int nface_max = 0;
+  unsigned long long nfaceS= 0 ;
+  std::vector<int> idx(n_bodies);
+  for (int i = 0; i < n_bodies; i++)
+    idx[i] = i;
+
+#if 0
+  t0 = get_wtime();
+#endif
+
+#if 0
   const int NFMAX = 1024;
   DirectPolyhedron<NFMAX> direct;
-  const double t0 = get_wtime();
   for (int i = 0; i < n_bodies; i++)
   {
     direct.clear();
@@ -168,15 +179,109 @@ int main(int argc, char * argv[])
     direct.push(vec3(0.0, 2.0*(rmax.y-ipos.y), 0.0), -4, f);
     direct.push(vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)), -5, f);
     direct.push(vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z)), -6, f);
-#if 0
-    tree.buildDirectPolyhedron(octBodies[i], direct, f);
-#else
+    std::random_shuffle(idx.begin(), idx.end());
     for (int j= 0; j < n_bodies; j++)
-      if (i != j)
-        direct.push(octBodies[j].vector_pos() - ipos, j, f);
-#endif
-    fprintf(stderr, "i= %d  nface= %d\n", i, direct.nface());
+      if (i != idx[j])
+        direct.push(octBodies[idx[j]].vector_pos() - ipos, idx[j], f);
+    nface_min = std::min(nface_min, direct.nface());
+    nface_max = std::max(nface_max, direct.nface());
+    nfaceS   += direct.nface();
+    //    fprintf(stderr, "i= %d  nface= %d\n", i, direct.nface());
   }
+#else
+  const int ngroup = groupList.size();
+  double volume = 0.0;
+  double nface = 0;
+  int np = 0;
+  {
+    const int NFMAX = 1024;
+    DirectPolyhedron<NFMAX> direct;
+    Voronoi::Site::Vector list;
+    const int NF=400;
+    Voronoi::Cell<NF> cell;
+    for (int igroup = 0; igroup < ngroup; igroup++)
+    {
+      const octGroup &group = groupList[igroup];
+      const int ni = group.nb();
+      for (int i = 0; i < ni; i++)
+      {
+        np++;
+        direct.clear();
+        const int    ix = group[i].idx();
+        const vec3 ipos = group[i].vector_pos();
+
+        assert(ipos.x > rmin.x);
+        assert(ipos.y > rmin.y);
+        assert(ipos.z > rmin.z);
+        assert(ipos.x < rmax.x);
+        assert(ipos.y < rmax.y);
+        assert(ipos.z < rmax.z);
+        const real f = 1.0;
+        direct.push(vec3(2.0*(rmin.x-ipos.x), 0.0, 0.0), -1, f);
+        direct.push(vec3(2.0*(rmax.x-ipos.x), 0.0, 0.0), -2, f);
+        direct.push(vec3(0.0, 2.0*(rmin.y-ipos.y), 0.0), -3, f);
+        direct.push(vec3(0.0, 2.0*(rmax.y-ipos.y), 0.0), -4, f);
+        direct.push(vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)), -5, f);
+        direct.push(vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z)), -6, f);
+
+        const int nj = ni;
+        for (int j = 0; j < nj; j++)
+        {
+          if (i != j)
+          {
+            assert(group[i].idx() != group[j].idx());
+            direct.push(group[j].vector_pos()-ipos, group[j].idx(), 1.0);
+          }
+        }
+
+        tree.buildDirectPolyhedron(group[i], direct, f);
+        nface_min = std::min(nface_min, direct.nface());
+        nface_max = std::max(nface_max, direct.nface());
+        nfaceS   += direct.nface();
+        
+
+        list.clear();
+        list.push_back(Voronoi::Site(vec3(2.0*(rmin.x-ipos.x), 0.0, 0.0), -1));
+        list.push_back(Voronoi::Site(vec3(2.0*(rmax.x-ipos.x), 0.0, 0.0), -2));
+        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmin.y-ipos.y), 0.0), -3));
+        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmax.y-ipos.y), 0.0), -4));
+        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)), -5));
+        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z)), -6));
+
+#if 1
+        const int nf = direct.nface();
+        for (int j = 0; j < nf; j++)
+        {
+          const int jx = direct[j];
+          assert(jx != ix);
+          if (jx >= 0)
+            list.push_back(Voronoi::Site(ptcl[jx].pos - ipos,jx));
+        }
+#else
+        for (int j = 0; j < n_bodies; j++)
+        {
+          if (j != ix)
+            list.push_back(Voronoi::Site(ptcl[j].pos - ipos,j));
+        }
+#endif
+
+        assert(cell.build(list));
+        volume += cell.volume();
+        nface  += cell.nb();
+      }
+    }
+  }
+  assert(np == n_bodies);
+  fprintf(stderr, " nface= %g \n", nface/n_bodies);
+  const real lx = rmax.x - rmin.x;
+  const real ly = rmax.y - rmin.y;
+  const real lz = rmax.z - rmin.z;
+  fprintf(stderr, " volume= %g   exact= %g  diff= %g \n",
+      volume, lx*ly*lz, (volume-lx*ly*lz)/(lx*ly*lz));
+
+#endif
+  fprintf(stderr, " nface: min= %d  max= %d  avg= %g\n",
+      nface_min, nface_max, 1.0*nfaceS/n_bodies);
   const double t1 = get_wtime();
   fprintf(stderr, " -- done in %g sec -- \n", t1 - t0);
 

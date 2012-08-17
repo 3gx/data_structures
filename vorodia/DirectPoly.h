@@ -48,6 +48,7 @@ struct DirectPolyhedron
 
     /* if so, find out if there are reduntant points */
 
+#if 0
     const HalfSpace h(pos*f);
     int i = -1;
     while (++i < n)
@@ -65,6 +66,7 @@ struct DirectPolyhedron
         std::swap(list[i  ], list[--n]);
         std::swap(  nb[i--],   nb[  n]);
       }
+#endif
 
     /* now store the new point */
     assert(n < N);
