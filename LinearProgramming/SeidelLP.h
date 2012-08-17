@@ -6,6 +6,9 @@
 #include <algorithm>
 #include <cassert>
 
+typedef double real;
+typedef vector3<real> vec3;
+
 template<class T>
 inline T __min(const T a, const T b) {return a < b ? a : b;}
 

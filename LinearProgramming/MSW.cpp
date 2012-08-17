@@ -7,7 +7,7 @@
 
 int main(int argc, char * argv [])
 {
-  int n = 100;
+  int n = 1000;
   srand48(120);
 //  srand48(123);
 

@@ -6,6 +6,9 @@
 #include <algorithm>
 #include <cfloat>
 
+typedef double real;
+typedef vector3<real> vec3;
+
 template<class T>
 inline T __min(const T a, const T b) {return a < b ? a : b;}
 
@@ -93,7 +96,7 @@ struct Basis
 
 struct MSW
 {
-  enum {N = 1000};
+  enum {N = 1010};
   private:
     int n;
     vec3 bmax, cvec;

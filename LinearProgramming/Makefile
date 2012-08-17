@@ -40,8 +40,8 @@ SRCPATH = ./
 SRC  = SeidelLP.cpp
 PROG = SeidelLP
 
-SRC  = MSW.cpp
-PROG = MSW
+SRC  = MSWu.cpp
+PROG = MSWu
 
 OBJ = $(SRC:%.cpp=%.o) 
 
@@ -63,5 +63,5 @@ clean:
 clean_all:
 	/bin/rm -rf *.o $(PROG) plummer.dat *~
 
-$(OBJ): vector3.h mytimer.h SeidelLP.h MSW.h MSWnew.h
+$(OBJ): vector3.h mytimer.h SeidelLP.h MSW.h MSWnew.h MSWu.h
 
