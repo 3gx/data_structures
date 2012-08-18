@@ -6,20 +6,16 @@
 #include <algorithm>
 #include <cfloat>
 
-#if 0
+
 template<class T>
 inline T __min(const T a, const T b) {return a < b ? a : b;}
 
 template<class T>
-inline T __max(const T a, const T b) {return a > b ? a : b;}
-
-template<class T>
-inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
-
-template<class T>
 inline T __sign(const T a) {return a < T(0.0) ? (T)-1.0 : (T)+1.0;}
-#endif
 
+unsigned long long nflops = 0;
+
+#if 0
 struct HalfSpace
 {
   typedef std::vector<HalfSpace> Vector;
@@ -48,14 +44,17 @@ struct HalfSpace
 
   bool outside(const vec3 &p) const 
   {
+    nflops += 6;
 #if 0
     return n*p < h;
 #else
-    return n*p - h < -1.0e-10*std::abs(h);
+    return n*p - h < -1.0e-8*std::abs(h);
 #endif
   }
-  friend std::pair<vec3, real> intersect(const HalfSpace &p1, const HalfSpace &p2, const HalfSpace &p3, const vec3 &c)
+  friend std::pair<vec3, real> intersect
+    (const HalfSpace &p1, const HalfSpace &p2, const HalfSpace &p3, const vec3 &c)
   {
+    nflops += 9*3 + 5+1+3*3+3*3+3*2 + 5;
     const vec3 w1 = p2.n%p3.n;
     const vec3 w2 = p3.n%p1.n;
     const vec3 w3 = p1.n%p2.n;
@@ -80,6 +79,7 @@ struct HalfSpace
   }
 #endif
 };
+#endif
 
 struct Basis
 {
@@ -91,7 +91,7 @@ struct Basis
 
 struct MSW
 {
-  enum {N = 1000};
+  enum {N = 1010};
   private:
     int n;
     vec3 bmax, cvec;
@@ -114,7 +114,8 @@ struct MSW
         halfSpaceFlag[i] = 1;
     }
 
-    void clear(const vec3 &_bmax = 1.0) { n = 3; bmax = _bmax; }
+    void clear(const vec3 &_bmax) { n = 3; bmax = _bmax; }
+    void clear() { n = 3; }
     bool push(const HalfSpace &p)
     {
       assert(n > 2);
@@ -217,16 +218,7 @@ struct MSW
       }
 #endif
 
-#if 0
-      if (halfSpaceFlag[j] == 0)
-      {
-        halfSpaceFlag[i] = 0;
-        halfSpaceFlag[j] = 1;
-      }
-#else
       std::swap(halfSpaceFlag[i], halfSpaceFlag[j]);
-#endif
-      
       std::swap(halfSpaceList[i], halfSpaceList[j]);
       return v[j].first;
     }

@@ -1,3 +1,7 @@
+typedef double real;
+#include "vector3.h"
+typedef vector3<real> vec3;
+
 #if 1
 #include "MSW.h"
 #else
@@ -7,7 +11,7 @@
 
 int main(int argc, char * argv [])
 {
-  int n = 100;
+  int n = 1000;
   srand48(120);
 //  srand48(123);
 
@@ -18,7 +22,7 @@ int main(int argc, char * argv [])
     n = atoi(argv[2]);
   fprintf(stderr, "n= %d\n", n);
 
-  MSW lp(1.0);
+  MSW lp(10.0);
 
 #if 1
   for (int i = 0; i < n; i++)
