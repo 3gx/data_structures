@@ -255,7 +255,7 @@ int main(int argc, char * argv[])
           }
         }
 
-        //        tree.buildDirectPolyhedron(group[i], direct, f);
+        tree.buildDirectPolyhedron(ptcl, group[i], direct, f);
         nface_min = std::min(nface_min, direct.nface());
         nface_max = std::max(nface_max, direct.nface());
         nfaceS   += direct.nface();
