@@ -263,7 +263,7 @@ int main(int argc, char * argv[])
 #if 1
         lp.clear();
         const int nf = direct.nface();
-#if 1
+#if 0
         lp.push(HalfSpace(vec3( 1, 0, 0), vec3(1.0*(rmin.x-ipos.x), 0.0, 0.0)));
         lp.push(HalfSpace(vec3(-1, 0, 0), vec3(1.0*(rmax.x-ipos.x), 0.0, 0.0)));
         lp.push(HalfSpace(vec3( 0, 1, 0), vec3(0.0, 1.0*(rmin.y-ipos.y), 0.0)));
