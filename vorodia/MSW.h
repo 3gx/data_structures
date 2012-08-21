@@ -19,7 +19,7 @@ struct HalfSpace
   HalfSpace() {}
   HalfSpace(const vec3 &_n, const vec3 &p) : n(_n)
   {
-#if 1
+#if 0
     const real fn = n.abs();
     assert(fn > 0.0);
     n *= 1.0/fn;
@@ -28,7 +28,7 @@ struct HalfSpace
   }
   HalfSpace(const vec3 &p) : n(p)
   {
-#if 1
+#if 0
     const real fn = n.abs();
     assert(fn >  0.0);
     n *= 1.0/fn;
