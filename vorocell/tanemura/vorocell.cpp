@@ -24,6 +24,16 @@ inline double round(const double x)
 typedef Voronoi::real real;
 typedef Voronoi::vec3 vec3;
 
+struct CmpList
+{
+  vec3 vec;
+  CmpList(const vec3 &v) : vec(v) {}
+  bool operator()(const Voronoi::Site &s1, const Voronoi::Site &s2) const
+  {
+    return (s1.pos-vec).norm2() < (s2.pos - vec).norm2();
+  }
+};
+
 int main(int argc, char * argv[])
 {
   dt_00=dt_10=dt_20=dt_30=dt_40=dt_44=dt_50=dt_60=dt_70=0.0;
@@ -108,7 +118,7 @@ int main(int argc, char * argv[])
 
   Voronoi::Site::Vector sitesP;
   sitesP.reserve(8*np);
-#if 0 /* periodic */
+#if 1 /* periodic */
   const real  f = 0.5;
   assert(f <= 0.5);
   const real dx = (0.5 - f) * lx;
@@ -151,8 +161,8 @@ int main(int argc, char * argv[])
   double volume    = 0.0;
   int nfailed = 0;
 
- 
- const int CNT = 10; 
+
+  const int CNT = 10; 
   for (int cnt = 0; cnt < CNT; cnt++)
   {
     volume    = 0.0;
@@ -160,8 +170,9 @@ int main(int argc, char * argv[])
 
 #pragma omp parallel reduction(+:dt_search, dt_sort, dt_voro, nface, volume, nfailed)
     {
-      Voronoi          ::Cell<128> cell;
-      VoronoiDegenerate::Cell<128> cell_degenerate;
+      const int NF=512;
+      Voronoi          ::Cell<NF> cell;
+      VoronoiDegenerate::Cell<NF> cell_degenerate;
       std::vector< std::pair<real, int> > dist(sitesP.size());
 
       Voronoi::Site::Vector list;
@@ -179,7 +190,7 @@ int main(int argc, char * argv[])
         double t0 = get_wtime();
         for (int j = 0; j < (const int)sitesP.size(); j++)
           dist[j] = std::make_pair((sitesP[j].pos - s.pos).norm2(), j);
-        
+
         list.clear();
 #ifdef REFLECTING
         std::nth_element(dist.begin(), dist.begin() + ns-6, dist.end(), cmp_data<real, int>());
@@ -203,12 +214,15 @@ int main(int argc, char * argv[])
         list.push_back(Voronoi::Site(vec3(0.0,  2.0*(ly - s.pos.y), 0.0), -1-s.idx));
         list.push_back(Voronoi::Site(vec3(0.0, 0.0, -2.0*      s.pos.z ), -1-s.idx));
         list.push_back(Voronoi::Site(vec3(0.0, 0.0,  2.0*(lz - s.pos.z)), -1-s.idx));
+        //std::random_shuffle(list.begin(), list.end());
 #endif
 #else
         std::nth_element(dist.begin(), dist.begin() + ns, dist.end(), cmp_data<real, int>());
         for (int j = 0; j < ns+1; j++)
           if (dist[j].first > 0.0f)
             list.push_back(Voronoi::Site(sitesP[dist[j].second].pos - s.pos, sitesP[dist[j].second].idx));
+        std::random_shuffle(list.begin(), list.end());
+        std::sort(list.begin(), list.end(), CmpList(s.pos));
 #endif
         assert((int)list.size() == ns);
         for (int j = 0; j < ns; j++)
@@ -217,8 +231,8 @@ int main(int argc, char * argv[])
         dt_search += t1 - t0;
         t0 = t1;
 
-//        std::sort(list.begin(), list.end(), Voronoi::Site());
-//        std::random_shuffle(list.begin(), list.end());
+        //        std::sort(list.begin(), list.end(), Voronoi::Site());
+        //        std::random_shuffle(list.begin(), list.end());
         t1 = get_wtime();
         dt_sort += t1 - t0;
         t0 = t1;

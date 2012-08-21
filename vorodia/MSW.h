@@ -43,7 +43,7 @@ struct HalfSpace
 #if 0
     return n*p < h;
 #else
-    return n*p - h < -1.0e-8*std::abs(h);
+    return n*p - h < -1.0e-10*std::abs(h);
 #endif
   }
   friend std::pair<vec3, real> intersect
@@ -57,7 +57,7 @@ struct HalfSpace
 #if 1
     if (w == 0.0) return std::make_pair(0.0, -HUGE);
 #else
-    if (std::abs(w) < 1.0e-5) return std::make_pair(0.0, -HUGE);
+    if (std::abs(w) < 1.0e-8) return std::make_pair(0.0, -HUGE);
 #endif
     const real iw = 1.0/w;
     const real d1 = p1.h * iw;
@@ -204,7 +204,7 @@ struct MSW
 
       assert(v[j].second > -HUGE);
 
-#if 1
+#if 0
       {
         for (int j = 0; j < 3; j++)
           assert(!hs[i].outside(v[j].first));

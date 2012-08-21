@@ -54,8 +54,8 @@ int main(int argc, char * argv[])
   assert(n_bodies > 0);
   fprintf(stderr, "n_bodies= %d\n", n_bodies);
 
-  Particle::Vector ptcl;
-  ptcl.reserve(n_bodies);
+  Particle::Vector ptclO;
+  ptclO.reserve(n_bodies);
 
   /*  generate or import particles */
 
@@ -64,7 +64,7 @@ int main(int argc, char * argv[])
   const Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
-    ptcl.push_back(Particle(data.pos[i], data.mass[i]));
+    ptclO.push_back(Particle(data.pos[i], data.mass[i]));
   }
 #elif 0  /* reads IC */
   int dummy;
@@ -75,18 +75,57 @@ int main(int argc, char * argv[])
     Particle p;
     std::cin >> p.pos.x >> p.pos.y >> p.pos.z >> p.h >> p.nb;
     p.h *= 2.0;
-    ptcl.push_back(p);
+    ptclO.push_back(p);
   }
 #elif 1
   {
     for (int i = 0; i < n_bodies; i++)
-      ptcl.push_back(Particle(vec3(
+      ptclO.push_back(Particle(vec3(
               1.0-2.0*drand48(), 
               1.0-2.0*drand48(), 
-              1.0-2.0*drand48())*0.48,
+              1.0-2.0*drand48())*0.5,
             1.0/n_bodies));
   }
 #endif
+
+  Particle::Vector ptclP;
+  ptclP.reserve(2*n_bodies);
+  const vec3 rminD(-0.5);
+  const vec3 rmaxD(+0.5);
+  {
+#if 1 /* periodic */
+    const real  f = 0.5;
+    assert(f <= 0.5);
+    const real lx = rmaxD.x - rminD.x;
+    const real ly = rmaxD.y - rminD.y;
+    const real lz = rmaxD.z - rminD.z;
+    const real dx = (0.5 - f) * lx;
+    const real dy = (0.5 - f) * ly;
+    const real dz = (0.5 - f) * lz;
+    const vec3 cpos(0.5*lx, 0.5*ly, 0.5*lz);
+    for (int i = 0; i < n_bodies; i++)
+    {
+      const Particle &p0 = ptclO[i];
+      ptclP.push_back(p0);
+      for (int oct = 1; oct < 8; oct++)
+      {
+        Particle s = p0;
+        s.pos -= rminD;
+        int ioct = 0;
+        if ((oct&1) && __abs(s.pos.x-cpos.x) > dx) {s.pos.x += lx * (s.pos.x <= cpos.x ? +1.0 : -1.0); ioct += 1;}
+        if ((oct&2) && __abs(s.pos.y-cpos.y) > dy) {s.pos.y += ly * (s.pos.y <= cpos.y ? +1.0 : -1.0); ioct += 2;}
+        if ((oct&4) && __abs(s.pos.z-cpos.z) > dz) {s.pos.z += lz * (s.pos.z <= cpos.z ? +1.0 : -1.0); ioct += 4;}
+        s.pos += rminD;
+        if (oct == ioct)
+          ptclP.push_back(s);
+      }
+    }
+#else  /* reflecting */
+#define REFLECTING
+    ptclP = ptclO;
+#endif
+  }
+
 
   /* construct the tree */
 
@@ -95,40 +134,30 @@ int main(int argc, char * argv[])
 
   fprintf(stderr, " -- Compute bounding box -- \n");
 
-  vec3 rmin(+HUGE);
-  vec3 rmax(-HUGE);
+  n_bodies = ptclP.size();
+  fprintf(stderr, "nbodiesP= %d\n", n_bodies);
+
+  vec3 rminT(+HUGE);
+  vec3 rmaxT(-HUGE);
 
   for (int i = 0; i < n_bodies; i++)
   {
-    octBodies.push_back(Tree::Octree::Body(ptcl[i], i));
-    rmin = mineach(rmin, ptcl[i].pos);
-    rmax = maxeach(rmax, ptcl[i].pos);
+    octBodies.push_back(Tree::Octree::Body(ptclP[i], i));
+    rminT = mineach(rminT, ptclP[i].pos);
+    rmaxT = maxeach(rmaxT, ptclP[i].pos);
   }
-  vec3 centre = (rmax + rmin)*0.5;
-  const vec3 vsize  =  rmax - rmin;
-  const real  size  = __max(__max(vsize.x, vsize.y), vsize.z);
-  fprintf(stderr, " centre= %g %g %g  size= %g \n", centre.x, centre.y, centre.z, size);
-  real size2 = 1.0;
-  while (size2 > size) size2 *= 0.5;
-  while (size2 < size) size2 *= 2.0;
-  centre = 0.0;
-  rmin = centre + vec3(-size2/2.0);
-  rmax = centre + vec3(+size2/2.0);
-  for (int i = 0; i < n_bodies; i++)
-  {
-    assert(ptcl[i].pos.x >= rmin.x);
-    assert(ptcl[i].pos.y >= rmin.y);
-    assert(ptcl[i].pos.z >= rmin.z);
-    assert(ptcl[i].pos.x <= rmax.x);
-    assert(ptcl[i].pos.y <= rmax.y);
-    assert(ptcl[i].pos.z <= rmax.z);
-  }
-
+  const vec3 centreT = (rmaxT + rminT)*0.5;
+  const vec3 vsizeT  =  rmaxT - rminT;
+  const real  sizeT  = __max(__max(vsizeT.x, vsizeT.y), vsizeT.z);
+  fprintf(stderr, " centre= %g %g %g  size= %g \n", centreT.x, centreT.y, centreT.z, sizeT);
+  real size2T = 1.0;
+  while (size2T > sizeT) size2T *= 0.5;
+  while (size2T < sizeT) size2T *= 2.0;
 
   const int n_nodes = n_bodies;
-  Tree::Octree tree(centre, size2, n_nodes);
+  Tree::Octree tree(centreT, size2T, n_nodes);
   fprintf(stderr, " >>> centre= %g %g %g   size= %g\n",
-      centre.x, centre.y, centre.z, size2);
+      centreT.x, centreT.y, centreT.z, size2T);
 
   fprintf(stderr, " -- Buidling octTree -- \n");
   for (int i = 0; i < n_bodies; i++)
@@ -244,12 +273,13 @@ int main(int argc, char * argv[])
     DirectPolyhedron<NFMAX> direct;
     Voronoi::Site::Vector list;
     const int NF=1030;
-    Voronoi::Cell<NF> cell;
+    Voronoi::Cell<NF> *cell_ptr = new Voronoi::Cell<NF>;
+    Voronoi::Cell<NF> &cell = *cell_ptr;
     std::vector<bool> used(n_bodies, false);
 #if 1
-    MSW lp(2*size); //2.0); //;.0*size2);
+    MSW lp(4*sizeT); //2.0); //;.0*size2);
 #else
-    SeidelLP lp(2*size); //2.0); //;.0*size2);
+    SeidelLP lp(4*sizeT); //2.0); //;.0*size2);
 #endif
     for (int igroup = 0; igroup < ngroup; igroup++)
     {
@@ -257,17 +287,22 @@ int main(int argc, char * argv[])
       const int ni = group.nb();
       for (int i = 0; i < ni; i++)
       {
-        np++;
         direct.clear();
         const int    ix = group[i].idx();
-        const vec3 ipos = ptcl[ix].pos;
+        const vec3 ipos = ptclP[ix].pos;
+        if (
+            ipos.x < rminD.x || ipos.x > rmaxD.x ||
+            ipos.y < rminD.y || ipos.y > rmaxD.y ||
+            ipos.z < rminD.z || ipos.z > rmaxD.z)
+          continue;
+        np++;
 
-        assert(ipos.x > rmin.x);
-        assert(ipos.y > rmin.y);
-        assert(ipos.z > rmin.z);
-        assert(ipos.x < rmax.x);
-        assert(ipos.y < rmax.y);
-        assert(ipos.z < rmax.z);
+        assert(ipos.x > rminD.x);
+        assert(ipos.y > rminD.y);
+        assert(ipos.z > rminD.z);
+        assert(ipos.x < rmaxD.x);
+        assert(ipos.y < rmaxD.y);
+        assert(ipos.z < rmaxD.z);
 
 #if 0
         const int nj = ni;
@@ -281,7 +316,9 @@ int main(int argc, char * argv[])
           }
         }
         tree.buildDirectPolyhedron(ptcl, group[i], direct, f);
-#else
+#endif 
+
+#if 0
         for (int j = 0; j < n_bodies; j++)
           if (ix != j)
           {
@@ -289,6 +326,15 @@ int main(int argc, char * argv[])
             assert(dr.norm2() > 0.0);
             direct.push(dr*0.5,j);
           }
+#else
+        std::vector<Particle> ptcl1(ptclP);
+        std::sort(ptcl1.begin(), ptcl1.end(), CmpDist(ipos));
+        for (int j = 0; j < n_bodies; j++)
+        {
+          const vec3 dr = ptcl1[j].pos - ipos;
+          if (dr.norm2() > 0.0)
+            direct.push(dr*0.5,j);
+        }
 #endif
 
         nfaceD_min = std::min(nfaceD_min, direct.nface());
@@ -297,12 +343,14 @@ int main(int argc, char * argv[])
 
         lp.clear();
         const int nf = direct.nface();
-        lp.push(HalfSpace(vec3( 1.0, 0.0, 0.0), vec3(1.0*(rmin.x-ipos.x), 0.0, 0.0)));
-        lp.push(HalfSpace(vec3(-1.0, 0.0, 0.0), vec3(1.0*(rmax.x-ipos.x), 0.0, 0.0)));
-        lp.push(HalfSpace(vec3( 0.0, 1.0, 0.0), vec3(0.0, 1.0*(rmin.y-ipos.y), 0.0)));
-        lp.push(HalfSpace(vec3( 0.0,-1.0, 0.0), vec3(0.0, 1.0*(rmax.y-ipos.y), 0.0)));
-        lp.push(HalfSpace(vec3( 0.0, 0.0, 1.0), vec3(0.0, 0.0, 1.0*(rmin.z-ipos.z))));
-        lp.push(HalfSpace(vec3( 0.0, 0.0,-1.0), vec3(0.0, 0.0, 1.0*(rmax.z-ipos.z))));
+#ifdef REFLECTING
+        lp.push(HalfSpace(vec3( 1.0, 0.0, 0.0), vec3(1.0*(rminD.x-ipos.x), 0.0, 0.0)));
+        lp.push(HalfSpace(vec3(-1.0, 0.0, 0.0), vec3(1.0*(rmaxD.x-ipos.x), 0.0, 0.0)));
+        lp.push(HalfSpace(vec3( 0.0, 1.0, 0.0), vec3(0.0, 1.0*(rminD.y-ipos.y), 0.0)));
+        lp.push(HalfSpace(vec3( 0.0,-1.0, 0.0), vec3(0.0, 1.0*(rmaxD.y-ipos.y), 0.0)));
+        lp.push(HalfSpace(vec3( 0.0, 0.0, 1.0), vec3(0.0, 0.0, 1.0*(rminD.z-ipos.z))));
+        lp.push(HalfSpace(vec3( 0.0, 0.0,-1.0), vec3(0.0, 0.0, 1.0*(rmaxD.z-ipos.z))));
+#endif
         for (int j = 0; j < nf; j++)
         {
           lp.push(direct.getHalfSpace(j));
@@ -320,19 +368,40 @@ int main(int argc, char * argv[])
         list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)), -5));
         list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z)), -6));
 #endif
+#if 0
+        const vec3 bnd_list[6] = 
+        {
+          vec3(2.0*(rmin.x-ipos.x), 0.0, 0.0),
+          vec3(2.0*(rmax.x-ipos.x), 0.0, 0.0),
+          vec3(0.0, 2.0*(rmin.y-ipos.y), 0.0),
+          vec3(0.0, 2.0*(rmax.y-ipos.y), 0.0),
+          vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)),
+          vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z))
+        };
+        for (int j = 0; j < 6; j++)
+        {
+          const vec3 &pos = bnd_list[j];
+          const HalfSpace h(pos, pos*0.5);
+          const vec3 p = lp.solve(h.n);
+          if (!h.outside(p))
+            list.push_back(Voronoi::Site(pos, -1-j));
+        }
+#endif
 
         for (int j = 0; j < n_bodies; j++)
         {
-          const vec3 pos = ptcl[j].pos - ipos;
+          const vec3 pos = ptcl1[j].pos - ipos;
           if (pos.norm2() == 0.0) continue;
           const HalfSpace h(pos, pos*0.5);
 
+#if 1 
           if (used[j]) 
           {
             list.push_back(Voronoi::Site(pos, j));
             used[j] = false;
             continue;
           }
+#endif
 
           const vec3 p = lp.solve(h.n);
           if (!h.outside(p))
@@ -342,29 +411,52 @@ int main(int argc, char * argv[])
         nfaceL_max = std::max(nfaceL_max, (int)list.size());
         nfaceL    += (int)list.size();
         fprintf(stderr, "np= %d: nlp= %d, nc= %d nf= %d\n",np, lp.n, (int)list.size(), nf);
+        //        std::random_shuffle(list.begin(), list.end());
 
-#if 1        /* if put above the loop, the cell construction does not work ... hmmm */
-        list.push_back(Voronoi::Site(vec3(2.0*(rmin.x-ipos.x), 0.0, 0.0), -1));
-        list.push_back(Voronoi::Site(vec3(2.0*(rmax.x-ipos.x), 0.0, 0.0), -2));
-        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmin.y-ipos.y), 0.0), -3));
-        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmax.y-ipos.y), 0.0), -4));
-        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)), -5));
-        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z)), -6));
+#if 0
+        const vec3 bnd_list[6] = 
+        {
+          vec3(2.0*(rmin.x-ipos.x), 0.0, 0.0),
+          vec3(2.0*(rmax.x-ipos.x), 0.0, 0.0),
+          vec3(0.0, 2.0*(rmin.y-ipos.y), 0.0),
+          vec3(0.0, 2.0*(rmax.y-ipos.y), 0.0),
+          vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)),
+          vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z))
+        };
+        for (int j = 0; j < 6; j++)
+        {
+          const vec3 &pos = bnd_list[j];
+          const HalfSpace h(pos, pos*0.5);
+          const vec3 p = lp.solve(h.n);
+          if (!h.outside(p))
+            list.push_back(Voronoi::Site(pos, -1-j));
+        }
 #endif
+
+
+#ifdef REFLECTING
+        list.push_back(Voronoi::Site(vec3(2.0*(rminD.x-ipos.x), 0.0, 0.0), -1));
+        list.push_back(Voronoi::Site(vec3(2.0*(rmaxD.x-ipos.x), 0.0, 0.0), -2));
+        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rminD.y-ipos.y), 0.0), -4));
+        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmaxD.y-ipos.y), 0.0), -3));
+        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rminD.z-ipos.z)), -5));
+        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmaxD.z-ipos.z)), -6));
+#endif
+
 
         assert(cell.build(list));
         volume += cell.volume();
-        
+
         nfaceV_min = std::min(nfaceV_min, (int)cell.nb());
         nfaceV_max = std::max(nfaceV_max, (int)cell.nb());
         nfaceV    += (int)cell.nb();
       }
     }
+    delete cell_ptr;
   }
-  assert(np == n_bodies);
-  const real lx = rmax.x - rmin.x;
-  const real ly = rmax.y - rmin.y;
-  const real lz = rmax.z - rmin.z;
+  const real lx = rmaxD.x - rminD.x;
+  const real ly = rmaxD.y - rminD.y;
+  const real lz = rmaxD.z - rminD.z;
   fprintf(stderr, " volume= %g   exact= %g  diff= %g \n",
       volume, lx*ly*lz, (volume-lx*ly*lz)/(lx*ly*lz));
 

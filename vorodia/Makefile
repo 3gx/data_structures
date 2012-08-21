@@ -1,5 +1,5 @@
 CXX = g++
-# CXX = g++-mp-4.7
+#CXX = g++-mp-4.7
 LD  = $(CXX)
 
 ifeq ($(OMP), 1)
