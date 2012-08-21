@@ -193,9 +193,16 @@ int main(int argc, char * argv[])
 
 
   double t0 = get_wtime();
-  int nface_min = 1<<30;
-  int nface_max = 0;
-  unsigned long long nfaceS= 0 ;
+  int nfaceD_min = 1<<30;
+  int nfaceD_max = 0;
+  unsigned long long nfaceD= 0;
+  int nfaceL_min = 1<<30;
+  int nfaceL_max = 0;
+  unsigned long long nfaceL= 0;
+  int nfaceV_min = 1<<30;
+  int nfaceV_max = 0;
+  unsigned long long nfaceV= 0;
+
   std::vector<int> idx(n_bodies);
   for (int i = 0; i < n_bodies; i++)
     idx[i] = i;
@@ -231,7 +238,6 @@ int main(int argc, char * argv[])
 #else
   const int ngroup = groupList.size();
   double volume = 0.0;
-  double nface = 0;
   int np = 0;
   {
     const int NFMAX = 1024;
@@ -263,8 +269,6 @@ int main(int argc, char * argv[])
         assert(ipos.y < rmax.y);
         assert(ipos.z < rmax.z);
 
-        const real f = 1.0;
-
 #if 0
         const int nj = ni;
         for (int j = 0; j < nj; j++)
@@ -287,9 +291,9 @@ int main(int argc, char * argv[])
           }
 #endif
 
-        nface_min = std::min(nface_min, direct.nface());
-        nface_max = std::max(nface_max, direct.nface());
-        nfaceS   += direct.nface();
+        nfaceD_min = std::min(nfaceD_min, direct.nface());
+        nfaceD_max = std::max(nfaceD_max, direct.nface());
+        nfaceD    += direct.nface();
 
         lp.clear();
         const int nf = direct.nface();
@@ -334,6 +338,9 @@ int main(int argc, char * argv[])
           if (!h.outside(p))
             list.push_back(Voronoi::Site(pos, j));
         }
+        nfaceL_min = std::min(nfaceL_min, (int)list.size());
+        nfaceL_max = std::max(nfaceL_max, (int)list.size());
+        nfaceL    += (int)list.size();
         fprintf(stderr, "np= %d: nlp= %d, nc= %d nf= %d\n",np, lp.n, (int)list.size(), nf);
 
 #if 1        /* if put above the loop, the cell construction does not work ... hmmm */
@@ -347,12 +354,14 @@ int main(int argc, char * argv[])
 
         assert(cell.build(list));
         volume += cell.volume();
-        nface  += cell.nb();
+        
+        nfaceV_min = std::min(nfaceV_min, (int)cell.nb());
+        nfaceV_max = std::max(nfaceV_max, (int)cell.nb());
+        nfaceV    += (int)cell.nb();
       }
     }
   }
   assert(np == n_bodies);
-  fprintf(stderr, " nface= %g \n", nface/n_bodies);
   const real lx = rmax.x - rmin.x;
   const real ly = rmax.y - rmin.y;
   const real lz = rmax.z - rmin.z;
@@ -360,8 +369,12 @@ int main(int argc, char * argv[])
       volume, lx*ly*lz, (volume-lx*ly*lz)/(lx*ly*lz));
 
 #endif
-  fprintf(stderr, " nface: min= %d  max= %d  avg= %g\n",
-      nface_min, nface_max, 1.0*nfaceS/n_bodies);
+  fprintf(stderr, " nfaceD: min= %d  max= %d  avg= %g\n",
+      nfaceD_min, nfaceD_max, 1.0*nfaceD/n_bodies);
+  fprintf(stderr, " nfaceL: min= %d  max= %d  avg= %g\n",
+      nfaceL_min, nfaceL_max, 1.0*nfaceL/n_bodies);
+  fprintf(stderr, " nfaceV: min= %d  max= %d  avg= %g\n",
+      nfaceV_min, nfaceV_max, 1.0*nfaceV/n_bodies);
   const double t1 = get_wtime();
   fprintf(stderr, " -- done in %g sec -- \n", t1 - t0);
 
