@@ -25,6 +25,15 @@ struct Particle
   Particle(const vec3 &_pos, const int _id) :
     pos(_pos), id(_id) {}
 };
+struct CmpDist
+{
+  vec3 ipos;
+  CmpDist(const vec3 &vec) : ipos(vec) {}
+  bool operator()(const Particle &p1, const Particle &p2) const
+  {
+    return (p1.pos-ipos).norm2() < (p2.pos - ipos).norm2();
+  }
+};
 
 
 #include "MSW.h"
@@ -230,10 +239,11 @@ int main(int argc, char * argv[])
     Voronoi::Site::Vector list;
     const int NF=1030;
     Voronoi::Cell<NF> cell;
-#if 0
-    MSW lp(4*size); //2.0); //;.0*size2);
+    std::vector<bool> used(n_bodies, false);
+#if 1
+    MSW lp(2*size); //2.0); //;.0*size2);
 #else
-    SeidelLP lp(4*size); //2.0); //;.0*size2);
+    SeidelLP lp(2*size); //2.0); //;.0*size2);
 #endif
     for (int igroup = 0; igroup < ngroup; igroup++)
     {
@@ -254,12 +264,6 @@ int main(int argc, char * argv[])
         assert(ipos.z < rmax.z);
 
         const real f = 1.0;
-        direct.push(vec3(1.0*(rmin.x-ipos.x), 0.0, 0.0), -1, f);
-        direct.push(vec3(1.0*(rmax.x-ipos.x), 0.0, 0.0), -2, f);
-        direct.push(vec3(0.0, 1.0*(rmin.y-ipos.y), 0.0), -3, f);
-        direct.push(vec3(0.0, 1.0*(rmax.y-ipos.y), 0.0), -4, f);
-        direct.push(vec3(0.0, 0.0, 1.0*(rmin.z-ipos.z)), -5, f);
-        direct.push(vec3(0.0, 0.0, 1.0*(rmax.z-ipos.z)), -6, f);
 
 #if 0
         const int nj = ni;
@@ -287,85 +291,42 @@ int main(int argc, char * argv[])
         nface_max = std::max(nface_max, direct.nface());
         nfaceS   += direct.nface();
 
-#if 1
         lp.clear();
         const int nf = direct.nface();
-#if 0
-#if 0
-        lp.push(HalfSpace(vec3( 1, 0, 0), vec3(1.0*(rmin.x-ipos.x), 0.0, 0.0)));
-#if 0
-        lp.push(direct.getHalfSpace(0));
-        fprintf(stderr, " %a %a %a %a \n", 
-            lp.halfSpaceList[3].n.x,
-            lp.halfSpaceList[3].n.y,
-            lp.halfSpaceList[3].n.z,
-            lp.halfSpaceList[3].h);
-        fprintf(stderr, " %a %a %a %a \n", 
-            lp.halfSpaceList[4].n.x,
-            lp.halfSpaceList[4].n.y,
-            lp.halfSpaceList[4].n.z,
-            lp.halfSpaceList[4].h);
-        lp.n--;
-#endif
-        lp.push(HalfSpace(vec3(-1, 0, 0), vec3(1.0*(rmax.x-ipos.x), 0.0, 0.0)));
-        lp.push(HalfSpace(vec3( 0, 1, 0), vec3(0.0, 1.0*(rmin.y-ipos.y), 0.0)));
-        lp.push(HalfSpace(vec3( 0,-1, 0), vec3(0.0, 1.0*(rmax.y-ipos.y), 0.0)));
-        lp.push(HalfSpace(vec3( 0, 0, 1), vec3(0.0, 0.0, 1.0*(rmin.z-ipos.z))));
-        lp.push(HalfSpace(vec3( 0, 0,-1), vec3(0.0, 0.0, 1.0*(rmax.z-ipos.z))));
-#else
-        lp.push(direct.getHalfSpace(0));
-        lp.push(direct.getHalfSpace(1));
-        lp.push(direct.getHalfSpace(2));
-        lp.push(direct.getHalfSpace(3));
-        lp.push(direct.getHalfSpace(4));
-        lp.push(direct.getHalfSpace(5));
-#endif
+        lp.push(HalfSpace(vec3( 1.0, 0.0, 0.0), vec3(1.0*(rmin.x-ipos.x), 0.0, 0.0)));
+        lp.push(HalfSpace(vec3(-1.0, 0.0, 0.0), vec3(1.0*(rmax.x-ipos.x), 0.0, 0.0)));
+        lp.push(HalfSpace(vec3( 0.0, 1.0, 0.0), vec3(0.0, 1.0*(rmin.y-ipos.y), 0.0)));
+        lp.push(HalfSpace(vec3( 0.0,-1.0, 0.0), vec3(0.0, 1.0*(rmax.y-ipos.y), 0.0)));
+        lp.push(HalfSpace(vec3( 0.0, 0.0, 1.0), vec3(0.0, 0.0, 1.0*(rmin.z-ipos.z))));
+        lp.push(HalfSpace(vec3( 0.0, 0.0,-1.0), vec3(0.0, 0.0, 1.0*(rmax.z-ipos.z))));
         for (int j = 0; j < nf; j++)
         {
-          const int jx = direct[j];
-          if (jx < 0) continue;
-
-          assert(jx != ix);
-
-          const vec3 pos = (ptcl[jx].pos - ipos)*0.5;
-          //lp.push(HalfSpace(-pos,pos));
-          const HalfSpace h(-pos,pos);
-          const HalfSpace &h1 = direct.getHalfSpace(j);
-          assert(h.n.abs() == h1.n.abs());
-          assert(h.h == h.h);
           lp.push(direct.getHalfSpace(j));
+          assert(direct[j] >= 0);
+          used[direct[j]] = true;
         }
-#else
-        for (int j = 0; j < nf; j++)
-          lp.push(direct.getHalfSpace(j));
-#endif
 
         list.clear();
-        list.push_back(Voronoi::Site(vec3(2.0*(rmin.x-ipos.x), 0.0, 0.0), -1));
-        list.push_back(Voronoi::Site(vec3(2.0*(rmax.x-ipos.x), 0.0, 0.0), -2));
-        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmin.y-ipos.y), 0.0), -3));
-        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmax.y-ipos.y), 0.0), -4));
-        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)), -5));
-        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z)), -6));
         for (int j = 0; j < n_bodies; j++)
         {
-          if (j == ix) continue;
           const vec3 pos = ptcl[j].pos - ipos;
+          if (pos.norm2() == 0.0) continue;
           const HalfSpace h(pos, pos*0.5);
-          const vec3   p = lp.solve(h.n);
+
+          if (used[j]) 
+          {
+            list.push_back(Voronoi::Site(pos, j));
+            used[j] = false;
+            continue;
+          }
+
+          const vec3 p = lp.solve(h.n);
           if (!h.outside(p))
             list.push_back(Voronoi::Site(pos, j));
         }
-#if 1
-        fprintf(stderr, "np= %d: nc= %d nf= %d\n",np, (int)list.size(), nf);
-#endif
-        //    if (np == 727) continue;
-        //        assert(list.size() == 6);
+        fprintf(stderr, "np= %d: nlp= %d, nc= %d nf= %d\n",np, lp.n, (int)list.size(), nf);
 
-#endif
-
-#if 0
-        list.clear();
+        /* if put above the loop, the cell construction does not work ... hmmm */
         list.push_back(Voronoi::Site(vec3(2.0*(rmin.x-ipos.x), 0.0, 0.0), -1));
         list.push_back(Voronoi::Site(vec3(2.0*(rmax.x-ipos.x), 0.0, 0.0), -2));
         list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmin.y-ipos.y), 0.0), -3));
@@ -373,29 +334,9 @@ int main(int argc, char * argv[])
         list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)), -5));
         list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z)), -6));
 
-#if 1
-        const int nf = direct.nface();
-        for (int j = 0; j < nf; j++)
-        {
-          const int jx = direct[j];
-          assert(jx != ix);
-          if (jx >= 0)
-            list.push_back(Voronoi::Site(ptcl[jx].pos - ipos,jx));
-        }
-#else
-        for (int j = 0; j < n_bodies; j++)
-        {
-          if (j != ix)
-            list.push_back(Voronoi::Site(ptcl[j].pos - ipos,j));
-        }
-#endif
-#endif
-
-#if 1
         assert(cell.build(list));
         volume += cell.volume();
         nface  += cell.nb();
-#endif
       }
     }
   }

@@ -87,7 +87,7 @@ struct HalfSpace
 struct SeidelLP
 {
   enum {N=1010};
-  private:
+//  private:
     int n;
     vec3 bmax, cvec;
     HalfSpace halfSpaceList[N];

@@ -138,7 +138,7 @@ struct MSW
       halfSpaceFlag[1] = 0;
       halfSpaceFlag[2] = 0;
 
-//      if (randomize)
+      if (randomize)
         std::random_shuffle(halfSpaceList+3, halfSpaceList+n);
       
       const vec3 v  = solve_lp3D(n);
