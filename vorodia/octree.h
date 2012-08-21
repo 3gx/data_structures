@@ -7,11 +7,6 @@
 #include <algorithm>
 #include "DirectPoly.h"
 
-template<class T>
-static inline T __min(const T &a, const T &b) {return a < b ? a : b;}
-template<class T>
-static inline T __max(const T &a, const T &b) {return a > b ? a : b;}
-
 
 #define SQR(x) ((x)*(x))
 

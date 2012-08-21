@@ -7,15 +7,10 @@
 #include <cfloat>
 
 
-template<class T>
-inline T __min(const T a, const T b) {return a < b ? a : b;}
-
-template<class T>
-inline T __sign(const T a) {return a < T(0.0) ? (T)-1.0 : (T)+1.0;}
 
 unsigned long long nflops = 0;
 
-#if 0
+#if 1
 struct HalfSpace
 {
   typedef std::vector<HalfSpace> Vector;
@@ -24,7 +19,7 @@ struct HalfSpace
   HalfSpace() {}
   HalfSpace(const vec3 &_n, const vec3 &p) : n(_n)
   {
-#if 0
+#if 1
     const real fn = n.abs();
     assert(fn > 0.0);
     n *= 1.0/fn;
@@ -33,7 +28,7 @@ struct HalfSpace
   }
   HalfSpace(const vec3 &p) : n(p)
   {
-#if 0
+#if 1
     const real fn = n.abs();
     assert(fn >  0.0);
     n *= 1.0/fn;
@@ -59,7 +54,11 @@ struct HalfSpace
     const vec3 w2 = p3.n%p1.n;
     const vec3 w3 = p1.n%p2.n;
     const real  w = p1.n*w1;
+#if 1
     if (w == 0.0) return std::make_pair(0.0, -HUGE);
+#else
+    if (std::abs(w) < 1.0e-5) return std::make_pair(0.0, -HUGE);
+#endif
     const real iw = 1.0/w;
     const real d1 = p1.h * iw;
     const real d2 = p2.h * iw;
@@ -92,7 +91,7 @@ struct Basis
 struct MSW
 {
   enum {N = 1010};
-  private:
+//  private:
     int n;
     vec3 bmax, cvec;
     HalfSpace halfSpaceList[N];
@@ -139,7 +138,7 @@ struct MSW
       halfSpaceFlag[1] = 0;
       halfSpaceFlag[2] = 0;
 
-      if (randomize)
+//      if (randomize)
         std::random_shuffle(halfSpaceList+3, halfSpaceList+n);
       
       const vec3 v  = solve_lp3D(n);
@@ -205,7 +204,7 @@ struct MSW
 
       assert(v[j].second > -HUGE);
 
-#if 0
+#if 1
       {
         for (int j = 0; j < 3; j++)
           assert(!hs[i].outside(v[j].first));

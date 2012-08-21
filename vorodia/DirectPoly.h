@@ -5,6 +5,7 @@
 #include "vector3.h"
 
 
+#if 0
 struct HalfSpace
 {
   typedef std::vector<HalfSpace> Vector;
@@ -66,6 +67,7 @@ struct HalfSpace
   }
 #endif
 };
+#endif
 
 
 template<const int N>

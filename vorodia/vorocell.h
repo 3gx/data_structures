@@ -24,9 +24,6 @@ template<class T>
 inline T __sign(const T a) {return a < T(0.0) ? (T)-1.0 : (T)+1.0;}
 #endif
 
-template<class T>
-inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
-
 struct PackedInt2
 {
   private:

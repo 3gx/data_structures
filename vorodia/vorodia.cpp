@@ -3,6 +3,18 @@
 typedef double real;
 typedef vector3<real> vec3;
 
+template<class T>
+inline T __min(const T a, const T b) {return a < b ? a : b;}
+
+template<class T>
+inline T __max(const T &a, const T &b) {return a > b ? a : b;}
+
+template<class T>
+inline T __sign(const T a) {return a < T(0.0) ? (T)-1.0 : (T)+1.0;}
+
+template<class T>
+inline T __abs(const T a) {return a < T(0.0) ? -a : a;}
+
 struct Particle
 {
   typedef std::vector<Particle> Vector;
@@ -14,11 +26,11 @@ struct Particle
     pos(_pos), id(_id) {}
 };
 
-#include "octree.h"
 
-#include "DirectPoly.h"
-#include "vorocell.h"
 #include "MSW.h"
+#include "SeidelLP.h"
+#include "octree.h"
+#include "vorocell.h"
 
 #include "plummer.h"
 #include "mytimer.h"
@@ -28,7 +40,7 @@ typedef Tree::Octree::GroupT<NGROUP> octGroup;
 
 int main(int argc, char * argv[])
 {
-  int n_bodies = 1024;
+  int n_bodies = 512;
   if (argc > 1) n_bodies = atoi(argv[1]);
   assert(n_bodies > 0);
   fprintf(stderr, "n_bodies= %d\n", n_bodies);
@@ -218,7 +230,11 @@ int main(int argc, char * argv[])
     Voronoi::Site::Vector list;
     const int NF=1030;
     Voronoi::Cell<NF> cell;
-    MSW lp(size); //2.0); //;.0*size2);
+#if 0
+    MSW lp(4*size); //2.0); //;.0*size2);
+#else
+    SeidelLP lp(4*size); //2.0); //;.0*size2);
+#endif
     for (int igroup = 0; igroup < ngroup; igroup++)
     {
       const octGroup &group = groupList[igroup];
@@ -236,6 +252,7 @@ int main(int argc, char * argv[])
         assert(ipos.x < rmax.x);
         assert(ipos.y < rmax.y);
         assert(ipos.z < rmax.z);
+
         const real f = 1.0;
         direct.push(vec3(1.0*(rmin.x-ipos.x), 0.0, 0.0), -1, f);
         direct.push(vec3(1.0*(rmax.x-ipos.x), 0.0, 0.0), -2, f);
@@ -244,6 +261,7 @@ int main(int argc, char * argv[])
         direct.push(vec3(0.0, 0.0, 1.0*(rmin.z-ipos.z)), -5, f);
         direct.push(vec3(0.0, 0.0, 1.0*(rmax.z-ipos.z)), -6, f);
 
+#if 0
         const int nj = ni;
         for (int j = 0; j < nj; j++)
         {
@@ -254,8 +272,17 @@ int main(int argc, char * argv[])
             direct.push((ptcl[jx].pos-ipos)*0.5, jx);
           }
         }
-
         tree.buildDirectPolyhedron(ptcl, group[i], direct, f);
+#else
+        for (int j = 0; j < n_bodies; j++)
+          if (ix != j)
+          {
+            const vec3 dr = ptcl[j].pos - ipos;
+            assert(dr.norm2() > 0.0);
+            direct.push(dr*0.5,j);
+          }
+#endif
+
         nface_min = std::min(nface_min, direct.nface());
         nface_max = std::max(nface_max, direct.nface());
         nfaceS   += direct.nface();
@@ -264,12 +291,35 @@ int main(int argc, char * argv[])
         lp.clear();
         const int nf = direct.nface();
 #if 0
+#if 0
         lp.push(HalfSpace(vec3( 1, 0, 0), vec3(1.0*(rmin.x-ipos.x), 0.0, 0.0)));
+#if 0
+        lp.push(direct.getHalfSpace(0));
+        fprintf(stderr, " %a %a %a %a \n", 
+            lp.halfSpaceList[3].n.x,
+            lp.halfSpaceList[3].n.y,
+            lp.halfSpaceList[3].n.z,
+            lp.halfSpaceList[3].h);
+        fprintf(stderr, " %a %a %a %a \n", 
+            lp.halfSpaceList[4].n.x,
+            lp.halfSpaceList[4].n.y,
+            lp.halfSpaceList[4].n.z,
+            lp.halfSpaceList[4].h);
+        lp.n--;
+#endif
         lp.push(HalfSpace(vec3(-1, 0, 0), vec3(1.0*(rmax.x-ipos.x), 0.0, 0.0)));
         lp.push(HalfSpace(vec3( 0, 1, 0), vec3(0.0, 1.0*(rmin.y-ipos.y), 0.0)));
         lp.push(HalfSpace(vec3( 0,-1, 0), vec3(0.0, 1.0*(rmax.y-ipos.y), 0.0)));
         lp.push(HalfSpace(vec3( 0, 0, 1), vec3(0.0, 0.0, 1.0*(rmin.z-ipos.z))));
         lp.push(HalfSpace(vec3( 0, 0,-1), vec3(0.0, 0.0, 1.0*(rmax.z-ipos.z))));
+#else
+        lp.push(direct.getHalfSpace(0));
+        lp.push(direct.getHalfSpace(1));
+        lp.push(direct.getHalfSpace(2));
+        lp.push(direct.getHalfSpace(3));
+        lp.push(direct.getHalfSpace(4));
+        lp.push(direct.getHalfSpace(5));
+#endif
         for (int j = 0; j < nf; j++)
         {
           const int jx = direct[j];
@@ -278,7 +328,12 @@ int main(int argc, char * argv[])
           assert(jx != ix);
 
           const vec3 pos = (ptcl[jx].pos - ipos)*0.5;
-          lp.push(HalfSpace(-pos,pos));
+          //lp.push(HalfSpace(-pos,pos));
+          const HalfSpace h(-pos,pos);
+          const HalfSpace &h1 = direct.getHalfSpace(j);
+          assert(h.n.abs() == h1.n.abs());
+          assert(h.h == h.h);
+          lp.push(direct.getHalfSpace(j));
         }
 #else
         for (int j = 0; j < nf; j++)

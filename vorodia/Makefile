@@ -15,6 +15,7 @@ ifeq ($(GDB), 1)
 endif
 	
 OFLAGS  += -funroll-all-loops
+# OFLAGS += -frounding-math
 CXXFLAGS = $(OFLAGS) -Wstrict-aliasing=2 $(OMPFLAGS)
 
 ifeq ($(SSE), 1)

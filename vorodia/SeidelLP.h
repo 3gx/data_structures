@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cassert>
 
+#if 0
 template<class T>
 inline T __min(const T a, const T b) {return a < b ? a : b;}
 
@@ -80,11 +81,12 @@ struct HalfSpace
   }
 #endif
 };
+#endif
 
 
-template<const int N>
 struct SeidelLP
 {
+  enum {N=1010};
   private:
     int n;
     vec3 bmax, cvec;
@@ -125,8 +127,9 @@ struct SeidelLP
 
     inline vec3 solve_lp3D(const int n) const 
     {
+      
       asm("#test1");
-      vec3 v = intersect(bnd[0], bnd[1], bnd[2]);
+      vec3 v = intersect(bnd[0], bnd[1], bnd[2],cvec).first;
       for (int i = 0; i < n; i++)
       {
         const HalfSpace &h = halfSpaceList[i];
@@ -139,9 +142,9 @@ struct SeidelLP
 
     inline vec3 solve_lp2D(const int n, const HalfSpace &h1) const __attribute__((always_inline))
     {
-      const vec3 v1 = intersect(h1, bnd[0], bnd[1]);
-      const vec3 v2 = intersect(h1, bnd[0], bnd[2]);
-      const vec3 v3 = intersect(h1, bnd[1], bnd[2]);
+      const vec3 v1 = intersect(h1, bnd[0], bnd[1],cvec).first;
+      const vec3 v2 = intersect(h1, bnd[0], bnd[2],cvec).first;
+      const vec3 v3 = intersect(h1, bnd[1], bnd[2],cvec).first;
       const real f1 = cvec*v1;
       const real f2 = cvec*v2;
       const real f3 = cvec*v3;
@@ -195,9 +198,9 @@ struct SeidelLP
 #else
     inline vec3 solve_lp1D(const int n, const HalfSpace &h1, const HalfSpace &h2) const __attribute__((always_inline))
     {
-      const vec3 v1 = intersect(h1, h2, bnd[0]);
-      const vec3 v2 = intersect(h1, h2, bnd[1]);
-      const vec3 v3 = intersect(h1, h2, bnd[2]);
+      const vec3 v1 = intersect(h1, h2, bnd[0],cvec).first;
+      const vec3 v2 = intersect(h1, h2, bnd[1],cvec).first;
+      const vec3 v3 = intersect(h1, h2, bnd[2],cvec).first;
       const real f1 = cvec*v1;
       const real f2 = cvec*v2;
       const real f3 = cvec*v3;
@@ -211,7 +214,7 @@ struct SeidelLP
       {
         const HalfSpace &h = halfSpaceList[i];
         if (h.outside(v)) 
-          v = intersect(h1, h2, h);
+          v = intersect(h1, h2, h,cvec).first;
       }
       return v;
     }
