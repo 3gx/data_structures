@@ -405,7 +405,9 @@ int main(int argc, char * argv[])
         nfaceL_min = std::min(nfaceL_min, (int)list.size());
         nfaceL_max = std::max(nfaceL_max, (int)list.size());
         nfaceL    += (int)list.size();
+#if 1
         fprintf(stderr, "np= %d: nlp= %d, nc= %d nf= %d\n",np, lp.n, (int)list.size(), nf);
+#endif
 
         std::random_shuffle(list.begin(), list.end());
         assert(cell.build(list));
