@@ -855,7 +855,7 @@ namespace Voronoi
           assert(r2 > 0.0);
           const real cos    =       posA * jpos;
           const real sin    = plane(posA % jpos);
-#if 1
+#if 0
           const real cos2   =  cos*__abs(cos)* (1.0/r2);
           angle_vec_pair[j] = std::make_pair(sin >  0.0 ? -cos2 : 2.0+cos2, j);
 #else

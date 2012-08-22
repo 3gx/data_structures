@@ -103,7 +103,8 @@ struct SeidelLP
         halfSpaceList[i] = plist[i];
     }
 
-    void clear(const vec3 &_bmax = 1.0) { n = 0; bmax = _bmax; }
+    void clear(const vec3 &_bmax) { n = 0; bmax = _bmax; }
+    void clear() { n = 0; }
     bool push(const HalfSpace &p)
     {
       assert(n < N);

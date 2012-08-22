@@ -72,12 +72,19 @@ int main(int argc, char * argv[])
 
   /*  generate or import particles */
 
-#if 0
+#if 1
 #define PLUMMER
-  const Plummer data(n_bodies);
+  const vec3 rminD(-8.0);
+  const vec3 rmaxD(+8.0);
+  Plummer data(n_bodies);
   for (int i = 0; i < n_bodies; i++)
   {
-    ptclO.push_back(Particle(data.pos[i], data.mass[i]));
+    data.pos[i] *= 1.0/1.0;
+    if (
+        data.pos[i].x > rminD.x && data.pos[i].x < rmaxD.x &&
+        data.pos[i].y > rminD.x && data.pos[i].y < rmaxD.y &&
+        data.pos[i].z > rminD.x && data.pos[i].z < rmaxD.z)
+      ptclO.push_back(Particle(data.pos[i], data.mass[i]));
   }
 #elif 0  /* reads IC */
   int dummy;
@@ -91,6 +98,8 @@ int main(int argc, char * argv[])
     ptclO.push_back(p);
   }
 #elif 1
+  const vec3 rminD(-0.5);
+  const vec3 rmaxD(+0.5);
   {
     for (int i = 0; i < n_bodies; i++)
       ptclO.push_back(Particle(vec3(
@@ -100,11 +109,10 @@ int main(int argc, char * argv[])
             i));
   }
 #endif
+  n_bodies = ptclO.size();
 
   Particle::Vector ptclP;
   ptclP.reserve(2*n_bodies);
-  const vec3 rminD(-0.5);
-  const vec3 rmaxD(+0.5);
   {
 #if 0 /* periodic */
     const real  f = 0.5;
@@ -149,7 +157,7 @@ int main(int argc, char * argv[])
 
   const int n_bodies0 = n_bodies;
   n_bodies = ptclP.size();
-  fprintf(stderr, "nbodiesP= %d\n", n_bodies);
+  fprintf(stderr, "nbdies0= %d  nbodiesP= %d\n", n_bodies0, n_bodies);
 
   vec3 rminT(+HUGE);
   vec3 rmaxT(-HUGE);
@@ -170,7 +178,7 @@ int main(int argc, char * argv[])
 
   const int n_nodes = n_bodies;
   Tree::Octree tree(centreT, size2T, n_nodes);
-  fprintf(stderr, " >>> centre= %g %g %g   size= %g\n",
+  fprintf(stderr, " >>> centre= %g %g %g   size2= %g\n",
       centreT.x, centreT.y, centreT.z, size2T);
 
   fprintf(stderr, " -- Buidling octTree -- \n");
@@ -290,9 +298,9 @@ int main(int argc, char * argv[])
     Voronoi::Cell<NF> *cell_ptr = new Voronoi::Cell<NF>;
     Voronoi::Cell<NF> &cell = *cell_ptr;
 #if 1
-    MSW lp(4*sizeT); //2.0); //;.0*size2);
+    MSW lp(2*size2T); //2.0); //;.0*size2);
 #else
-    SeidelLP lp(4*sizeT); //2.0); //;.0*size2);
+    SeidelLP lp(2*size2T); //2.0); //;.0*size2);
 #endif
     for (int igroup = 0; igroup < ngroup; igroup++)
     {
@@ -325,7 +333,6 @@ int main(int argc, char * argv[])
             const int jx = group[j].idx();
             assert(ix != jx);
             const vec3 dr = ptclP[jx].pos - ipos;
-            ptclP[jx].id = -1-ptclP[jx].id;
             assert (dr.norm2() > 0.0);
             direct.push(dr*0.5, jx);
           }
