@@ -103,7 +103,7 @@ int main(int argc, char * argv[])
   const vec3 rminD(-0.5);
   const vec3 rmaxD(+0.5);
   {
-#if 1 /* periodic */
+#if 0 /* periodic */
     const real  f = 0.5;
     assert(f <= 0.5);
     const real lx = rmaxD.x - rminD.x;
@@ -346,7 +346,7 @@ int main(int argc, char * argv[])
           direct.push(dr*0.5, j);
         }
 #else
-        std::random_shuffle(ptcl1.begin(), ptcl1.end());
+    //    std::random_shuffle(ptcl1.begin(), ptcl1.end());
         for (int j = 0; j < n_bodies; j++)
         {
           if (ptcl1[j].id < 0) continue;
@@ -440,7 +440,7 @@ int main(int argc, char * argv[])
         list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmaxD.z-ipos.z)), -6));
 #endif
 
-        std::sort(list.begin(), list.end(), CmpList(ipos));
+        std::random_shuffle(list.begin(), list.end());
         assert(cell.build(list));
         volume += cell.volume();
 
