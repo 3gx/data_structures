@@ -232,7 +232,7 @@ int main(int argc, char * argv[])
         t0 = t1;
 
         //        std::sort(list.begin(), list.end(), Voronoi::Site());
-        //        std::random_shuffle(list.begin(), list.end());
+        std::random_shuffle(list.begin(), list.end());
         t1 = get_wtime();
         dt_sort += t1 - t0;
         t0 = t1;

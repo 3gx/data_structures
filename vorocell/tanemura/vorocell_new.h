@@ -609,9 +609,13 @@ namespace Voronoi
               /* vertex is not found in tetrahedra list, search the siteList*/
               myNMX += nSites;
 
-              std::swap(sites[iVertex], sites[--nSites_loc]);
-              std::swap(sites[jVertex], sites[--nSites_loc]);
-              std::swap(sites[kVertex], sites[--nSites_loc]);
+              const Site si = sites[iVertex];
+              const Site sj = sites[jVertex];
+              const Site sk = sites[kVertex];
+              const Site sinf = Site(vec3(HUGE), -1);
+
+              sites[iVertex] = sites[jVertex] = sites[kVertex] = sinf;
+
               const real meps = -eps;
               for (int i = 0; i < nSites_loc; i++)
               {
@@ -634,9 +638,9 @@ namespace Voronoi
                   }
                 }
               }
-              std::swap(sites[kVertex], sites[nSites_loc++]);
-              std::swap(sites[jVertex], sites[nSites_loc++]);
-              std::swap(sites[iVertex], sites[nSites_loc++]);
+              sites[iVertex] = si;
+              sites[jVertex] = sj;
+              sites[kVertex] = sk;
               assert(lVertex >= 0);
 #if 0         /* sanity check */
               {
@@ -792,7 +796,7 @@ namespace Voronoi
       bool traceFace(const std::vector<vec3> &vtxPos, real &volume, Face &face)
       {
         const int n = vtxPos.size();
-            
+
         flop += n*3 + 2 + n*(6+9+3)+6+5;
 
         vec3 cpos(0.0);
@@ -874,10 +878,10 @@ namespace Voronoi
 #endif
           if (j > 0)
             need_sort = angle_vec_pair[j-1].first > angle_vec_pair[j].first;
-//          fprintf(stderr," j= %d: val= %g\n", j, angle_vec_pair[j].first);
+          //          fprintf(stderr," j= %d: val= %g\n", j, angle_vec_pair[j].first);
         }
         //if (need_sort)
-            std::sort(angle_vec_pair.begin(), angle_vec_pair.begin()+n, cmp_data<real, int>());
+        std::sort(angle_vec_pair.begin(), angle_vec_pair.begin()+n, cmp_data<real, int>());
         angle_vec_pair[n] = angle_vec_pair[0];
 
         /* comput area & volume */
