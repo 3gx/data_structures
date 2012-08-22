@@ -46,6 +46,15 @@ struct HalfSpace
     return n*p - h < -1.0e-10*std::abs(h);
 #endif
   }
+  bool outside_bnd(const vec3 &p) const 
+  {
+    nflops += 6;
+#if 0
+    return n*p < h;
+#else
+    return n*p - h < +1.0e-10*std::abs(h);
+#endif
+  }
   friend std::pair<vec3, real> intersect
     (const HalfSpace &p1, const HalfSpace &p2, const HalfSpace &p3, const vec3 &c)
   {

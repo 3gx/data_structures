@@ -47,6 +47,16 @@ struct CmpDist
 enum {NGROUP = 128};
 typedef Tree::Octree::GroupT<NGROUP> octGroup;
 
+struct CmpList
+{
+  vec3 vec;
+  CmpList(const vec3 &v) : vec(v) {}
+  bool operator()(const Voronoi::Site &s1, const Voronoi::Site &s2) const
+  {
+    return (s1.pos).norm2() < (s2.pos).norm2();
+  }
+};
+
 int main(int argc, char * argv[])
 {
   int n_bodies = 512;
@@ -84,7 +94,7 @@ int main(int argc, char * argv[])
               1.0-2.0*drand48(), 
               1.0-2.0*drand48(), 
               1.0-2.0*drand48())*0.5,
-            1.0/n_bodies));
+            i));
   }
 #endif
 
@@ -134,6 +144,7 @@ int main(int argc, char * argv[])
 
   fprintf(stderr, " -- Compute bounding box -- \n");
 
+  const int n_bodies0 = n_bodies;
   n_bodies = ptclP.size();
   fprintf(stderr, "nbodiesP= %d\n", n_bodies);
 
@@ -287,7 +298,6 @@ int main(int argc, char * argv[])
       const int ni = group.nb();
       for (int i = 0; i < ni; i++)
       {
-        direct.clear();
         const int    ix = group[i].idx();
         const vec3 ipos = ptclP[ix].pos;
         if (
@@ -304,38 +314,53 @@ int main(int argc, char * argv[])
         assert(ipos.y < rmaxD.y);
         assert(ipos.z < rmaxD.z);
 
+        direct.clear();
+        std::stack<int> plist;
 #if 0
         const int nj = ni;
         for (int j = 0; j < nj; j++)
         {
-          if (i != j)
+          const int jx = group[j].idx();
+          used[jx] = true;
+          const vec3 dr = ptclP[jx].pos - ipos;
+          if (ix != jx)
           {
-            const int jx = group[j].idx();
-            assert(jx != ix);
-            direct.push((ptcl[jx].pos-ipos)*0.5, jx);
+            assert (dr.norm2() > 0.0);
+            direct.push(dr*0.5, jx);
+            assert(ptclP[jx].id >= 0);
+            ptclP[jx].id = -1-ptclP[jx].id;
+            plist.push(jx);
           }
         }
-        tree.buildDirectPolyhedron(ptcl, group[i], direct, f);
+        //        tree.buildDirectPolyhedron(ptcl, group[i], direct, f);
 #endif 
 
-#if 0
-        for (int j = 0; j < n_bodies; j++)
-          if (ix != j)
-          {
-            const vec3 dr = ptcl[j].pos - ipos;
-            assert(dr.norm2() > 0.0);
-            direct.push(dr*0.5,j);
-          }
-#else
         std::vector<Particle> ptcl1(ptclP);
+#if 1
         std::sort(ptcl1.begin(), ptcl1.end(), CmpDist(ipos));
+        for (int j = 1; j < n_bodies; j++)
+        {
+          if (ptcl1[j].id < 0) continue;
+          const vec3 dr = ptcl1[j].pos - ipos;
+          assert (dr.norm2() > 0.0);
+          direct.push(dr*0.5, j);
+        }
+#else
+        std::random_shuffle(ptcl1.begin(), ptcl1.end());
         for (int j = 0; j < n_bodies; j++)
         {
+          if (ptcl1[j].id < 0) continue;
           const vec3 dr = ptcl1[j].pos - ipos;
           if (dr.norm2() > 0.0)
             direct.push(dr*0.5,j);
         }
 #endif
+        while(!plist.empty())
+        {
+          const int jx = plist.top();
+          plist.pop();
+          ptclP[jx].id = -1-ptclP[jx].id;
+        }
 
         nfaceD_min = std::min(nfaceD_min, direct.nface());
         nfaceD_max = std::max(nfaceD_max, direct.nface());
@@ -360,14 +385,6 @@ int main(int argc, char * argv[])
 
         list.clear();
 
-#if 0  /* does not work */
-        list.push_back(Voronoi::Site(vec3(2.0*(rmin.x-ipos.x), 0.0, 0.0), -1));
-        list.push_back(Voronoi::Site(vec3(2.0*(rmax.x-ipos.x), 0.0, 0.0), -2));
-        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmin.y-ipos.y), 0.0), -3));
-        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmax.y-ipos.y), 0.0), -4));
-        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)), -5));
-        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z)), -6));
-#endif
 #if 0
         const vec3 bnd_list[6] = 
         {
@@ -413,37 +430,17 @@ int main(int argc, char * argv[])
         fprintf(stderr, "np= %d: nlp= %d, nc= %d nf= %d\n",np, lp.n, (int)list.size(), nf);
         //        std::random_shuffle(list.begin(), list.end());
 
-#if 0
-        const vec3 bnd_list[6] = 
-        {
-          vec3(2.0*(rmin.x-ipos.x), 0.0, 0.0),
-          vec3(2.0*(rmax.x-ipos.x), 0.0, 0.0),
-          vec3(0.0, 2.0*(rmin.y-ipos.y), 0.0),
-          vec3(0.0, 2.0*(rmax.y-ipos.y), 0.0),
-          vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)),
-          vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z))
-        };
-        for (int j = 0; j < 6; j++)
-        {
-          const vec3 &pos = bnd_list[j];
-          const HalfSpace h(pos, pos*0.5);
-          const vec3 p = lp.solve(h.n);
-          if (!h.outside(p))
-            list.push_back(Voronoi::Site(pos, -1-j));
-        }
-#endif
-
 
 #ifdef REFLECTING
         list.push_back(Voronoi::Site(vec3(2.0*(rminD.x-ipos.x), 0.0, 0.0), -1));
         list.push_back(Voronoi::Site(vec3(2.0*(rmaxD.x-ipos.x), 0.0, 0.0), -2));
-        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rminD.y-ipos.y), 0.0), -4));
         list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmaxD.y-ipos.y), 0.0), -3));
+        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rminD.y-ipos.y), 0.0), -4));
         list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rminD.z-ipos.z)), -5));
         list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmaxD.z-ipos.z)), -6));
 #endif
 
-
+        std::sort(list.begin(), list.end(), CmpList(ipos));
         assert(cell.build(list));
         volume += cell.volume();
 
@@ -454,6 +451,7 @@ int main(int argc, char * argv[])
     }
     delete cell_ptr;
   }
+  assert(np == n_bodies0);
   const real lx = rmaxD.x - rminD.x;
   const real ly = rmaxD.y - rminD.y;
   const real lz = rmaxD.z - rminD.z;
@@ -462,11 +460,11 @@ int main(int argc, char * argv[])
 
 #endif
   fprintf(stderr, " nfaceD: min= %d  max= %d  avg= %g\n",
-      nfaceD_min, nfaceD_max, 1.0*nfaceD/n_bodies);
+      nfaceD_min, nfaceD_max, 1.0*nfaceD/n_bodies0);
   fprintf(stderr, " nfaceL: min= %d  max= %d  avg= %g\n",
-      nfaceL_min, nfaceL_max, 1.0*nfaceL/n_bodies);
+      nfaceL_min, nfaceL_max, 1.0*nfaceL/n_bodies0);
   fprintf(stderr, " nfaceV: min= %d  max= %d  avg= %g\n",
-      nfaceV_min, nfaceV_max, 1.0*nfaceV/n_bodies);
+      nfaceV_min, nfaceV_max, 1.0*nfaceV/n_bodies0);
   const double t1 = get_wtime();
   fprintf(stderr, " -- done in %g sec -- \n", t1 - t0);
 
