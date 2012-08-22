@@ -1,4 +1,8 @@
 *~
 .*
 !.gitignore
-
+*.a
+*.o
+*.s
+*.bak.*
+*.dSYM
