@@ -143,9 +143,9 @@ struct MSW
       halfSpaceList[0] = HalfSpace(vec3(-bvec.x,0.0,0.0), vec3(bvec.x,0.0,0.0));
       halfSpaceList[1] = HalfSpace(vec3(0.0,-bvec.y,0.0), vec3(0.0,bvec.y,0.0));
       halfSpaceList[2] = HalfSpace(vec3(0.0,0.0,-bvec.z), vec3(0.0,0.0,bvec.z));
-      halfSpaceFlag[0] = 0;
-      halfSpaceFlag[1] = 0;
-      halfSpaceFlag[2] = 0;
+      halfSpaceFlag[0] = -1;
+      halfSpaceFlag[1] = -1;
+      halfSpaceFlag[2] = -1;
 
       if (randomize)
         std::random_shuffle(halfSpaceList+3, halfSpaceList+n);
@@ -155,11 +155,13 @@ struct MSW
       int i = 2;
       int j = 0;
       while (++i < n)
-        if (halfSpaceFlag[i] == 0)
+        if (halfSpaceFlag[i] == -1)
         {
           std::swap(halfSpaceList[i  ], halfSpaceList[j  ]);
           std::swap(halfSpaceFlag[i--], halfSpaceFlag[j++]);
         }
+        else if (halfSpaceFlag[i] == -2)
+          halfSpaceFlag[i] = 1;
 
       return v;
     }
@@ -168,11 +170,12 @@ struct MSW
     {
       vec3 v = intersect(halfSpaceList[0], halfSpaceList[1], halfSpaceList[2], cvec).first;
 
-#if 1
+#if 0
       int i = 2;
       while (++i < n)
-        if (halfSpaceList[i].outside(v) && halfSpaceFlag[i])
+        if (halfSpaceList[i].outside(v) && halfSpaceFlag[i] > 0)
         {
+          halfSpaceFlag[i] = -2;
           v = newBasis(i);
           i = 2;
         }
@@ -182,8 +185,9 @@ struct MSW
       {
         flag = false;
         for (int i = 3; i < n; i++)
-          if (halfSpaceList[i].outside(v) && halfSpaceFlag[i])
+          if (halfSpaceList[i].outside(v) && halfSpaceFlag[i] > 0)
           {
+            halfSpaceFlag[i] = -2;
             v = newBasis(i);
             flag = true;
             break;

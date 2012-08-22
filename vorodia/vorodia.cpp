@@ -3,6 +3,9 @@
 typedef double real;
 typedef vector3<real> vec3;
 
+bool print_flag = false;
+unsigned long long pcnt = 0;
+
 template<class T>
 inline T __min(const T a, const T b) {return a < b ? a : b;}
 
@@ -286,7 +289,6 @@ int main(int argc, char * argv[])
     const int NF=1030;
     Voronoi::Cell<NF> *cell_ptr = new Voronoi::Cell<NF>;
     Voronoi::Cell<NF> &cell = *cell_ptr;
-    std::vector<bool> used(n_bodies, false);
 #if 1
     MSW lp(4*sizeT); //2.0); //;.0*size2);
 #else
@@ -315,52 +317,41 @@ int main(int argc, char * argv[])
         assert(ipos.z < rmaxD.z);
 
         direct.clear();
-        std::stack<int> plist;
-#if 0
+#if 1
         const int nj = ni;
         for (int j = 0; j < nj; j++)
-        {
-          const int jx = group[j].idx();
-          used[jx] = true;
-          const vec3 dr = ptclP[jx].pos - ipos;
-          if (ix != jx)
+          if (i != j)
           {
+            const int jx = group[j].idx();
+            assert(ix != jx);
+            const vec3 dr = ptclP[jx].pos - ipos;
+            ptclP[jx].id = -1-ptclP[jx].id;
             assert (dr.norm2() > 0.0);
             direct.push(dr*0.5, jx);
-            assert(ptclP[jx].id >= 0);
-            ptclP[jx].id = -1-ptclP[jx].id;
-            plist.push(jx);
           }
-        }
-        //        tree.buildDirectPolyhedron(ptcl, group[i], direct, f);
+        tree.buildDirectPolyhedron(ptclP, group[i], direct);
 #endif 
 
+#if 0
         std::vector<Particle> ptcl1(ptclP);
-#if 1
+#if 0
         std::sort(ptcl1.begin(), ptcl1.end(), CmpDist(ipos));
         for (int j = 1; j < n_bodies; j++)
         {
-          if (ptcl1[j].id < 0) continue;
           const vec3 dr = ptcl1[j].pos - ipos;
           assert (dr.norm2() > 0.0);
           direct.push(dr*0.5, j);
         }
 #else
-    //    std::random_shuffle(ptcl1.begin(), ptcl1.end());
+        std::random_shuffle(ptcl1.begin(), ptcl1.end());
         for (int j = 0; j < n_bodies; j++)
         {
-          if (ptcl1[j].id < 0) continue;
           const vec3 dr = ptcl1[j].pos - ipos;
           if (dr.norm2() > 0.0)
             direct.push(dr*0.5,j);
         }
 #endif
-        while(!plist.empty())
-        {
-          const int jx = plist.top();
-          plist.pop();
-          ptclP[jx].id = -1-ptclP[jx].id;
-        }
+#endif
 
         nfaceD_min = std::min(nfaceD_min, direct.nface());
         nfaceD_max = std::max(nfaceD_max, direct.nface());
@@ -377,23 +368,19 @@ int main(int argc, char * argv[])
         lp.push(HalfSpace(vec3( 0.0, 0.0,-1.0), vec3(0.0, 0.0, 1.0*(rmaxD.z-ipos.z))));
 #endif
         for (int j = 0; j < nf; j++)
-        {
           lp.push(direct.getHalfSpace(j));
-          assert(direct[j] >= 0);
-          used[direct[j]] = true;
-        }
 
         list.clear();
 
-#if 0
+#ifdef REFLECTING
         const vec3 bnd_list[6] = 
         {
-          vec3(2.0*(rmin.x-ipos.x), 0.0, 0.0),
-          vec3(2.0*(rmax.x-ipos.x), 0.0, 0.0),
-          vec3(0.0, 2.0*(rmin.y-ipos.y), 0.0),
-          vec3(0.0, 2.0*(rmax.y-ipos.y), 0.0),
-          vec3(0.0, 0.0, 2.0*(rmin.z-ipos.z)),
-          vec3(0.0, 0.0, 2.0*(rmax.z-ipos.z))
+          vec3(2.0*(rminD.x-ipos.x), 0.0, 0.0),
+          vec3(2.0*(rmaxD.x-ipos.x), 0.0, 0.0),
+          vec3(0.0, 2.0*(rminD.y-ipos.y), 0.0),
+          vec3(0.0, 2.0*(rmaxD.y-ipos.y), 0.0),
+          vec3(0.0, 0.0, 2.0*(rminD.z-ipos.z)),
+          vec3(0.0, 0.0, 2.0*(rmaxD.z-ipos.z))
         };
         for (int j = 0; j < 6; j++)
         {
@@ -407,18 +394,9 @@ int main(int argc, char * argv[])
 
         for (int j = 0; j < n_bodies; j++)
         {
-          const vec3 pos = ptcl1[j].pos - ipos;
+          const vec3 pos = ptclP[j].pos - ipos;
           if (pos.norm2() == 0.0) continue;
           const HalfSpace h(pos, pos*0.5);
-
-#if 1 
-          if (used[j]) 
-          {
-            list.push_back(Voronoi::Site(pos, j));
-            used[j] = false;
-            continue;
-          }
-#endif
 
           const vec3 p = lp.solve(h.n);
           if (!h.outside(p))
@@ -428,17 +406,6 @@ int main(int argc, char * argv[])
         nfaceL_max = std::max(nfaceL_max, (int)list.size());
         nfaceL    += (int)list.size();
         fprintf(stderr, "np= %d: nlp= %d, nc= %d nf= %d\n",np, lp.n, (int)list.size(), nf);
-        //        std::random_shuffle(list.begin(), list.end());
-
-
-#ifdef REFLECTING
-        list.push_back(Voronoi::Site(vec3(2.0*(rminD.x-ipos.x), 0.0, 0.0), -1));
-        list.push_back(Voronoi::Site(vec3(2.0*(rmaxD.x-ipos.x), 0.0, 0.0), -2));
-        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rmaxD.y-ipos.y), 0.0), -3));
-        list.push_back(Voronoi::Site(vec3(0.0, 2.0*(rminD.y-ipos.y), 0.0), -4));
-        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rminD.z-ipos.z)), -5));
-        list.push_back(Voronoi::Site(vec3(0.0, 0.0, 2.0*(rmaxD.z-ipos.z)), -6));
-#endif
 
         std::random_shuffle(list.begin(), list.end());
         assert(cell.build(list));
