@@ -62,7 +62,7 @@ struct CmpList
 
 int main(int argc, char * argv[])
 {
-  int n_bodies = 5120;
+  int n_bodies = 512;
   if (argc > 1) n_bodies = atoi(argv[1]);
   assert(n_bodies > 0);
   fprintf(stderr, "n_bodies= %d\n", n_bodies);
@@ -72,7 +72,7 @@ int main(int argc, char * argv[])
 
   /*  generate or import particles */
 
-#if 0
+#if 1
 #define PLUMMER
   const vec3 rminD(-8.0);
   const vec3 rmaxD(+8.0);
@@ -432,7 +432,7 @@ int main(int argc, char * argv[])
 #endif
 
         std::random_shuffle(list.begin(), list.end());
-//        if (list.size() >= NF) continue;
+        if (list.size() >= NF) continue;
         assert(cell.build(list));
         volume += cell.volume();
 
