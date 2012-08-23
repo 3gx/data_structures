@@ -107,6 +107,14 @@ struct DirectPolyhedron
   int operator[](const int i) const { return nb[i]; }
   const HalfSpace& getHalfSpace(const int i) const { return list[i];}
 
+  bool intersect(const vec3 &pos)
+  {
+    for (int i = 0; i < n; i++)
+      if (list[i].outside(pos))
+        return false;
+    return true;
+  }
+
   bool push(const vec3 &pos, const int idx, const real f = 1.0)
   {
 

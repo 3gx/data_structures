@@ -62,7 +62,7 @@ struct CmpList
 
 int main(int argc, char * argv[])
 {
-  int n_bodies = 512;
+  int n_bodies = 5120;
   if (argc > 1) n_bodies = atoi(argv[1]);
   assert(n_bodies > 0);
   fprintf(stderr, "n_bodies= %d\n", n_bodies);
@@ -72,7 +72,7 @@ int main(int argc, char * argv[])
 
   /*  generate or import particles */
 
-#if 1
+#if 0
 #define PLUMMER
   const vec3 rminD(-8.0);
   const vec3 rmaxD(+8.0);
@@ -289,6 +289,8 @@ int main(int argc, char * argv[])
 #else
   const int ngroup = groupList.size();
   double volume = 0.0;
+  const int NTIME = 10;
+  double mytimer[NTIME] = {0.0};
   int np = 0;
   {
     const int NFMAX = 1024;
@@ -302,6 +304,7 @@ int main(int argc, char * argv[])
 #else
     SeidelLP lp(2*size2T); //2.0); //;.0*size2);
 #endif
+    double t0;
     for (int igroup = 0; igroup < ngroup; igroup++)
     {
       const octGroup &group = groupList[igroup];
@@ -325,6 +328,16 @@ int main(int argc, char * argv[])
         assert(ipos.z < rmaxD.z);
 
         direct.clear();
+#ifdef REFLECTING
+        direct.push(vec3(1.0*(rminD.x-ipos.x), 0.0, 0.0),-1);
+        direct.push(vec3(1.0*(rmaxD.x-ipos.x), 0.0, 0.0),-2);
+        direct.push(vec3(0.0, 1.0*(rminD.y-ipos.y), 0.0),-3);
+        direct.push(vec3(0.0, 1.0*(rmaxD.y-ipos.y), 0.0),-4);
+        direct.push(vec3(0.0, 0.0, 1.0*(rminD.z-ipos.z)),-5);
+        direct.push(vec3(0.0, 0.0, 1.0*(rmaxD.z-ipos.z)),-6);
+#endif
+#if 1
+        t0 = get_wtime();
 #if 1
         const int nj = ni;
         for (int j = 0; j < nj; j++)
@@ -336,7 +349,9 @@ int main(int argc, char * argv[])
             assert (dr.norm2() > 0.0);
             direct.push(dr*0.5, jx);
           }
+#endif
         tree.buildDirectPolyhedron(ptclP, group[i], direct);
+        mytimer[0] += get_wtime() - t0;
 #endif 
 
 #if 0
@@ -366,7 +381,7 @@ int main(int argc, char * argv[])
 
         lp.clear();
         const int nf = direct.nface();
-#ifdef REFLECTING
+#if 0 //def REFLECTING
         lp.push(HalfSpace(vec3( 1.0, 0.0, 0.0), vec3(1.0*(rminD.x-ipos.x), 0.0, 0.0)));
         lp.push(HalfSpace(vec3(-1.0, 0.0, 0.0), vec3(1.0*(rmaxD.x-ipos.x), 0.0, 0.0)));
         lp.push(HalfSpace(vec3( 0.0, 1.0, 0.0), vec3(0.0, 1.0*(rminD.y-ipos.y), 0.0)));
@@ -417,6 +432,7 @@ int main(int argc, char * argv[])
 #endif
 
         std::random_shuffle(list.begin(), list.end());
+//        if (list.size() >= NF) continue;
         assert(cell.build(list));
         volume += cell.volume();
 
@@ -433,6 +449,9 @@ int main(int argc, char * argv[])
   const real lz = rmaxD.z - rminD.z;
   fprintf(stderr, " volume= %g   exact= %g  diff= %g \n",
       volume, lx*ly*lz, (volume-lx*ly*lz)/(lx*ly*lz));
+
+  for (int i = 0; i< NTIME; i++)
+    fprintf(stderr, "timer= %d  dt= %g sec \n", i, mytimer[i]);
 
 #endif
   fprintf(stderr, " nfaceD: min= %d  max= %d  avg= %g\n",

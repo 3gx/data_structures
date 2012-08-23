@@ -262,6 +262,9 @@ public:
   const vector3<REAL> abseach(){
     return vector3<REAL> (std::fabs(x), std::fabs(y), std::fabs(z));
   }
+  friend const vector3<REAL> abseach(const vector3<REAL> &a) {
+    return vector3<REAL> (std::fabs(a.x), std::fabs(a.y), std::fabs(a.z));
+  }
 };
 
 typedef vector3<double> dvec3;

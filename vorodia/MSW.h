@@ -215,6 +215,10 @@ struct MSW
       if (v[1].second > v[j].second) j = 1;
       if (v[2].second > v[j].second) j = 2;
 
+      if (!(v[j].second > -HUGE))
+      {
+        return intersect(hs[0],hs[1],hs[2],cvec).first;
+      }
       assert(v[j].second > -HUGE);
 
 #if 0
