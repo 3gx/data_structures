@@ -5,6 +5,7 @@
 #include <list>
 #include <stack>
 #include <cassert>
+#include <cmath>
 
 struct QHull
 {
@@ -190,7 +191,7 @@ struct QHull
       real_t dMax = -HUGE;
       for (int i = 0; i < np; i++)
       {
-        bool use = true;
+//        bool use = true;
         real_t d = 0, n = 0;
         for (int ll = 0; ll < l; ll++)
         {
@@ -208,7 +209,7 @@ struct QHull
   {
     std::vector<pos_t> pos1(pos), pos2(pos.size());
 
-    exteremSimplex(pos);
+    extremeSimplex(pos);
 
     while (!faceStack.empty())
       faceStack.pop();
