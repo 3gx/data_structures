@@ -23,6 +23,27 @@ class Vector_t
         sum += a[l]*b[l];
       return sum;
     }
+    friend real_t norm2(const Vector_t &a)
+    {
+      return dot(a,a);
+    }
+    friend Vector_t operator*(const Vector_t &a, const Vector_t &b) 
+    {
+      Vector_t res;
+      for (int l = 0; l < N; l++)
+        res[l] = a[l]*b[l];
+    }
+    friend Vector_t operator*(const Vector_t &a, const real_t b) 
+    {
+      Vector_t res;
+      for (int l = 0; l < N; l++)
+        res[l] = a[l]*b;
+      return res;
+    }
+    friend Vector_t operator*(const real_t a, const Vector_t &b) 
+    {
+      return b*a;
+    }
 };
 
 
@@ -58,7 +79,7 @@ struct QHull
 
     static std::pair<vec_t,real_t> makePlane(const vtx_t &vtx)
     {
-      vec_t n;
+      vec_t  n;
       real_t p;
 
       n[0] = vtx[0][0];
