@@ -16,6 +16,7 @@ class Vector_t
     real_t& operator[](const int i)       { return x[i]; }
     real_t  operator[](const int i) const { return x[i]; }
 
+    /******************/
     friend real_t dot(const Vector_t &a, const Vector_t &b)
     {
       real_t sum = 0;
@@ -27,11 +28,25 @@ class Vector_t
     {
       return dot(a,a);
     }
+    /******************/
+    Vector_t& operator*=(const Vector_t &a)
+    {
+      for (int l = 0; l < N; l++)
+        x[l] *= a[l];
+      return *this;
+    }
+    Vector_t& operator*=(const real_t a)
+    {
+      for (int l = 0; l < N; l++)
+        x[l] *= a;
+      return *this;
+    }
     friend Vector_t operator*(const Vector_t &a, const Vector_t &b) 
     {
       Vector_t res;
       for (int l = 0; l < N; l++)
         res[l] = a[l]*b[l];
+      return res;
     }
     friend Vector_t operator*(const Vector_t &a, const real_t b) 
     {
@@ -43,6 +58,71 @@ class Vector_t
     friend Vector_t operator*(const real_t a, const Vector_t &b) 
     {
       return b*a;
+    }
+    /******************/
+    Vector_t& operator+=(const Vector_t &a)
+    {
+      for (int l = 0; l < N; l++)
+        x[l] += a[l];
+      return *this;
+    }
+    Vector_t& operator+=(const real_t a)
+    {
+      for (int l = 0; l < N; l++)
+        x[l] += a;
+      return *this;
+    }
+    friend Vector_t operator+(const Vector_t &a, const Vector_t &b) 
+    {
+      Vector_t res;
+      for (int l = 0; l < N; l++)
+        res[l] = a[l]+b[l];
+      return res;
+    }
+    friend Vector_t operator+(const Vector_t &a, const real_t b) 
+    {
+      Vector_t res;
+      for (int l = 0; l < N; l++)
+        res[l] = a[l]+b;
+      return res;
+    }
+    friend Vector_t operator+(const real_t a, const Vector_t &b) 
+    {
+      return b+a;
+    }
+    /******************/
+    Vector_t& operator-=(const Vector_t &a)
+    {
+      for (int l = 0; l < N; l++)
+        x[l] -= a[l];
+      return *this;
+    }
+    Vector_t& operator-=(const real_t a)
+    {
+      for (int l = 0; l < N; l++)
+        x[l] -= a;
+      return *this;
+    }
+    friend Vector_t operator-(const Vector_t &a, const Vector_t &b) 
+    {
+      Vector_t res;
+      for (int l = 0; l < N; l++)
+        res[l] = a[l]-b[l];
+      return res;
+    }
+    friend Vector_t operator-(const Vector_t &a, const real_t b) 
+    {
+      Vector_t res;
+      for (int l = 0; l < N; l++)
+        res[l] = a[l]-b;
+      return res;
+    }
+    friend Vector_t operator+(const real_t a, const Vector_t &b) 
+    {
+      Vector_t res;
+      for (int l = 0; l < N; l++)
+        res[l] = a - b[l];
+      return res;
     }
 };
 
@@ -79,14 +159,30 @@ struct QHull
 
     static std::pair<vec_t,real_t> makePlane(const vtx_t &vtx)
     {
-      vec_t  n;
-      real_t p;
 
-      n[0] = vtx[0][0];
-      n[1] = vtx[1][0];
-      n[2] = vtx[2][0];
-      p = 0;
-      //std::array<real_t,NDIM> n = cross(vtx[0], vtx[1]);
+      /* change point-of-origin to be located on the plane */
+      vtx_t vtxP;
+      for (int l = 0; l < NDIM-1; l++)
+        vtxP[l].pos = vtx[l].pos - vtx[NDIM-1].pos;
+
+      /* project a unit vector ot a plane */
+      int el = 0;
+      vec_t unitVec;
+      vec_t planeVec;
+      real_t dotProduct = 0;
+      while (dotProduct == 0)
+      {
+        for (int l = 0; l < NDIM-1; l++)
+          unitVec[l] = 0;
+        unitVec[el] = 1.0;
+        planeVec = vtxP[0].pos;
+        dotProduct = dot(planeVec, unitVec);
+      }
+
+      /* compute unit normal vector & scalar */
+      vec_t n = unitVec - unitVec*(planeVec * (1.0/sqrt(norm2(planeVec))));
+      n *= 1.0/sqrt(norm2(n));
+      real_t p = dot(n,planeVec);
 
       return std::make_pair(n,p);
     }
