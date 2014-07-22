@@ -7,52 +7,70 @@
 #include <cassert>
 #include <cmath>
 
+template<typename real_t, int N>
+class Vector_t
+{
+  private:
+    std::array<real_t,N> x;
+  public:
+    real_t& operator[](const int i)       { return x[i]; }
+    real_t  operator[](const int i) const { return x[i]; }
+
+    friend real_t dot(const Vector_t &a, const Vector_t &b)
+    {
+      real_t sum = 0;
+      for (int l = 0; l < N; l++)
+        sum += a[l]*b[l];
+      return sum;
+    }
+};
+
+
 struct QHull
 {
   enum {NDIM = 3};
   typedef float real_t;
+  typedef int   id_t;
 
-  typedef std::array<real_t,NDIM > vec;
+  typedef Vector_t <real_t,NDIM> vec_t;
 
   struct pos_t
   {
-    vec pos;
-    int idx;
+    typedef std::vector<pos_t> vector;
+    vec_t pos;
+    id_t  idx;
     real_t& operator[](const int i)       { return pos[i]; }
     real_t  operator[](const int i) const { return pos[i]; }
   };
-
-  typedef std::vector<pos_t> PosVector;
-
-  struct Facet;
-  typedef std::list<Facet> FacetList;
+  typedef std::array<pos_t,NDIM> vtx_t;
 
   struct Facet
   {
-    std::array<real_t,NDIM+1> plane;  /* normalized plane equation */
-    std::array< pos_t,NDIM  > vtx;    /* right-handed orientation */
-    real_t distance(const vec &pos) const
+    typedef std::list<Facet> list;
+    typedef list::iterator iterator;
+
+    std::pair<vec_t,real_t> plane;
+    vtx_t vtx;     /* vertecies are stored in right-handed orientation */
+    real_t distance(const vec_t &pos) const
     {
-      real_t dist = plane[NDIM];
-      for (int i = 0; i < NDIM; i++)
-        dist += pos[i]*plane[i];
-      return dist;
+      return dot(plane.first,pos) + plane.second;
     }
 
-    std::array<real_t,NDIM+1> makePlane(const std::array<pos_t,NDIM> &vtx) const
+    static std::pair<vec_t,real_t> makePlane(const vtx_t &vtx)
     {
-      std::array<real_t,NDIM+1> plane;
+      vec_t n;
+      real_t p;
 
-      plane[0] = vtx[0][0];
-      plane[1] = vtx[1][0];
-      plane[2] = vtx[2][0];
-      plane[3] = 0;
+      n[0] = vtx[0][0];
+      n[1] = vtx[1][0];
+      n[2] = vtx[2][0];
+      p = 0;
       //std::array<real_t,NDIM> n = cross(vtx[0], vtx[1]);
 
-      return plane;
+      return std::make_pair(n,p);
     }
 
-    Facet newFace(const pos_t &p, const int facetIdx) const
+    Facet makeFace(const pos_t &p, const int facetIdx) const
     {
       assert(facetIdx >= 0 && facetIdx < NDIM);
 
@@ -68,54 +86,50 @@ struct QHull
 
       return f;
     }
-
-
   };
+  Facet::list facetList;
 
-
-  FacetList facetList;
-  PosVector _pos1, _pos2;
-
-
-  struct FacetMD
+  struct FacetMD  /* facet metadata */
   {
-    FacetList::iterator it;
+    typedef std::stack<FacetMD> stack;
+    Facet::iterator it;
     pos_t *pBuf;
     int pbeg, pend;
-    FacetMD(FacetList::iterator _it, pos_t *_pBuf, int _pbeg, int _pend) :
+    FacetMD(Facet::iterator _it, pos_t *_pBuf, int _pbeg, int _pend) :
       it(_it), pBuf(_pBuf), pbeg(_pbeg), pend(_pend) {}
   };
-  std::stack<FacetMD> faceStack;
+  FacetMD::stack facetStack;
 
   bool partition(const FacetMD &fmd, pos_t *pBuf)
   {
+    const int np = fmd.pend - fmd.pbeg;
     /* no particles left to partition */
-    if (fmd.pend - fmd.pbeg == 0)
+    if (np == 0)
       return false;
 
     /* find max distances */
-    real_t distMax =  0;
-    int    idxMax  = -1;
+    real_t distMax = 0;
+    pos_t  pMax;
     for (int i = fmd.pbeg; i < fmd.pend; i++)
     {
-      const real_t dist = fmd.it->distance(fmd.pBuf[i].pos);
+      const pos_t    &p = fmd.pBuf[i];
+      const real_t dist = fmd.it->distance(p.pos);
       if (dist > distMax)
       {
         distMax = dist;
-        idxMax  = i;
+        pMax    = p;
       }
     }
     assert(distMax > 0);
 
     Facet facets[NDIM];
-    const pos_t pMax = fmd.pBuf[idxMax];
     for (int i = 0; i < NDIM; i++)
-      facets[i] = fmd.it->newFace(pMax, i);
+      facets[i] = fmd.it->makeFace(pMax, i);
 
-    /* partition particle ditribution to new facets */
+    /* count particles belonging to each of the new face */
 
     int count[NDIM] = {0};
-    std::vector<int> whichFacet(fmd.pend-fmd.pbeg);
+    std::vector<int> whichFacet(np);
 
     for (int i = fmd.pbeg; i < fmd.pend; i++)
     {
@@ -157,13 +171,13 @@ struct QHull
       auto it = fmd.it;
       facetList.insert(it, facets[l]);
       it--;
-      faceStack.push(FacetMD(it, pBuf, pbeg[l], pend[l]));
+      facetStack.push(FacetMD(it, pBuf, pbeg[l], pend[l]));
     }
 
     return true;
   }
 
-  void extremeSimplex(const PosVector &pos)
+  void extremeSimplex(const pos_t::vector &pos)
   {
     facetList.clear();
     std::array<pos_t,NDIM+1> vtxList;
@@ -205,21 +219,21 @@ struct QHull
 
   }
 
-  void computeConvexHull(const PosVector &pos)
+  void computeConvexHull(const pos_t::vector &pos)
   {
-    std::vector<pos_t> pos1(pos), pos2(pos.size());
+    pos_t::vector pos1(pos), pos2(pos.size());
 
     extremeSimplex(pos);
 
-    while (!faceStack.empty())
-      faceStack.pop();
+    while (!facetStack.empty())
+      facetStack.pop();
 
     pos_t *pBuf1 = &pos1[0];
     pos_t *pBuf2 = &pos2[0];
-    while (!faceStack.empty())
+    while (!facetStack.empty())
     {
-      const auto fmd = faceStack.top();
-      faceStack.pop();
+      const auto fmd = facetStack.top();
+      facetStack.pop();
       partition(fmd, fmd.pBuf == pBuf1 ? pBuf2 : pBuf1);
     }
   }
