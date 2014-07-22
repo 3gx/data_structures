@@ -28,9 +28,8 @@ struct QHull
 
   struct Facet
   {
-    std::array<real_t, NDIM+1> plane;  /* normalized plane equation */
-    std::array<FacetList::iterator,NDIM> ngb; /* neighbours */
-    std::array<pos_t,NDIM> vtx;  /* right-handed orientation */
+    std::array<real_t,NDIM+1> plane;  /* normalized plane equation */
+    std::array< pos_t,NDIM  > vtx;    /* right-handed orientation */
     real_t distance(const vec &pos) const
     {
       real_t dist = plane[NDIM];
@@ -110,12 +109,7 @@ struct QHull
     Facet facets[NDIM];
     const pos_t pMax = fmd.pBuf[idxMax];
     for (int i = 0; i < NDIM; i++)
-    {
       facets[i] = fmd.it->newFace(pMax, i);
-    
-      /* fix neightbours */
-      //Facet &f = facets[i];
-    }
 
     /* partition particle ditribution to new facets */
 
@@ -168,22 +162,64 @@ struct QHull
     return true;
   }
 
+  void extremeSimplex(const PosVector &pos)
+  {
+    facetList.clear();
+    std::array<pos_t,NDIM+1> vtxList;
+
+    real_t xMin = +HUGE, xMax = -HUGE;
+    const int np = pos.size();
+    for (int i = 0; i < np; i++)
+    {
+      const auto &p = pos[i];
+      if (p[0] < xMin)
+      {
+        xMin       = p[0];
+        vtxList[0] = p;
+      }
+      if (p[0] > xMax)
+      {
+        xMax       = p[0];
+        vtxList[1] = p;
+      }
+    }
+    assert(vtxList[0].idx != vtxList[1].idx);
+
+    for (int l = 2; l < NDIM+1; l++)
+    {
+      real_t dMax = -HUGE;
+      for (int i = 0; i < np; i++)
+      {
+        bool use = true;
+        real_t d = 0, n = 0;
+        for (int ll = 0; ll < l; ll++)
+        {
+//          d += 
+
+        }
+      }
+
+
+    }
+
+  }
+
   void computeConvexHull(const PosVector &pos)
   {
     std::vector<pos_t> pos1(pos), pos2(pos.size());
 
-    while (faceStack.empty())
-      faceStack.pop();
-    facetList.clear();
+    exteremSimplex(pos);
 
-    pos_t *pBuf = &pos1[0];
-    pos_t *pDst = &pos2[0];
-    while (faceStack.empty())
-    {
-      const auto f = faceStack.top();
+    while (!faceStack.empty())
       faceStack.pop();
-      partition(f, pDst);
-      std::swap(pBuf, pDst);
+
+    pos_t *pBuf1 = &pos1[0];
+    pos_t *pBuf2 = &pos2[0];
+    while (!faceStack.empty())
+    {
+      const auto fmd = faceStack.top();
+      faceStack.pop();
+      partition(fmd, fmd.pBuf == pBuf1 ? pBuf2 : pBuf1);
     }
   }
 
