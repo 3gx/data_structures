@@ -1,10 +1,14 @@
 #pragma once
 
 #include <array>
+#include <vector>
+#include <list>
+#include <stack>
+#include <cassert>
 
 struct QHull
 {
-  enum {NDIM = 3;}
+  enum {NDIM = 3};
   typedef float real_t;
 
   typedef std::array<real_t,NDIM > vec;
@@ -20,7 +24,7 @@ struct QHull
   typedef std::vector<pos_t> PosVector;
 
   struct Facet;
-  typedef std::List<Facet> FacetList;
+  typedef std::list<Facet> FacetList;
 
   struct Facet
   {
@@ -34,9 +38,23 @@ struct QHull
         dist += pos[i]*plane[i];
       return dist;
     }
+
+    std::array<real_t,NDIM+1> makePlane(const std::array<pos_t,NDIM> &vtx) const
+    {
+      std::array<real_t,NDIM+1> plane;
+
+      plane[0] = vtx[0][0];
+      plane[1] = vtx[1][0];
+      plane[2] = vtx[2][0];
+      plane[3] = 0;
+      //std::array<real_t,NDIM> n = cross(vtx[0], vtx[1]);
+
+      return plane;
+    }
+
     Facet newFace(const pos_t &p, const int facetIdx) const
     {
-      assert(idx >= 0 && idx < NDIM);
+      assert(facetIdx >= 0 && facetIdx < NDIM);
 
       Facet f;
       f.vtx[facetIdx] = p;
@@ -44,41 +62,32 @@ struct QHull
       {
         if (facetIdx != i)
           f.vtx[i] = vtx[i];
-        f.ngb[i] = NULL;
       }
 
-      f.n = makePlane(f.vtx.pos);
+      f.plane = makePlane(f.vtx);
 
       return f;
     }
 
-    std::array<real_t,NDIM+1>& makePlane(const std::array<vec,NDIM> &vtx)
-    {
-      std::array<real_t,NDIM+1> plane;
-      std::array<real_t,NDIM> n = cross(vtx[0], vtx[1]);
-
-      return plane;
-    }
 
   };
 
 
   FacetList facetList;
-  PosVector _pos1,_pos2;
-  pos_t* pBuf, pDst;
+  PosVector _pos1, _pos2;
 
 
-  struct FaceMD
+  struct FacetMD
   {
-    FaceList::iterator it;
+    FacetList::iterator it;
     pos_t *pBuf;
     int pbeg, pend;
-    FaceMD(FaceList::iterator _it, vec *_pBuf, int _pbeg, int _pend) :
+    FacetMD(FacetList::iterator _it, pos_t *_pBuf, int _pbeg, int _pend) :
       it(_it), pBuf(_pBuf), pbeg(_pbeg), pend(_pend) {}
   };
-  stl::stack<FaceMD> faceStack;
+  std::stack<FacetMD> faceStack;
 
-  bool partition(const FaceMD &fmd, vec *pBuf)
+  bool partition(const FacetMD &fmd, pos_t *pBuf)
   {
     /* no particles left to partition */
     if (fmd.pend - fmd.pbeg == 0)
@@ -89,7 +98,7 @@ struct QHull
     int    idxMax  = -1;
     for (int i = fmd.pbeg; i < fmd.pend; i++)
     {
-      const dist = f->distance(fmd.pBuf[i].pos);
+      const real_t dist = fmd.it->distance(fmd.pBuf[i].pos);
       if (dist > distMax)
       {
         distMax = dist;
@@ -98,14 +107,14 @@ struct QHull
     }
     assert(distMax > 0);
 
-    FacetList facets[NDIM];
+    Facet facets[NDIM];
     const pos_t pMax = fmd.pBuf[idxMax];
     for (int i = 0; i < NDIM; i++)
     {
       facets[i] = fmd.it->newFace(pMax, i);
-      Facet &f = facets[i];
     
       /* fix neightbours */
+      //Facet &f = facets[i];
     }
 
     /* partition particle ditribution to new facets */
@@ -135,7 +144,7 @@ struct QHull
       pbeg[l] = pbeg[l-1] + count[l-1] + fmd.pbeg;
       pend[l] = pbeg[l  ];
     }
-    assert(pbeg[l] + count[l] == fmd.pend - fmd.pbeg);
+    assert(pbeg[NDIM-1] + count[NDIM-1] == fmd.pend - fmd.pbeg);
 
     /* sort */
     for (int i = fmd.pbeg; i < fmd.pend; i++)
@@ -145,39 +154,30 @@ struct QHull
     }
 
     /* remove old face */
-    auto it = fmd.it;
-    faceList.remove(it);
-
-    /* insert new facets */
-    facetList.insert(it, facets.begin(), facets.end());
-
-    /* change iterator to point to the first new face */
-    it -= NDIM;
+    facetList.erase(fmd.it);
 
     /* push new faces to the stack */
     for (int l = 0; l < NDIM; l++)
-      faceStack.push(FaceMd(it++, pBuf, pbeg[l], pend[l]));
+    {
+      auto it = fmd.it;
+      facetList.insert(it, facets[l]);
+      it--;
+      faceStack.push(FacetMD(it, pBuf, pbeg[l], pend[l]));
+    }
 
     return true;
   }
 
   void computeConvexHull(const PosVector &pos)
   {
+    std::vector<pos_t> pos1(pos), pos2(pos.size());
+
     while (faceStack.empty())
       faceStack.pop();
-    faceList.clear();
+    facetList.clear();
 
-    _pos1.resize(pos.size());
-    _pos2.resize(pos.size());
-
-    for (auto i = 0; i < pos.size(); i++)
-    {
-      _pos1[i].pos = pos[i];
-      _pos1[i].idx = i;
-    }
-
-    pBuf = &_pos1[0];
-    pDst = &_pos2[0];
+    pos_t *pBuf = &pos1[0];
+    pos_t *pDst = &pos2[0];
     while (faceStack.empty())
     {
       const auto f = faceStack.top();
