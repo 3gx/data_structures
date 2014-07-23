@@ -96,6 +96,9 @@ QHull::Vertex::vector readData(std::istream &in)
   return pos;
 }
 
+void dumpGnuPlot(const QHull::Vertex::vector &pos, const QHull &q, std::ostream &ofs)
+{
+}
 
 
 int main(int argc, char*argv[])
@@ -110,8 +113,21 @@ int main(int argc, char*argv[])
       exit(-1);
     }
   }
-  std::istream &in = ifs.is_open() ? ifs : std::cin;
-  std::cerr << "#read file: " << (!ifs.is_open() ? "stdin" : argv[1]) << std::endl;
+
+  std::ofstream ofs;
+  if (argc > 2)
+  {
+    ofs.open(argv[2]);
+    if (!ofs.is_open())
+    {
+      std::cerr << "cannot open the file" << std::endl;
+      exit(-1);
+    }
+  }
+  std::istream &in  = ifs.is_open() ? ifs : std::cin;
+  std::ostream &out = ofs.is_open() ? ofs : std::cout;
+  std::cerr << "#read  file: " << (!ifs.is_open() ? "stdin"  : argv[1]) << std::endl;
+  std::cerr << "#write file: " << (!ofs.is_open() ? "stdout" : argv[2]) << std::endl;
 
   const QHull::Vertex::vector pos = readData(in);
 
@@ -120,6 +136,11 @@ int main(int argc, char*argv[])
   q.convexHull(pos);
 
   const int nFaces = q.getNumFacets();
+
+  dumpGnuPlot(pos, q, out);
   fprintf(stderr, "nFaces= %d\n", nFaces);
+
+  ifs.close();
+  ofs.close();
   return 0;
 };
