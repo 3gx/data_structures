@@ -162,7 +162,9 @@ struct QHull
     struct Facet
     {
       typedef std::list<Facet> list;
-      typedef list::iterator iterator;
+      typedef list::iterator listIterator;
+
+      typedef std::vector<Facet> vector;
 
       std::pair<vec_t,real_t> plane;
       Basis vtx;     /* vertecies are stored in right-handed orientation */
@@ -216,14 +218,15 @@ struct QHull
       }
     };
     Facet::list facetList;
+    Facet::vector facetVector;
 
     struct FacetMD  /* facet metadata */
     {
       typedef std::stack<FacetMD> stack;
-      Facet::iterator it;
+      Facet::listIterator it;
       Vertex *pBuf;
       int pbeg, pend;
-      FacetMD(Facet::iterator _it, Vertex *_pBuf, int _pbeg, int _pend) :
+      FacetMD(Facet::listIterator _it, Vertex *_pBuf, int _pbeg, int _pend) :
         it(_it), pBuf(_pBuf), pbeg(_pbeg), pend(_pend) {}
     };
     FacetMD::stack facetStack;
@@ -387,7 +390,14 @@ struct QHull
         facetStack.pop();
         partition(fmd, fmd.pBuf == pBuf1 ? pBuf2 : pBuf1);
       }
+
+      facetVector.clear();
+      for (auto it = facetList.begin(); it != facetList.end(); it++)
+        facetVector.push_back(*it);
     }
+
+    size_t getNumFacets() const { return facetVector.size(); }
+    const Facet& getFacet(const int i) const {return facetVector[i]; }
 };
 
 

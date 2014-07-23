@@ -118,5 +118,8 @@ int main(int argc, char*argv[])
   QHull q;
 
   q.convexHull(pos);
+
+  const int nFaces = q.getNumFacets();
+  fprintf(stderr, "nFaces= %d\n", nFaces);
   return 0;
 };
