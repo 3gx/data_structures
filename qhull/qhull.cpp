@@ -111,7 +111,7 @@ int main(int argc, char*argv[])
     }
   }
   std::istream &in = ifs.is_open() ? ifs : std::cin;
-  std::cerr << "#read file: " << (ifs.is_open() ? "stdin" : argv[1]) << std::endl;
+  std::cerr << "#read file: " << (!ifs.is_open() ? "stdin" : argv[1]) << std::endl;
 
   const QHull::Vertex::vector pos = readData(in);
 
