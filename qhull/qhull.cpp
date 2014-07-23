@@ -116,5 +116,7 @@ int main(int argc, char*argv[])
   const QHull::Vertex::vector pos = readData(in);
 
   QHull q;
+
+  q.convexHull(pos);
   return 0;
 };

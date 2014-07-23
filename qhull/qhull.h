@@ -370,7 +370,7 @@ struct QHull
       }
     }
 
-    void computeConvexHull(const Vertex::vector &pos)
+    void convexHull(const Vertex::vector &pos)
     {
       Vertex::vector pos1(pos), pos2(pos.size());
 
