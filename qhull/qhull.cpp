@@ -130,7 +130,7 @@ void dumpGnuPlot(const QHull::Vertex::vector &pos, const QHull &q, std::ostream 
     default:
       assert(0);
   };
-  out << " '-' with points notitle, '-' with lines notitle";
+  out << " '-' with points notitle, '-' with lines lc 3 notitle, '-' with lines lc 2 notitle";
   out << ";\n";
 
   {
@@ -144,7 +144,29 @@ void dumpGnuPlot(const QHull::Vertex::vector &pos, const QHull &q, std::ostream 
     }
   }
   out << "e\n";
+#if 0
   dumpSimplex<NDIM>(q.extremeSimplex, out);
+#else
+  {
+    const QHull::Simplex &simplex = q.extremeSimplex;
+    const int vertexList[3][4] =  { {0,1,3,0}, {1,2,3,1}, {2,0,3,2} };
+    for (auto &vtx : vertexList)
+      for (auto i : vtx)
+      {
+        for (int l = 0; l < 3 ; l++)
+          out << simplex[i][l] << " ";
+        out << "\n";
+      }
+    out << "e\n";
+    const int vtx[4] =  {0,1,2,0};
+    for (auto i : vtx)
+    {
+      for (int l = 0; l < 3 ; l++)
+        out << simplex[i][l] << " ";
+      out << "\n";
+    }
+  }
+#endif
   out << "e\n";
     
 }

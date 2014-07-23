@@ -342,7 +342,7 @@ struct QHull_t
       assert(std::abs(dot(n,planeVec)) < 1.0e-13);
       const real_t dist = dot(n,pos - simplex[0]);
 
-      return dist;
+      return std::abs(dist);
     }
 
     Simplex extremeSimplex;
