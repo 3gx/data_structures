@@ -153,8 +153,11 @@ struct QHull
       id_t  idx;
       real_t& operator[](const int i)       { return pos[i]; }
       real_t  operator[](const int i) const { return pos[i]; }
+      operator const vec_t&() const {return pos;}
+      operator vec_t&() {return pos;}
     };
     typedef std::array<pos_t,NDIM> vtx_t;
+
 
     struct Facet
     {
@@ -180,17 +183,17 @@ struct QHull
         unitVec[0] = 1.0;
 
         int el = 0;
-        vec_t planeVec = vtxP[el++].pos;
+        vec_t planeVec = vtxP[el++];
         while (dot(planeVec,unitVec) == 0)
         {
-          planeVec = vtxP[el++].pos;
+          planeVec = vtxP[el++];
           assert(el < NDIM-1);
         }
 
         /* compute plane equation */
         vec_t n = unitVec - unitVec*(planeVec * (1.0/sqrt(norm2(planeVec))));
         n *= 1.0/sqrt(norm2(n));
-        real_t p = dot(n,planeVec);
+        real_t p = -dot(n,vtx[0]);
 
         return std::make_pair(n,p);
       }
@@ -238,7 +241,7 @@ struct QHull
       for (int i = fmd.pbeg; i < fmd.pend; i++)
       {
         const pos_t    &p = fmd.pBuf[i];
-        const real_t dist = fmd.it->distance(p.pos);
+        const real_t dist = fmd.it->distance(p);
         if (dist > distMax)
         {
           distMax = dist;
@@ -258,7 +261,7 @@ struct QHull
 
       for (int i = fmd.pbeg; i < fmd.pend; i++)
       {
-        const auto &p = fmd.pBuf[i].pos;
+        const auto &p = fmd.pBuf[i];
         bool used = false;
         for (int l = 0; l < NDIM; l++)
           if (facets[l].distance(p) >= 0)
@@ -302,21 +305,92 @@ struct QHull
       return true;
     }
 
-  private:
     typedef std::array<pos_t,NDIM+1> Simplex_t;
 
+#if 0
     template<int N> struct extremeSimplexR
     {
       static void eval(const pos_t::vector &pos, Simplex_t &simplex)
       {
         extremeSimplexR<N-1>::eval(pos, simplex);
+        Vector_t<real_t,N> plane(&simplex[0]);
+        const int np = pos.size();
+        real_t distMax = 0.0;
+        pos_t  pMax;
+        for (int i = 0; i < np; i++)
+        {
+          const auto &p = pos[i];
+          real_t dist = distance<N>(plane, pMax);
+        }
+
       }
     };
+#endif
+
+    static real_t distance(const int DIM, const Simplex_t &simplex, const vec_t &pos)
+    {
+      assert(DIM <= NDIM);
+      vtx_t vtxP;
+      for (int l = 0; l < DIM-1; l++)
+        vtxP[l].pos = simplex[l].pos - simplex[DIM-1].pos;
+
+      /* find a unit vector that is not parallel to the plane */
+      vec_t unitVec(0.0);
+      unitVec[0] = 1.0;
+
+      int el = 0;
+      vec_t planeVec = vtxP[el++];
+      while (dot(planeVec,unitVec) == 0)
+      {
+        planeVec = vtxP[el++];
+        assert(el < DIM-1);
+      }
+
+      /* compute plane equation */
+      vec_t n = unitVec - unitVec*(planeVec * (1.0/sqrt(norm2(planeVec))));
+      n *= 1.0/sqrt(norm2(n));
+      const real_t dist = dot(n,pos - simplex[0]);
+
+      return dist;
+    }
     
     void extremeSimplex(const pos_t::vector &pos)
     {
       Simplex_t simplex;
-      extremeSimplexR<NDIM+1>::eval(pos,simplex);
+      real_t xMin = +HUGE, xMax = -HUGE;
+      const int np = pos.size();
+      // foreach
+      for (int i = 0; i < np; i++)
+      {
+        const auto &p = pos[i];
+        if (p[0] < xMin)
+        {
+          xMin       = p[0];
+          simplex[0] = p;
+        }
+        if (p[0] > xMax)
+        {
+          xMax       = p[0];
+          simplex[1] = p;
+        }
+      }
+
+      for (int l = 2; l < NDIM+1; l++)
+      {
+        real_t distMax = 0;
+        // foreach
+        for (int i = 0; i < np; i++)
+        {
+          const auto &p = pos[i];
+          const real_t dist = distance(l,simplex,p);
+          if (dist > distMax)
+          {
+            distMax = dist;
+            simplex[l] = p;
+          }
+        }
+      }
+
     }
 
 

@@ -1,5 +1,6 @@
 #include "qhull.h"
 
+#if 0
 template<> 
 void 
 QHull::extremeSimplexR<2>::eval(const QHull::pos_t::vector &pos, QHull::Simplex_t &simplex)
@@ -21,6 +22,7 @@ QHull::extremeSimplexR<2>::eval(const QHull::pos_t::vector &pos, QHull::Simplex_
     }
   }
 }
+#endif
 
 
 int main(int argc, char*argv[])
