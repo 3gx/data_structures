@@ -308,7 +308,9 @@ struct QHull
       return true;
     }
 
-    static real_t distance(const int DIM, const Basis &simplex, const vec_t &pos)
+    typedef std::array<Vertex,NDIM+1> Simplex;
+
+    static real_t distance(const int DIM, const Simplex &simplex, const vec_t &pos)
     {
       assert(DIM <= NDIM);
       Basis vtxP;
@@ -337,7 +339,7 @@ struct QHull
     
     void extremeSimplex(const Vertex::vector &pos)
     {
-      Basis simplex;
+      Simplex simplex;
       real_t xMin = +HUGE, xMax = -HUGE;
       const int np = pos.size();
       // foreach
