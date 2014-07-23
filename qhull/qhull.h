@@ -39,6 +39,10 @@ class Vector_t
     {
       return dot(a,a);
     }
+    friend real_t norm(const Vector_t &a)
+    {
+      return std::sqrt(norm2(a));
+    }
     /******************/
     Vector_t& operator*=(const Vector_t &a)
     {
@@ -142,7 +146,7 @@ struct QHull_t
 {
   public:
     enum {NDIM = N};
-    typedef float real_t;
+    typedef double real_t;
     typedef int   id_t;
 
     using vec_t = Vector_t<real_t,NDIM>;
@@ -318,6 +322,7 @@ struct QHull_t
       for (int l = 0; l < DIM-1; l++)
         vtxP[l].pos = simplex[l].pos - simplex[DIM-1].pos;
 
+
       /* find a unit vector that is not parallel to the plane */
       vec_t unitVec(0.0);
       unitVec[0] = 1.0;
@@ -329,18 +334,21 @@ struct QHull_t
         planeVec = vtxP[el++];
         assert(el < DIM-1);
       }
-
+      planeVec *= 1.0/sqrt(norm2(planeVec));
+      
       /* compute plane equation */
-      vec_t n = unitVec - unitVec*(planeVec * (1.0/sqrt(norm2(planeVec))));
+      vec_t n = unitVec -dot(unitVec,planeVec)*planeVec;
       n *= 1.0/sqrt(norm2(n));
+      assert(std::abs(dot(n,planeVec)) < 1.0e-13);
       const real_t dist = dot(n,pos - simplex[0]);
 
       return dist;
     }
-    
-  void extremeSimplex(const typename Vertex::vector &pos)
+
+    Simplex extremeSimplex;
+    void findExtremeSimplex(const typename Vertex::vector &pos)
     {
-      Simplex simplex;
+      Simplex &simplex = extremeSimplex;
       real_t xMin = +HUGE, xMax = -HUGE;
       const int np = pos.size();
       // foreach
@@ -373,6 +381,7 @@ struct QHull_t
             simplex[l] = p;
           }
         }
+        assert(distMax > 0);
       }
     }
 
@@ -380,7 +389,7 @@ struct QHull_t
     {
       typename Vertex::vector pos1(pos), pos2(pos.size());
 
-      extremeSimplex(pos);
+      findExtremeSimplex(pos);
 
       while (!facetStack.empty())
         facetStack.pop();
