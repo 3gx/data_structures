@@ -324,8 +324,14 @@ struct QHull_t
 
 
       /* find a unit vector that is not parallel to the plane */
+#if 0
+#if 1
+      vec_t unitVec(0.0);
+      unitVec[0] = unitVec[1] = unitVec[2] = 1.0/sqrt(3.0);
+#else
       vec_t unitVec(0.0);
       unitVec[0] = 1.0;
+#endif
 
       int el = 0;
       vec_t planeVec = vtxP[el++];
@@ -335,6 +341,14 @@ struct QHull_t
         assert(el < DIM-1);
       }
       planeVec *= 1.0/sqrt(norm2(planeVec));
+#else
+      vec_t planeVec = vtxP[0];
+      planeVec *= 1.0/norm(planeVec);
+
+      vec_t  unitVec(1.0/NDIM);
+      unitVec += planeVec;
+      unitVec *= (1.0/norm(unitVec));
+#endif
       
       /* compute plane equation */
       vec_t n = unitVec -dot(unitVec,planeVec)*planeVec;
@@ -367,7 +381,21 @@ struct QHull_t
         }
       }
 
-      for (int l = 2; l < NDIM+1; l++)
+      vec_t v;
+      v[0] = -0.5;
+      v[1] = -0.5;
+      v[2] = -0.5;
+      simplex[0].pos = v;
+      v[0] =  0.5;
+      v[1] = -0.5;
+      v[2] = -0.5;
+      simplex[1].pos = v;
+      v[0] =  0.5;
+      v[1] =  0.5;
+      v[2] = -0.5;
+      simplex[2].pos = v;
+
+      for (int l = 3; l < NDIM+1; l++)
       {
         real_t distMax = 0;
         // foreach
