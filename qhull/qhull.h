@@ -146,9 +146,9 @@ struct QHull
 
     typedef Vector_t <real_t,NDIM> vec_t;
 
-    struct pos_t
+    struct Vertex
     {
-      typedef std::vector<pos_t> vector;
+      typedef std::vector<Vertex> vector;
       vec_t pos;
       id_t  idx;
       real_t& operator[](const int i)       { return pos[i]; }
@@ -156,7 +156,7 @@ struct QHull
       operator const vec_t&() const {return pos;}
       operator vec_t&() {return pos;}
     };
-    typedef std::array<pos_t,NDIM> vtx_t;
+    typedef std::array<Vertex,NDIM> Basis;
 
 
     struct Facet
@@ -165,40 +165,40 @@ struct QHull
       typedef list::iterator iterator;
 
       std::pair<vec_t,real_t> plane;
-      vtx_t vtx;     /* vertecies are stored in right-handed orientation */
+      Basis vtx;     /* vertecies are stored in right-handed orientation */
       real_t distance(const vec_t &pos) const
       {
         return dot(plane.first,pos) + plane.second;
       }
 
-      static std::pair<vec_t,real_t> makePlane(const vtx_t &vtx)
+      static std::pair<vec_t,real_t> makePlane(const Basis &basis)
       {
         /* move origin to the plane */
-        vtx_t vtxP;
+        Basis basisP;
         for (int l = 0; l < NDIM-1; l++)
-          vtxP[l].pos = vtx[l].pos - vtx[NDIM-1].pos;
+          basisP[l].pos = basis[l].pos - basis[NDIM-1].pos;
 
         /* find a unit vector that is not parallel to the plane */
         vec_t unitVec(0.0);
         unitVec[0] = 1.0;
 
         int el = 0;
-        vec_t planeVec = vtxP[el++];
+        vec_t planeVec = basisP[el++];
         while (dot(planeVec,unitVec) == 0)
         {
-          planeVec = vtxP[el++];
+          planeVec = basisP[el++];
           assert(el < NDIM-1);
         }
 
         /* compute plane equation */
         vec_t n = unitVec - unitVec*(planeVec * (1.0/sqrt(norm2(planeVec))));
         n *= 1.0/sqrt(norm2(n));
-        real_t p = -dot(n,vtx[0]);
+        real_t p = -dot(n,basis[0]);
 
         return std::make_pair(n,p);
       }
 
-      Facet makeFace(const pos_t &p, const int facetIdx) const
+      Facet makeFace(const Vertex &p, const int facetIdx) const
       {
         assert(facetIdx >= 0 && facetIdx < NDIM);
 
@@ -221,14 +221,14 @@ struct QHull
     {
       typedef std::stack<FacetMD> stack;
       Facet::iterator it;
-      pos_t *pBuf;
+      Vertex *pBuf;
       int pbeg, pend;
-      FacetMD(Facet::iterator _it, pos_t *_pBuf, int _pbeg, int _pend) :
+      FacetMD(Facet::iterator _it, Vertex *_pBuf, int _pbeg, int _pend) :
         it(_it), pBuf(_pBuf), pbeg(_pbeg), pend(_pend) {}
     };
     FacetMD::stack facetStack;
 
-    bool partition(const FacetMD &fmd, pos_t *pBuf)
+    bool partition(const FacetMD &fmd, Vertex *pBuf)
     {
       const int np = fmd.pend - fmd.pbeg;
       /* no particles left to partition */
@@ -237,10 +237,10 @@ struct QHull
 
       /* find max distances */
       real_t distMax = 0;
-      pos_t  pMax;
+      Vertex  pMax;
       for (int i = fmd.pbeg; i < fmd.pend; i++)
       {
-        const pos_t    &p = fmd.pBuf[i];
+        const Vertex    &p = fmd.pBuf[i];
         const real_t dist = fmd.it->distance(p);
         if (dist > distMax)
         {
@@ -305,32 +305,10 @@ struct QHull
       return true;
     }
 
-    typedef std::array<pos_t,NDIM+1> Simplex_t;
-
-#if 0
-    template<int N> struct extremeSimplexR
-    {
-      static void eval(const pos_t::vector &pos, Simplex_t &simplex)
-      {
-        extremeSimplexR<N-1>::eval(pos, simplex);
-        Vector_t<real_t,N> plane(&simplex[0]);
-        const int np = pos.size();
-        real_t distMax = 0.0;
-        pos_t  pMax;
-        for (int i = 0; i < np; i++)
-        {
-          const auto &p = pos[i];
-          real_t dist = distance<N>(plane, pMax);
-        }
-
-      }
-    };
-#endif
-
-    static real_t distance(const int DIM, const Simplex_t &simplex, const vec_t &pos)
+    static real_t distance(const int DIM, const Basis &simplex, const vec_t &pos)
     {
       assert(DIM <= NDIM);
-      vtx_t vtxP;
+      Basis vtxP;
       for (int l = 0; l < DIM-1; l++)
         vtxP[l].pos = simplex[l].pos - simplex[DIM-1].pos;
 
@@ -354,9 +332,9 @@ struct QHull
       return dist;
     }
     
-    void extremeSimplex(const pos_t::vector &pos)
+    void extremeSimplex(const Vertex::vector &pos)
     {
-      Simplex_t simplex;
+      Basis simplex;
       real_t xMin = +HUGE, xMax = -HUGE;
       const int np = pos.size();
       // foreach
@@ -392,17 +370,17 @@ struct QHull
       }
     }
 
-    void computeConvexHull(const pos_t::vector &pos)
+    void computeConvexHull(const Vertex::vector &pos)
     {
-      pos_t::vector pos1(pos), pos2(pos.size());
+      Vertex::vector pos1(pos), pos2(pos.size());
 
       extremeSimplex(pos);
 
       while (!facetStack.empty())
         facetStack.pop();
 
-      pos_t *pBuf1 = &pos1[0];
-      pos_t *pBuf2 = &pos2[0];
+      Vertex *pBuf1 = &pos1[0];
+      Vertex *pBuf2 = &pos2[0];
       while (!facetStack.empty())
       {
         const auto fmd = facetStack.top();

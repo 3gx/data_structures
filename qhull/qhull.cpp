@@ -28,7 +28,7 @@ QHull::extremeSimplexR<2>::eval(const QHull::pos_t::vector &pos, QHull::Simplex_
 }
 #endif
 
-QHull::pos_t::vector readData(std::istream &in)
+QHull::Vertex::vector readData(std::istream &in)
 {
   std::string line;
   if (!std::getline(in, line)) 
@@ -59,7 +59,7 @@ QHull::pos_t::vector readData(std::istream &in)
   }
 
   typedef QHull::real_t real_t;
-  typedef QHull::pos_t  pos_t;
+  typedef QHull::Vertex vtx_t;
   size_t count;
   assert(dimension == QHull::NDIM);
   {
@@ -70,14 +70,14 @@ QHull::pos_t::vector readData(std::istream &in)
     }
     iss.clear();
   }
-  pos_t::vector pos(count);
+  vtx_t::vector pos(count);
   for (size_t i = 0; i < count; ++i) 
   {
     if (!std::getline(in, line)) {
       std::cerr << "io: line count error" << std::endl;
       exit(-1);
     }
-    pos_t &p = pos[i];
+    vtx_t &p = pos[i];
     p.idx = i;
     {
       iss.str(line);
@@ -113,7 +113,7 @@ int main(int argc, char*argv[])
   std::istream &in = ifs.is_open() ? ifs : std::cin;
   std::cerr << "#read file: " << (ifs.is_open() ? "stdin" : argv[1]) << std::endl;
 
-  const QHull::pos_t::vector pos = readData(in);
+  const QHull::Vertex::vector pos = readData(in);
 
   QHull q;
   return 0;
