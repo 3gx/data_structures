@@ -137,18 +137,19 @@ class Vector_t
     }
 };
 
-struct QHull
+template<int N>
+struct QHull_t
 {
   public:
-    enum {NDIM = 3};
+    enum {NDIM = N};
     typedef float real_t;
     typedef int   id_t;
 
-    typedef Vector_t <real_t,NDIM> vec_t;
+    using vec_t = Vector_t<real_t,NDIM>;
 
     struct Vertex
     {
-      typedef std::vector<Vertex> vector;
+      using vector = std::vector<Vertex>;
       vec_t pos;
       id_t  idx;
       real_t& operator[](const int i)       { return pos[i]; }
@@ -156,15 +157,15 @@ struct QHull
       operator const vec_t&() const {return pos;}
       operator vec_t&() {return pos;}
     };
-    typedef std::array<Vertex,NDIM> Basis;
+    using Basis = std::array<Vertex,NDIM>;
 
 
     struct Facet
     {
-      typedef std::list<Facet> list;
-      typedef list::iterator listIterator;
+      using list = std::list<Facet>;
+      using listIterator = typename list::iterator;
 
-      typedef std::vector<Facet> vector;
+      using vector = std::vector<Facet>;
 
       std::pair<vec_t,real_t> plane;
       Basis vtx;     /* vertecies are stored in right-handed orientation */
@@ -217,19 +218,19 @@ struct QHull
         return f;
       }
     };
-    Facet::list facetList;
-    Facet::vector facetVector;
+    typename Facet::list facetList;
+    typename Facet::vector facetVector;
 
     struct FacetMD  /* facet metadata */
     {
-      typedef std::stack<FacetMD> stack;
-      Facet::listIterator it;
+      using stack = std::stack<FacetMD>;
+      typename Facet::listIterator it;
       Vertex *pBuf;
       int pbeg, pend;
-      FacetMD(Facet::listIterator _it, Vertex *_pBuf, int _pbeg, int _pend) :
+      FacetMD(typename Facet::listIterator _it, Vertex *_pBuf, int _pbeg, int _pend) :
         it(_it), pBuf(_pBuf), pbeg(_pbeg), pend(_pend) {}
     };
-    FacetMD::stack facetStack;
+    typename FacetMD::stack facetStack;
 
     bool partition(const FacetMD &fmd, Vertex *pBuf)
     {
@@ -308,7 +309,7 @@ struct QHull
       return true;
     }
 
-    typedef std::array<Vertex,NDIM+1> Simplex;
+    using Simplex =  std::array<Vertex,NDIM+1>;
 
     static real_t distance(const int DIM, const Simplex &simplex, const vec_t &pos)
     {
@@ -337,7 +338,7 @@ struct QHull
       return dist;
     }
     
-    void extremeSimplex(const Vertex::vector &pos)
+  void extremeSimplex(const typename Vertex::vector &pos)
     {
       Simplex simplex;
       real_t xMin = +HUGE, xMax = -HUGE;
@@ -375,9 +376,9 @@ struct QHull
       }
     }
 
-    void convexHull(const Vertex::vector &pos)
+    void convexHull(const typename Vertex::vector &pos)
     {
-      Vertex::vector pos1(pos), pos2(pos.size());
+      typename Vertex::vector pos1(pos), pos2(pos.size());
 
       extremeSimplex(pos);
 
