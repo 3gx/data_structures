@@ -390,9 +390,7 @@ struct QHull
           }
         }
       }
-
     }
-
 
     void computeConvexHull(const pos_t::vector &pos)
     {
@@ -412,8 +410,6 @@ struct QHull
         partition(fmd, fmd.pBuf == pBuf1 ? pBuf2 : pBuf1);
       }
     }
-
-
 };
 
 
