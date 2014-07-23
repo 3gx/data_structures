@@ -346,7 +346,7 @@ struct QHull_t
       planeVec *= 1.0/norm(planeVec);
 
       vec_t  unitVec(1.0/NDIM);
-      unitVec += planeVec;
+      unitVec += planeVec*0.2;
       unitVec *= (1.0/norm(unitVec));
 #endif
       
@@ -381,6 +381,7 @@ struct QHull_t
         }
       }
 
+#if 0
       vec_t v;
       v[0] = -0.5;
       v[1] = -0.5;
@@ -394,8 +395,9 @@ struct QHull_t
       v[1] =  0.5;
       v[2] = -0.5;
       simplex[2].pos = v;
+#endif
 
-      for (int l = 3; l < NDIM+1; l++)
+      for (int l = 2; l < NDIM+1; l++)
       {
         real_t distMax = 0;
         // foreach
