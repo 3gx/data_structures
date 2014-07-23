@@ -318,43 +318,23 @@ struct QHull_t
     static real_t distance(const int DIM, const Simplex &simplex, const vec_t &pos)
     {
       assert(DIM <= NDIM);
-      Basis vtxP;
-      for (int l = 0; l < DIM-1; l++)
-        vtxP[l].pos = simplex[l].pos - simplex[DIM-1].pos;
+      vec_t centreP(0.0);
+      for (int l = 0; l < DIM; l++)
+        centreP += simplex[l];
 
+      centreP *= 1.0/DIM;
 
-      /* find a unit vector that is not parallel to the plane */
-#if 0
-#if 1
-      vec_t unitVec(0.0);
-      unitVec[0] = unitVec[1] = unitVec[2] = 1.0/sqrt(3.0);
-#else
-      vec_t unitVec(0.0);
-      unitVec[0] = 1.0;
-#endif
-
-      int el = 0;
-      vec_t planeVec = vtxP[el++];
-      while (dot(planeVec,unitVec) == 0)
-      {
-        planeVec = vtxP[el++];
-        assert(el < DIM-1);
-      }
-      planeVec *= 1.0/sqrt(norm2(planeVec));
-#else
-      vec_t planeVec = vtxP[0];
+      vec_t planeVec = simplex[0] - centreP;
       planeVec *= 1.0/norm(planeVec);
 
-      vec_t  unitVec(1.0/NDIM);
-      unitVec += planeVec*0.2;
-      unitVec *= (1.0/norm(unitVec));
-#endif
-      
+      vec_t  unitVec = centreP;
+      unitVec *= 1.0/norm(unitVec);
+
       /* compute plane equation */
-      vec_t n = unitVec -dot(unitVec,planeVec)*planeVec;
-      n *= 1.0/sqrt(norm2(n));
+      vec_t n = unitVec - planeVec*dot(unitVec,planeVec);
+      n *= 1.0/norm(n);
       assert(std::abs(dot(n,planeVec)) < 1.0e-13);
-      const real_t dist = dot(n,pos - simplex[0]);
+      const real_t dist = dot(n, pos - centreP);
 
       return std::abs(dist);
     }
