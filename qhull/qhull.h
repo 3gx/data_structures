@@ -7,6 +7,9 @@
 #include <cassert>
 #include <cmath>
 
+
+#include "linsolve.h"
+
 template<typename real_t, int N>
 class Vector_t
 {
@@ -141,11 +144,11 @@ class Vector_t
     }
 };
 
-template<int N>
+// template<int N>
 struct QHull_t
 {
   public:
-    enum {NDIM = N};
+    enum {NDIM = 3};
     typedef double real_t;
     typedef int   id_t;
 
@@ -315,84 +318,72 @@ struct QHull_t
 
     using Simplex =  std::array<Vertex,NDIM+1>;
 
-    static real_t distance(const int DIM, const Simplex &simplex, const vec_t &pos)
+
+    template<int DIM>
+    static real_t distance(const Simplex &simplex, vec_t pos)
     {
       assert(DIM <= NDIM);
-      vec_t centreP(0.0);
+      /* compute centre of the subspace */
+      vec_t centre(0.0);
       for (int l = 0; l < DIM; l++)
-        centreP += simplex[l];
+        centre += simplex[l];
+      centre *= 1.0/DIM;
 
-      centreP *= 1.0/DIM;
+      /* compute subspace basis */
+      std::array<vec_t,DIM-1> basis;
+      for (int l = 0; l < DIM; l++)
+        basis[l] = simplex[l] - centre;
 
-      vec_t planeVec = simplex[0] - centreP;
-      planeVec *= 1.0/norm(planeVec);
 
-      vec_t  unitVec = centreP;
-      unitVec *= 1.0/norm(unitVec);
+      /* bring pos origin to centreS */
+      pos -= centre;
 
-      /* compute plane equation */
-      vec_t n = unitVec - planeVec*dot(unitVec,planeVec);
-      n *= 1.0/norm(n);
-      assert(std::abs(dot(n,planeVec)) < 1.0e-13);
-      const real_t dist = dot(n, pos - centreP);
+      /* compute basis matrix and projection of posS onto basis */
+      std::array<std::array<real_t,DIM-1>, DIM-1> _m;
+      std::array<real_t,DIM-1> _b;
+      for (int l = 0; l < DIM-1; l++)
+      {
+        for (int ll = 0; ll < DIM-1; ll++)
+          _m[l][ll] = dot(basis[l],basis[ll]);
+        _b[l] = dot(basis[l], pos);
+      }
 
-      return std::abs(dist);
+      /* solve coefficients */
+      const auto coeff = linSolve<real_t,DIM-1>(_m,_b);
+
+      /* recontruct tangential part of the vector */
+      vec_t pt;
+      for (int l = 0; l < DIM-1; l++)
+        pt += coeff[l]*vec_t(basis[l]);
+
+      /* normal component of the vector */
+      const vec_t pn = pos - pt;
+
+      return norm2(pn);
     }
-
+    
     Simplex extremeSimplex;
-    void findExtremeSimplex(const typename Vertex::vector &pos)
+    template<int DIM>
+    static void findExtremeSimplex(const typename Vertex::vector &pos, Simplex &simplex)
     {
-      Simplex &simplex = extremeSimplex;
-      real_t xMin = +HUGE, xMax = -HUGE;
+      findExtremeSimplex<DIM-1>(pos, simplex);
       const int np = pos.size();
-      // foreach
+      real_t distMax = 0;
       for (int i = 0; i < np; i++)
       {
-        const auto &p = pos[i];
-        if (p[0] < xMin)
+        const Vertex &p = pos[i];
+        const real_t dist = distance<DIM-1>(simplex,p);
+        if (dist > distMax)
         {
-          xMin       = p[0];
-          simplex[0] = p;
-        }
-        if (p[0] > xMax)
-        {
-          xMax       = p[0];
-          simplex[1] = p;
+          distMax = dist;
+          simplex[DIM-1] = p;
         }
       }
+    }
 
-#if 0
-      vec_t v;
-      v[0] = -0.5;
-      v[1] = -0.5;
-      v[2] = -0.5;
-      simplex[0].pos = v;
-      v[0] =  0.5;
-      v[1] = -0.5;
-      v[2] = -0.5;
-      simplex[1].pos = v;
-      v[0] =  0.5;
-      v[1] =  0.5;
-      v[2] = -0.5;
-      simplex[2].pos = v;
-#endif
-
-      for (int l = 2; l < NDIM+1; l++)
-      {
-        real_t distMax = 0;
-        // foreach
-        for (int i = 0; i < np; i++)
-        {
-          const auto &p = pos[i];
-          const real_t dist = distance(l,simplex,p);
-          if (dist > distMax)
-          {
-            distMax = dist;
-            simplex[l] = p;
-          }
-        }
-        assert(distMax > 0);
-      }
+    void findExtremeSimplex(const typename Vertex::vector &pos)
+    {
+      findExtremeSimplex<NDIM+1>(pos,extremeSimplex);
     }
 
     void convexHull(const typename Vertex::vector &pos)

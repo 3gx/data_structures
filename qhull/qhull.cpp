@@ -4,9 +4,40 @@
 #include <sstream>
 #include <string>
 
+    
+//template<int N>
+template<>
+void QHull_t::findExtremeSimplex<2>(
+    const typename Vertex::vector &pos, 
+    Simplex &simplex)
+{
+  real_t xMin = +HUGE, xMax = -HUGE;
+  const int np = pos.size();
+  // foreach
+  for (int i = 0; i < np; i++)
+  {
+    const auto &p = pos[i];
+    if (p[0] < xMin)
+    {
+      xMin       = p[0];
+      simplex[0] = p;
+    }
+    if (p[0] > xMax)
+    {
+      xMax       = p[0];
+      simplex[1] = p;
+    }
+  }
+}
 
+#if 0
 #define N 3
 using QHull = QHull_t<N>;
+#else
+using QHull = QHull_t;
+#endif
+
+
 
 QHull::Vertex::vector readData(std::istream &in)
 {
