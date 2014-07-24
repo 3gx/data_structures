@@ -5,9 +5,12 @@
 #include <string>
 
     
-//template<int N>
+#define N 3
+using QHull = QHull_t<N>;
+
 template<>
-void QHull_t::findExtremeSimplex<2>(
+template<>
+void QHull::findExtremeSimplex<2>(
     const typename Vertex::vector &pos, 
     Simplex &simplex)
 {
@@ -29,15 +32,6 @@ void QHull_t::findExtremeSimplex<2>(
     }
   }
 }
-
-#if 0
-#define N 3
-using QHull = QHull_t<N>;
-#else
-using QHull = QHull_t;
-#endif
-
-
 
 QHull::Vertex::vector readData(std::istream &in)
 {

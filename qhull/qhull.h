@@ -144,11 +144,11 @@ class Vector_t
     }
 };
 
-// template<int N>
+template<int N>
 struct QHull_t
 {
   public:
-    enum {NDIM = 3};
+    enum {NDIM = N};
     typedef double real_t;
     typedef int   id_t;
 
