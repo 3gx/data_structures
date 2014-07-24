@@ -349,15 +349,17 @@ struct QHull_t
       }
 
       /* solve coefficients */
-      const auto coeff = linSolve<real_t,DIM-1>(_m,_b);
+      const auto _x = linSolve<real_t,DIM-1>(_m,_b);
 
       /* recontruct tangential part of the vector */
-      vec_t pt;
+      vec_t pt(0.0);
       for (int l = 0; l < DIM-1; l++)
-        pt += coeff[l]*vec_t(basis[l]);
+        pt += _x[l]*vec_t(basis[l]);
 
       /* normal component of the vector */
       const vec_t pn = pos - pt;
+
+      assert(std::abs(dot(pn,pt)) < 1.0e-10*norm2(pos));
 
       return norm2(pn);
     }
