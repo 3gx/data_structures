@@ -33,6 +33,53 @@ struct QHull_t
       operator vec_t&() {return pos;}
     };
     using Basis = std::array<Vertex,NDIM>;
+    
+    static std::pair<vec_t,real_t> planeEquation(
+        const Basis &vtx,  /* first NDIM vectors for facets, NDIM+1 vector is used for orientation */
+        const vec_t &posO,
+        const real_t  orientation = 1.0)
+    {
+      /* compte centre of the facet */
+      vec_t centre(0.0);
+      for (int l = 0; l < NDIM; l++)
+        centre += vtx[l];
+      centre *= 1.0/NDIM;
+
+      /* compute facet basis */
+      std::array<vec_t,NDIM-1> basis;
+      for (int l = 0; l < NDIM-1; l++)
+        basis[l] = vtx[l] - centre;
+
+      /* compute orientation vector */
+      const vec_t &pos = (posO - centre)*orientation;
+      
+
+      std::array<std::array<real_t,NDIM-1>,NDIM-1> _m;
+      std::array<real_t,NDIM-1> _b;
+      for (int l = 0; l < NDIM-1; l++)
+      {
+        for (int ll = 0; ll < NDIM-1; ll++)
+          _m[l][ll] = dot(basis[l],basis[ll]);
+        _b[l] = dot(basis[l],pos);
+      }
+
+      /* solve coefficients */
+      const auto& _x = linSolve<real_t,NDIM-1>(_m,_b);
+
+      return std::make_pair(centre, 0.0);
+      /* recontruct tangential part of the vector */
+      vec_t pt(0.0);
+      for (int l = 0; l < NDIM-1; l++)
+        pt += _x[l]*vec_t(basis[l]);
+
+      /* normal component of the vector */
+      const vec_t &pn = pos - pt;
+
+      const vec_t  n = pn * (1.0/norm(pn));
+      const real_t p = dot(n , centre);
+
+      return std::make_pair(n,p);
+    }
 
 
     struct Facet
@@ -249,54 +296,6 @@ struct QHull_t
       }
     }
 
-    std::pair<vec_t,real_t> planeEquation(
-        const Basis &vtx,  /* first NDIM vectors for facets, NDIM+1 vector is used for orientation */
-        const vec_t &posO,
-        const real_t  orientation = 1.0)
-    {
-      /* compte centre of the facet */
-      vec_t centre(0.0);
-      for (int l = 0; l < NDIM; l++)
-        centre += vtx[l];
-      centre *= 1.0/NDIM;
-
-
-
-      /* compute facet basis */
-      std::array<vec_t,NDIM-1> basis;
-      for (int l = 0; l < NDIM-1; l++)
-        basis[l] = vtx[l] - centre;
-
-      /* compute orientation vector */
-      const vec_t &pos = (posO - centre)*orientation;
-      
-
-      std::array<std::array<real_t,NDIM-1>,NDIM-1> _m;
-      std::array<real_t,NDIM-1> _b;
-      for (int l = 0; l < NDIM-1; l++)
-      {
-        for (int ll = 0; ll < NDIM-1; ll++)
-          _m[l][ll] = dot(basis[l],basis[ll]);
-        _b[l] = dot(basis[l],pos);
-      }
-
-      /* solve coefficients */
-      const auto& _x = linSolve<real_t,NDIM-1>(_m,_b);
-
-      return std::make_pair(centre, 0.0);
-      /* recontruct tangential part of the vector */
-      vec_t pt(0.0);
-      for (int l = 0; l < NDIM-1; l++)
-        pt += _x[l]*vec_t(basis[l]);
-
-      /* normal component of the vector */
-      const vec_t &pn = pos - pt;
-
-      const vec_t  n = pn * (1.0/norm(pn));
-      const real_t p = dot(n , centre);
-
-      return std::make_pair(n,p);
-    }
 
     void findExtremeSimplex(const typename Vertex::vector &pos)
     {
