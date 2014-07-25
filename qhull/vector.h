@@ -134,4 +134,85 @@ class VectorNaive_t
     }
 };
 
+
+/*===================================================================*/
+template <typename real_t,int N> class VectorET_t;
+template<typename LHS,typename OP,typename RHS>
+class mathVecExpr
+{
+  private:
+    mathVecExpr _l, _r;
+  public:
+    mathVecExpr() = delete;
+    mathVecExpr(LHS l,RHS r) : 
+      _l(std::forward<LHS>(l)),
+      _r(std::forward<RHS>(r)) { }
+
+    /* prohibit copying */
+    mathVecExpr(mathVecExpr const&) = delete;
+    mathVecExpr& operator=(mathVecExpr const&) = delete;
+
+    /* allow moves */
+    mathVecExpr(mathVecExpr&&) = default;
+    mathVecExpr& operator=(mathVecExpr&&) = default;
+
+    template<typename RE>
+      auto operator+(RE&& re) const ->
+      mathVecExpr<mathVecExpr<LHS,OP,RHS> const&,OP,decltype(std::forward<RE>(re))>
+      {
+        return
+          mathVecExpr<
+            mathVecExpr<LHS,OP,RHS> const&,
+            OP,
+            decltype(std::forward<RE>(re))>(*this, std::forward<RE>(re));
+      }
+
+    auto le() -> typename std::add_lvalue_reference<LHS>::type { return _l; }
+    auto le() const -> typename std::add_lvalue_reference<
+                  typename std::add_const<LHS>::type>::type
+                  {
+                    return _l;
+                  }
+    auto re() -> typename std::add_lvalue_reference<RHS>::type { return _r; }
+    auto re() const -> typename std::add_lvalue_reference<
+                  typename std::add_const<RHS>::type>::type
+                  {
+                    return _r;
+                  }
+
+    auto operator[](const int index) const ->
+      decltype(OP::apply(this->le()[index], this->re()[index]))
+      {
+        return OP::apply(le()[index], re()[index]);
+      }
+
+};
+template <typename T>
+struct PlusOp
+{
+  static T apply(T const& a, T const& b)
+  {
+    return a + b;
+  }
+
+  static T apply(T&& a, T const& b)
+  {
+    a += b;
+    return std::move(a);
+  }
+
+  static T apply(T const& a, T&& b)
+  {
+    b += a;
+    return std::move(b);
+  }
+
+  static T apply(T&& a, T&& b)
+  {
+    a += b;
+    return std::move(a);
+  }
+};
+/*===================================================================*/
+
 template<typename real_t, int N> using Vector_t = VectorNaive_t<real_t,N>;

@@ -185,6 +185,7 @@ struct QHull_t
     }
 
     using Simplex =  std::array<Vertex,NDIM+1>;
+    Simplex extremeSimplex;
 
     template<int DIM>
     static real_t distance(const Simplex &simplex, vec_t pos)
@@ -231,7 +232,6 @@ struct QHull_t
       return norm2(pn);
     }
     
-    Simplex extremeSimplex;
     template<int DIM>
     static void findExtremeSimplex(const typename Vertex::vector &pos, Simplex &simplex)
     {
@@ -250,9 +250,69 @@ struct QHull_t
       }
     }
 
+    std::pair<vec_t,real_t> planeEquation(
+        const Simplex &simplex,  /* first NDIM vectors for facets, NDIM+1 vector is used for orientation */
+        const real_t  orientation = 1.0)
+    {
+      /* compte centre of the facet */
+      vec_t centre(0.0);
+      for (int l = 0; l < NDIM; l++)
+        centre += simplex[l];
+      centre *= 1.0/NDIM;
+
+      /* compute facet basis */
+      std::array<vec_t,NDIM-1> basis;
+      for (int l = 0; l < NDIM-1; l++)
+        basis[l] = simplex[l] - centre;
+
+      /* compute orientation vector */
+      const vec_t pos = (simplex[NDIM] - centre)*orientation;
+
+      std::array<std::array<real_t,NDIM-1>,NDIM-1> _m;
+      std::array<real_t,NDIM-1> _b;
+      for (int l = 0; l < NDIM-1; l++)
+      {
+        for (int ll = 0; ll < NDIM-1; ll++)
+          _m[l][ll] = dot(basis[l],basis[ll]);
+        _b[l] = dot(basis[l],pos);
+      }
+
+      /* solve coefficients */
+      const auto& _x = linSolve<real_t,NDIM-1>(_m,_b);
+
+      /* recontruct tangential part of the vector */
+      vec_t pt(0.0);
+      for (int l = 0; l < NDIM-1; l++)
+        pt += _x[l]*vec_t(basis[l]);
+
+      /* normal component of the vector */
+      const vec_t &pn = pos - pt;
+
+      const vec_t  n = pn * (1.0/norm(pn));
+      const real_t p = n * centre;
+
+      return std::make_pair(n,p);
+    }
+
+
+
     void findExtremeSimplex(const typename Vertex::vector &pos)
     {
-      findExtremeSimplex<NDIM+1>(pos,extremeSimplex);
+      Simplex simplex;
+      findExtremeSimplex<NDIM+1>(pos, simplex);
+
+      extremeSimplex = simplex;
+
+#if 0
+      /* reconstruct facets of the simplex with an outward looking normal */
+      Facets facets[NDIM+1];
+
+
+      for (int i = 0; i < NDIM+1; i++)
+      {
+      }
+#endif
+
     }
 
     void convexHull(const typename Vertex::vector &pos)
