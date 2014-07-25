@@ -125,7 +125,7 @@ class VectorNaive_t
         res[l] = a[l]-b;
       return res;
     }
-    friend VectorNaive_t operator+(const real_t a, const VectorNaive_t &b) 
+    friend VectorNaive_t operator-(const real_t a, const VectorNaive_t &b) 
     {
       VectorNaive_t res;
       for (int l = 0; l < N; l++)

@@ -63,7 +63,6 @@ QHull::Vertex::vector readData(std::istream &in)
     exit(-1);
   }
 
-  typedef QHull::real_t real_t;
   typedef QHull::Vertex vtx_t;
   size_t count;
   assert(dimension == QHull::NDIM);

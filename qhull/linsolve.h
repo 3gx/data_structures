@@ -74,7 +74,21 @@ choleskyInverse(const std::array<std::array<real_t,N>,N> &in)
 }
 
   template<typename real_t, int D>
-static std::array<real_t,D> linSolve(const std::array<std::array<real_t,D>,D> &m, const std::array<real_t,D> &b)
+std::array<real_t,D> linSolve(const std::array<std::array<real_t,D>,D> &m, const std::array<real_t,D> &b)
+{
+  const auto mInv = choleskyInverse<real_t,D>(m);
+  std::array<real_t,D> x;
+  for (int l = 0; l < D; l++)
+  {
+    x[l] = 0;
+    for (int ll = 0; ll < D; ll++)
+      x[l] += mInv[l][ll]*b[ll];
+  }
+  return x;
+}
+  
+  template<typename real_t, int D>
+std::array<real_t,D> linSolve1(const std::array<std::array<real_t,D>,D> &m, const std::array<real_t,D> &b)
 {
   const auto mInv = choleskyInverse<real_t,D>(m);
   std::array<real_t,D> x;
