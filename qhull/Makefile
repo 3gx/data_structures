@@ -15,6 +15,6 @@ $(PROG): $(OBJ)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(OBJ): qhull.h linsolve.h
+$(OBJ): qhull.h linsolve.h vector.h
 
 
