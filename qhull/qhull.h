@@ -37,7 +37,7 @@ struct QHull_t
     static std::pair<vec_t,real_t> planeEquation(
         const Basis &vtx,  /* first NDIM vectors for facets, NDIM+1 vector is used for orientation */
         const vec_t &posO,
-        const real_t  orientation = 1.0)
+        const real_t  orientation = -1.0)
     {
       /* compte centre of the facet */
       vec_t centre(0.0);
@@ -95,51 +95,19 @@ struct QHull_t
         return dot(plane.first,pos) + plane.second;
       }
 
-      static std::pair<vec_t,real_t> makePlane(const Basis &basis)
-      {
-        /* move origin to the plane */
-        Basis basisP;
-        for (int l = 0; l < NDIM-1; l++)
-          basisP[l].pos = basis[l].pos - basis[NDIM-1].pos;
-
-        /* find a unit vector that is not parallel to the plane */
-        vec_t unitVec(0.0);
-        unitVec[0] = 1.0;
-
-        int el = 0;
-        vec_t planeVec = basisP[el++];
-        while (dot(planeVec,unitVec) == 0)
-        {
-          planeVec = basisP[el++];
-          assert(el < NDIM-1);
-        }
-
-        /* compute plane equation */
-        vec_t n = unitVec - unitVec*(planeVec * (1.0/sqrt(norm2(planeVec))));
-        n *= 1.0/sqrt(norm2(n));
-        real_t p = -dot(n,basis[0]);
-
-        return std::make_pair(n,p);
-      }
-
       Facet makeFace(const Vertex &p, const int facetIdx) const
       {
         assert(facetIdx >= 0 && facetIdx < NDIM);
 
         Facet f;
+        f.vtx           = vtx;
         f.vtx[facetIdx] = p;
-        for (int i = 0; i < NDIM; i++)
-        {
-          if (facetIdx != i)
-            f.vtx[i] = vtx[i];
-        }
-
-        f.plane = makePlane(f.vtx);
+        f.plane         = planeEquation(f.vtx, vtx[facetIdx]);
 
         return f;
       }
     };
-    typename Facet::list facetList;
+    typename Facet::list   facetList;
     typename Facet::vector facetVector;
 
     struct FacetMD  /* facet metadata */
@@ -317,6 +285,18 @@ struct QHull_t
         std::swap(simplex[l], simplex[NDIM]);
         f.plane = planeEquation(f.vtx, simplex[l]);
       }
+
+#if 0
+      /* push new faces to the stack */
+      for (int l = 0; l < NDIM+1; l++)
+      {
+        facetList.insert(facets[l]);
+        auto it = facetList.end();
+        it--;
+        facetStack.push(FacetMD(it, pBuf, pbeg[l], pend[l]));
+      }
+#endif
+
 
     }
 
