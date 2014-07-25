@@ -8,141 +8,9 @@
 #include <cmath>
 
 
+#include "vector.h"
 #include "linsolve.h"
 
-template<typename real_t, int N>
-class Vector_t
-{
-  private:
-    std::array<real_t,N> x;
-  public:
-    Vector_t() {}
-    Vector_t(const real_t y) 
-    {
-      for (int l = 0; l < N; l++)
-        x[l] = y;
-    }
-    Vector_t(const real_t *y) 
-    {
-      for (int l = 0; l < N; l++)
-        x[l] = y[l];
-    }
-    real_t& operator[](const int i)       { return x[i]; }
-    real_t  operator[](const int i) const { return x[i]; }
-
-    /******************/
-    friend real_t dot(const Vector_t &a, const Vector_t &b)
-    {
-      real_t sum = 0;
-      for (int l = 0; l < N; l++)
-        sum += a[l]*b[l];
-      return sum;
-    }
-    friend real_t norm2(const Vector_t &a)
-    {
-      return dot(a,a);
-    }
-    friend real_t norm(const Vector_t &a)
-    {
-      return std::sqrt(norm2(a));
-    }
-    /******************/
-    Vector_t& operator*=(const Vector_t &a)
-    {
-      for (int l = 0; l < N; l++)
-        x[l] *= a[l];
-      return *this;
-    }
-    Vector_t& operator*=(const real_t a)
-    {
-      for (int l = 0; l < N; l++)
-        x[l] *= a;
-      return *this;
-    }
-    friend Vector_t operator*(const Vector_t &a, const Vector_t &b) 
-    {
-      Vector_t res;
-      for (int l = 0; l < N; l++)
-        res[l] = a[l]*b[l];
-      return res;
-    }
-    friend Vector_t operator*(const Vector_t &a, const real_t b) 
-    {
-      Vector_t res;
-      for (int l = 0; l < N; l++)
-        res[l] = a[l]*b;
-      return res;
-    }
-    friend Vector_t operator*(const real_t a, const Vector_t &b) 
-    {
-      return b*a;
-    }
-    /******************/
-    Vector_t& operator+=(const Vector_t &a)
-    {
-      for (int l = 0; l < N; l++)
-        x[l] += a[l];
-      return *this;
-    }
-    Vector_t& operator+=(const real_t a)
-    {
-      for (int l = 0; l < N; l++)
-        x[l] += a;
-      return *this;
-    }
-    friend Vector_t operator+(const Vector_t &a, const Vector_t &b) 
-    {
-      Vector_t res;
-      for (int l = 0; l < N; l++)
-        res[l] = a[l]+b[l];
-      return res;
-    }
-    friend Vector_t operator+(const Vector_t &a, const real_t b) 
-    {
-      Vector_t res;
-      for (int l = 0; l < N; l++)
-        res[l] = a[l]+b;
-      return res;
-    }
-    friend Vector_t operator+(const real_t a, const Vector_t &b) 
-    {
-      return b+a;
-    }
-    /******************/
-    Vector_t& operator-=(const Vector_t &a)
-    {
-      for (int l = 0; l < N; l++)
-        x[l] -= a[l];
-      return *this;
-    }
-    Vector_t& operator-=(const real_t a)
-    {
-      for (int l = 0; l < N; l++)
-        x[l] -= a;
-      return *this;
-    }
-    friend Vector_t operator-(const Vector_t &a, const Vector_t &b) 
-    {
-      Vector_t res;
-      for (int l = 0; l < N; l++)
-        res[l] = a[l]-b[l];
-      return res;
-    }
-    friend Vector_t operator-(const Vector_t &a, const real_t b) 
-    {
-      Vector_t res;
-      for (int l = 0; l < N; l++)
-        res[l] = a[l]-b;
-      return res;
-    }
-    friend Vector_t operator+(const real_t a, const Vector_t &b) 
-    {
-      Vector_t res;
-      for (int l = 0; l < N; l++)
-        res[l] = a - b[l];
-      return res;
-    }
-};
 
 template<int N>
 struct QHull_t
@@ -318,7 +186,6 @@ struct QHull_t
 
     using Simplex =  std::array<Vertex,NDIM+1>;
 
-
     template<int DIM>
     static real_t distance(const Simplex &simplex, vec_t pos)
     {
@@ -349,7 +216,7 @@ struct QHull_t
       }
 
       /* solve coefficients */
-      const auto _x = linSolve<real_t,DIM-1>(_m,_b);
+      const auto& _x = linSolve<real_t,DIM-1>(_m,_b);
 
       /* recontruct tangential part of the vector */
       vec_t pt(0.0);
@@ -357,7 +224,7 @@ struct QHull_t
         pt += _x[l]*vec_t(basis[l]);
 
       /* normal component of the vector */
-      const vec_t pn = pos - pt;
+      const vec_t &pn = pos - pt;
 
       assert(std::abs(dot(pn,pt)) < 1.0e-10*norm2(pos));
 
