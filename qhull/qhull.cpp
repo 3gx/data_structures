@@ -11,11 +11,13 @@ using QHull = QHull_t<N>;
 template<>
 template<>
 void QHull::findExtremeSimplex<2>(
-    const typename Vertex::vector &pos, 
-    Simplex &simplex)
+    const Vertex *pos, 
+    Simplex &simplex,
+    const int np)
 {
+#if 0
+  vec_t rMax(-HUGE);
   real_t xMin = +HUGE, xMax = -HUGE;
-  const int np = pos.size();
   // foreach
   for (int i = 0; i < np; i++)
   {
@@ -31,6 +33,41 @@ void QHull::findExtremeSimplex<2>(
       simplex[1] = p;
     }
   }
+#else
+  vec_t rMin(+HUGE), rMax(-HUGE);
+  std::array<Vertex,NDIM> pMin,pMax;
+
+  for (int i = 0; i < np; i++)
+  {
+    const auto &p = pos[i];
+    for (int l = 0; l < NDIM; l++)
+    {
+      if (p[l] < rMin[l])
+      {
+        rMin[l] = p[l];
+        pMin[l] = p;
+      }
+      if (p[l] > rMax[l])
+      {
+        rMax[l] = p[l];
+        pMax[l] = p;
+      }
+    }
+  }
+  real_t distMax = 0;
+  for (int l = 0; l < NDIM; l++)
+    for (int ll = 0; ll < NDIM; ll++)
+    {
+      const real_t dist = norm2(pMax[l].pos - pMin[ll].pos);
+      if (dist > distMax)
+      {
+        distMax = dist;
+        simplex[0] = pMin[l];
+        simplex[1] = pMax[ll];
+      }
+
+    }
+#endif
 }
 
 QHull::Vertex::vector readData(std::istream &in)
@@ -195,9 +232,68 @@ void dumpGnuPlot(const QHull::Vertex::vector &pos, const QHull &q, std::ostream 
     
 }
 
+#if 0
+#define TESTPLANEQ
+void testPlaneEquations()
+{
+  using Vertex = QHull::Vertex;
+  using Basis  = QHull::Basis;
+  Basis v;
+  //
+  v[0][0] = 0.0;
+  v[0][1] = 0.0;
+  v[0][2] = 0.0;
+  //
+  v[1][0] = 1.0;
+  v[1][1] = 0.0;
+  v[1][2] = 0.0;
+  //
+  v[2][0] = 0.5;
+  v[2][1] = 1.0;
+  v[2][2] = 0.5;
+
+  Vertex p;
+  p[0] = 0.5;
+  p[1] = 0.5;
+  p[2] = 0.5;
+
+  std::cout << "splot";
+  std::cout << " '-' with points, '-' with lines lc 3 notitle, '-' with vector lc 2 notitle";
+  std::cout << ";\n";
+  std::cout << p[0] << " ";
+  std::cout << p[1] << " ";
+  std::cout << p[2] << " ";
+  std::cout << "\ne\n";
+  const int vtx[4] =  {0,1,2,0};
+  for (auto i : vtx)
+  {
+    for (int l = 0; l < 3 ; l++)
+      std::cout << v[i][l] << " ";
+    std::cout << "\n";
+  }
+  std::cout << "e\n";
+  const auto &plane = QHull::planeEquation(v, p, +1.0);
+#if 0
+  std::cout << " 0.25 0.25 0.0 ";
+  std::cout << 0.25+plane.first[0] << " ";
+  std::cout << 0.25+plane.first[1] << " ";
+  std::cout << plane.first[2] << " \n";
+#else
+  std::cout << " 0 0 0.0 ";
+  std::cout << plane.first[0] << " ";
+  std::cout << plane.first[1] << " ";
+  std::cout << plane.first[2] << " \n";
+#endif
+}
+#endif
+
 
 int main(int argc, char*argv[])
 {
+#ifdef TESTPLANEQ
+  testPlaneEquations();
+  return 0;
+#endif
   std::ifstream ifs;
   if (argc > 1)
   {

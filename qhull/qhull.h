@@ -6,6 +6,9 @@
 #include <stack>
 #include <cassert>
 #include <cmath>
+#include <iostream>
+
+#define _EPS (1.0e-10)
 
 
 #include "vector.h"
@@ -37,21 +40,44 @@ struct QHull_t
     static std::pair<vec_t,real_t> planeEquation(
         const Basis &vtx,  /* first NDIM vectors for facets, NDIM+1 vector is used for orientation */
         const vec_t &posO,
-        const real_t  orientation = -1.0)
+        real_t  orientation)
     {
       /* compte centre of the facet */
       vec_t centre(0.0);
       for (int l = 0; l < NDIM; l++)
         centre += vtx[l];
       centre *= 1.0/NDIM;
+#if 0
+      if (orientation == 1.1)
+      {
+        std::cout << "0 0 0 ";
+        std::cout << centre[0] << " ";
+        std::cout << centre[1] << " ";
+        std::cout << centre[2] << " \n";
+      }
+#endif
 
       /* compute facet basis */
       std::array<vec_t,NDIM-1> basis;
       for (int l = 0; l < NDIM-1; l++)
+      {
         basis[l] = vtx[l] - centre;
+#if 0
+        if (orientation == 1.1)
+        {
+        std::cout << centre[0] << " ";
+        std::cout << centre[1] << " ";
+        std::cout << centre[2] << " ";
+        std::cout << basis[l][0] << " ";
+        std::cout << basis[l][1] << " ";
+        std::cout << basis[l][2] << " \n";
+        }
+#endif
+      }
+
 
       /* compute orientation vector */
-      const vec_t &pos = (posO - centre)*orientation;
+      const vec_t &pos = posO - centre;
       
 
       std::array<std::array<real_t,NDIM-1>,NDIM-1> _m;
@@ -66,17 +92,38 @@ struct QHull_t
       /* solve coefficients */
       const auto& _x = linSolve<real_t,NDIM-1>(_m,_b);
 
-      return std::make_pair(centre, 0.0);
       /* recontruct tangential part of the vector */
       vec_t pt(0.0);
       for (int l = 0; l < NDIM-1; l++)
         pt += _x[l]*vec_t(basis[l]);
 
+#if 0
+        if (orientation == 1.1)
+        {
+        std::cout <<  "0 ";
+        std::cout <<  "0 ";
+        std::cout <<  "0 ";
+        std::cout << posO[0] << " ";
+        std::cout << posO[1] << " ";
+        std::cout << posO[2] << " \n";
+        std::cout << centre[0] << " ";
+        std::cout << centre[1] << " ";
+        std::cout << centre[2] << " ";
+        std::cout << pt[0] << " ";
+        std::cout << pt[1] << " ";
+        std::cout << pt[2] << " \n";
+        }
+#endif
+
       /* normal component of the vector */
       const vec_t &pn = pos - pt;
 
-      const vec_t  n = pn * (1.0/norm(pn));
-      const real_t p = dot(n , centre);
+#if 0
+      if (orientation == 1.1)
+        orientation = 1.0;
+#endif
+      const vec_t  n = pn * (1.0/norm(pn)) * orientation;
+      const real_t p = -dot(n , centre);
 
       return std::make_pair(n,p);
     }
@@ -95,14 +142,14 @@ struct QHull_t
         return dot(plane.first,pos) + plane.second;
       }
 
-      Facet makeFace(const Vertex &p, const int facetIdx) const
+      Facet makeFacet(const Vertex &p, const int facetIdx) const
       {
         assert(facetIdx >= 0 && facetIdx < NDIM);
 
         Facet f;
         f.vtx           = vtx;
         f.vtx[facetIdx] = p;
-        f.plane         = planeEquation(f.vtx, vtx[facetIdx]);
+        f.plane         = planeEquation(f.vtx, vtx[facetIdx],-1.0);
 
         return f;
       }
@@ -112,7 +159,8 @@ struct QHull_t
 
     struct FacetMD  /* facet metadata */
     {
-      using stack = std::stack<FacetMD>;
+      using stack  = std::stack<FacetMD>;
+      using vector = std::vector<FacetMD>;
       typename Facet::listIterator it;
       Vertex *pBuf;
       int pbeg, pend;
@@ -121,12 +169,13 @@ struct QHull_t
     };
     typename FacetMD::stack facetStack;
 
-    bool partition(const FacetMD &fmd, Vertex *pBuf)
+    typename FacetMD::vector partition(const FacetMD &fmd, Vertex *pBuf)
     {
+      typename FacetMD::vector newFacetsMD;
       const int np = fmd.pend - fmd.pbeg;
       /* no particles left to partition */
       if (np == 0)
-        return false;
+        return newFacetsMD;
 
       /* find max distances */
       real_t distMax = 0;
@@ -143,9 +192,70 @@ struct QHull_t
       }
       assert(distMax > 0);
 
+#if 1
+      {
+        std::cout << "splot";
+        std::cout << " '-' with points notitle, '-' with lines lc 3 notitle, '-' with lines lc 2 notitle";
+        // std::cout << " '-' with points notitle, '-' with lines lc 3 notitle, '-' with vector lc 2 notitle";
+        std::cout << ";\n";
+        fprintf(stderr, " beg= %d  end= %d\n", fmd.pbeg, fmd.pend);
+        for (int i = fmd.pbeg; i < fmd.pend; i++)
+        {
+          const auto &p = fmd.pBuf[i];
+          assert(fmd.it->distance(p) >= 0.0);
+          if (i == 978)
+            for (int l = 0; l < NDIM; l++)
+              std::cout << p[l] << " ";
+          std::cout << "\n";
+        }
+        std::cout << "e\n";
+      }
+#endif
+
       Facet facets[NDIM];
+#if 1
       for (int i = 0; i < NDIM; i++)
-        facets[i] = fmd.it->makeFace(pMax, i);
+      {
+        facets[i] = fmd.it->makeFacet(pMax, i);
+#if 1
+        {
+          const int vtx[4] =  {0,1,2,0};
+          for (auto ii : vtx)
+          {
+            for (int l = 0; l < 3 ; l++)
+              std::cout << facets[i].vtx[ii][l] << " ";
+            std::cout << "\n";
+          }
+        }
+#endif
+      }
+#if 1
+      std::cout << "e\n";
+#endif
+#endif
+
+#if 1
+      {
+        const int vtx[4] =  {0,1,2,0};
+        for (auto i : vtx)
+        {
+          for (int l = 0; l < 3 ; l++)
+            std::cout << fmd.it->vtx[i][l] << " ";
+          std::cout << "\n";
+        }
+        std::cout << "e\n";
+#if 0
+        const auto &plane = fmd.it->plane;
+        std::cout << "0";
+        std::cout << " 0";
+        std::cout << " 0 ";
+        std::cout << plane.first[0] << " ";
+        std::cout << plane.first[1] << " ";
+        std::cout << plane.first[2] << " ";
+        std::cout << "\ne\n";
+#endif
+      }
+#endif
 
       /* count particles belonging to each of the new face */
 
@@ -157,14 +267,19 @@ struct QHull_t
         const auto &p = fmd.pBuf[i];
         bool used = false;
         for (int l = 0; l < NDIM; l++)
-          if (facets[l].distance(p) >= 0)
+          if (facets[l].distance(p) > 0)
           {
+            if (used)
+              for (int ll = 0; ll < NDIM; ll++)
+                fprintf(stderr," ll= %d : dist= %g \n",
+                    ll, facets[ll].distance(p));
             assert(!used);
             count[l]++;
             whichFacet[i-fmd.pbeg] = l;
             used = true;
           }
       }
+      assert(0);
 
       /* compute offset */
       int pbeg[NDIM] = {0};
@@ -186,16 +301,17 @@ struct QHull_t
       /* remove old face */
       facetList.erase(fmd.it);
 
+      newFacetsMD.reserve(NDIM);
       /* push new faces to the stack */
       for (int l = 0; l < NDIM; l++)
       {
         auto it = fmd.it;
         facetList.insert(it, facets[l]);
         it--;
-        facetStack.push(FacetMD(it, pBuf, pbeg[l], pend[l]));
+        newFacetsMD.push_back(FacetMD(it, pBuf, pbeg[l], pend[l]));
       }
 
-      return true;
+      return newFacetsMD;
     }
 
     using Simplex =  std::array<Vertex,NDIM+1>;
@@ -241,16 +357,15 @@ struct QHull_t
       /* normal component of the vector */
       const vec_t &pn = pos - pt;
 
-      assert(std::abs(dot(pn,pt)) < 1.0e-10*norm2(pos));
+      assert(std::abs(dot(pn,pt)) < _EPS*norm2(pos));
 
       return norm2(pn);
     }
     
     template<int DIM>
-    static void findExtremeSimplex(const typename Vertex::vector &pos, Simplex &simplex)
+    static void findExtremeSimplex(const Vertex *pos, Simplex &simplex, const int np)
     {
-      findExtremeSimplex<DIM-1>(pos, simplex);
-      const int np = pos.size();
+      findExtremeSimplex<DIM-1>(pos, simplex,np);
       real_t distMax = 0;
       for (int i = 0; i < np; i++)
       {
@@ -265,57 +380,92 @@ struct QHull_t
     }
 
 
-    void findExtremeSimplex(const typename Vertex::vector &pos)
+    void findExtremeSimplex(Vertex *pBuf1, Vertex *pBuf2, const int np)
     {
       Simplex simplex;
-      findExtremeSimplex<NDIM+1>(pos, simplex);
+      findExtremeSimplex<NDIM+1>(pBuf1, simplex, np);
 
       extremeSimplex = simplex;
 
       /* reconstruct facets of the simplex with an outward looking normal */
-      Facet facets[NDIM+1];
+      Facet facets[2];
 
+      for (int l = 0; l < NDIM; l++)
+        facets[0].vtx[l] = facets[1].vtx[l] = simplex[l];
+      facets[0].plane = planeEquation(facets[0].vtx, simplex[NDIM],-1.0);
+      facets[1].plane = planeEquation(facets[1].vtx, simplex[NDIM],+1.0);
+      assert(std::abs(dot(facets[0].plane.first, facets[1].plane.first) + 1.0) < _EPS);
+      fprintf(stderr, " -- %d\n", simplex[NDIM].idx);
 
-      for (int l = 0; l < NDIM+1; l++)
+      /* sanity check */
+      for (int i = 0; i < np; i++)
       {
-        Facet &f = facets[l];
-        std::swap(simplex[l], simplex[NDIM]);
-        for (int ll = 0; ll < NDIM; ll++)
-          f.vtx[ll] = simplex[ll];
-        std::swap(simplex[l], simplex[NDIM]);
-        f.plane = planeEquation(f.vtx, simplex[l]);
+        const auto &p = pBuf1[i];
+        assert(
+                (facets[0].distance(p) >= 0.0 && facets[1].distance(p) <= 0.0)
+            ||  (facets[1].distance(p) >= 0.0 && facets[0].distance(p) <= 0.0)
+         );
       }
 
-#if 0
-      /* push new faces to the stack */
-      for (int l = 0; l < NDIM+1; l++)
+
+      int count = 0;
+      for (int i = 0; i < np; i++)
+        if (facets[0].distance(pBuf1[i]) >= 0.0)
+          count++;
+
+      /*********** {outer, inner} ********/
+      int pbeg[] = {0, count};
+      int pend[] = {0, count};
+
+      for (int i = 0; i < np; i++)
       {
-        facetList.insert(facets[l]);
-        auto it = facetList.end();
+        const auto &p = pBuf1[i];
+        if (facets[0].distance(p) >= 0.0)
+          pBuf2[pend[0]++] = p;
+        else
+        {
+          assert(facets[1].distance(p) >= 0.0);
+          pBuf2[pend[1]++] = p;
+        }
+      }
+      assert(pend[1] == np);
+
+      assert(facetList.empty());
+      typename FacetMD::vector fmdVec;
+      fmdVec.reserve(2);
+      for (int l = 0; l < 2; l++)
+      {
+        facetList.push_back(facets[l]);
+        auto it = facetList.end(); 
         it--;
-        facetStack.push(FacetMD(it, pBuf, pbeg[l], pend[l]));
+        fmdVec.push_back(FacetMD(it, pBuf2, pbeg[l], pend[l]));
       }
-#endif
 
-
+      const auto& newFacetsMD = partition(fmdVec[1], pBuf1);
+      for (auto &fmd : newFacetsMD)
+        facetStack.push(fmd);
     }
 
     void convexHull(const typename Vertex::vector &pos)
     {
       typename Vertex::vector pos1(pos), pos2(pos.size());
+      Vertex *pBuf1 = &pos1[0];
+      Vertex *pBuf2 = &pos2[0];
 
-      findExtremeSimplex(pos);
+      const int np = pos.size();
+      findExtremeSimplex(pBuf1, pBuf2, np);
+      return;
 
       while (!facetStack.empty())
         facetStack.pop();
 
-      Vertex *pBuf1 = &pos1[0];
-      Vertex *pBuf2 = &pos2[0];
       while (!facetStack.empty())
       {
         const auto fmd = facetStack.top();
         facetStack.pop();
-        partition(fmd, fmd.pBuf == pBuf1 ? pBuf2 : pBuf1);
+        const auto& newFacetsMD = partition(fmd, fmd.pBuf == pBuf1 ? pBuf2 : pBuf1);
+        for (auto &fmd : newFacetsMD)
+          facetStack.push(fmd);
       }
 
       facetVector.clear();
