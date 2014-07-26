@@ -203,7 +203,7 @@ struct QHull_t
         {
           const auto &p = fmd.pBuf[i];
           assert(fmd.it->distance(p) >= 0.0);
-          if (i == 978)
+          if (i == 925)
             for (int l = 0; l < NDIM; l++)
               std::cout << p[l] << " ";
           std::cout << "\n";
@@ -271,8 +271,8 @@ struct QHull_t
           {
             if (used)
               for (int ll = 0; ll < NDIM; ll++)
-                fprintf(stderr," ll= %d : dist= %g \n",
-                    ll, facets[ll].distance(p));
+                fprintf(stderr," i= %d ll= %d : dist= %g \n",
+                    i, ll, facets[ll].distance(p));
             assert(!used);
             count[l]++;
             whichFacet[i-fmd.pbeg] = l;
@@ -395,7 +395,6 @@ struct QHull_t
       facets[0].plane = planeEquation(facets[0].vtx, simplex[NDIM],-1.0);
       facets[1].plane = planeEquation(facets[1].vtx, simplex[NDIM],+1.0);
       assert(std::abs(dot(facets[0].plane.first, facets[1].plane.first) + 1.0) < _EPS);
-      fprintf(stderr, " -- %d\n", simplex[NDIM].idx);
 
       /* sanity check */
       for (int i = 0; i < np; i++)
