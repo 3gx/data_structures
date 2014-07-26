@@ -47,32 +47,12 @@ struct QHull_t
       for (int l = 0; l < NDIM; l++)
         centre += vtx[l];
       centre *= 1.0/NDIM;
-#if 0
-      if (orientation == 1.1)
-      {
-        std::cout << "0 0 0 ";
-        std::cout << centre[0] << " ";
-        std::cout << centre[1] << " ";
-        std::cout << centre[2] << " \n";
-      }
-#endif
 
       /* compute facet basis */
       std::array<vec_t,NDIM-1> basis;
       for (int l = 0; l < NDIM-1; l++)
       {
         basis[l] = vtx[l] - centre;
-#if 0
-        if (orientation == 1.1)
-        {
-        std::cout << centre[0] << " ";
-        std::cout << centre[1] << " ";
-        std::cout << centre[2] << " ";
-        std::cout << basis[l][0] << " ";
-        std::cout << basis[l][1] << " ";
-        std::cout << basis[l][2] << " \n";
-        }
-#endif
       }
 
 
@@ -97,31 +77,9 @@ struct QHull_t
       for (int l = 0; l < NDIM-1; l++)
         pt += _x[l]*vec_t(basis[l]);
 
-#if 0
-        if (orientation == 1.1)
-        {
-        std::cout <<  "0 ";
-        std::cout <<  "0 ";
-        std::cout <<  "0 ";
-        std::cout << posO[0] << " ";
-        std::cout << posO[1] << " ";
-        std::cout << posO[2] << " \n";
-        std::cout << centre[0] << " ";
-        std::cout << centre[1] << " ";
-        std::cout << centre[2] << " ";
-        std::cout << pt[0] << " ";
-        std::cout << pt[1] << " ";
-        std::cout << pt[2] << " \n";
-        }
-#endif
-
       /* normal component of the vector */
       const vec_t &pn = pos - pt;
 
-#if 0
-      if (orientation == 1.1)
-        orientation = 1.0;
-#endif
       const vec_t  n = pn * (1.0/norm(pn)) * orientation;
       const real_t p = -dot(n , centre);
 
@@ -179,6 +137,7 @@ struct QHull_t
 
       /* find max distances */
       real_t distMax = 0;
+      int iMax = -1;
       Vertex  pMax;
       for (int i = fmd.pbeg; i < fmd.pend; i++)
       {
@@ -188,11 +147,12 @@ struct QHull_t
         {
           distMax = dist;
           pMax    = p;
+          iMax    = i;
         }
       }
       assert(distMax > 0);
 
-#if 1
+#if 0
       {
         std::cout << "splot";
         std::cout << " '-' with points notitle, '-' with lines lc 3 notitle, '-' with lines lc 2 notitle";
@@ -203,9 +163,13 @@ struct QHull_t
         {
           const auto &p = fmd.pBuf[i];
           assert(fmd.it->distance(p) >= 0.0);
-          if (i == 925)
+          if (i == 380)
+          {
             for (int l = 0; l < NDIM; l++)
               std::cout << p[l] << " ";
+            fprintf(stderr, "dist= %g \n", fmd.it->distance(p));
+            fprintf(stderr, "dist0= %g \n", fmd.it->distance(pMax));
+          }
           std::cout << "\n";
         }
         std::cout << "e\n";
@@ -213,11 +177,10 @@ struct QHull_t
 #endif
 
       Facet facets[NDIM];
-#if 1
       for (int i = 0; i < NDIM; i++)
       {
         facets[i] = fmd.it->makeFacet(pMax, i);
-#if 1
+#if 0
         {
           const int vtx[4] =  {0,1,2,0};
           for (auto ii : vtx)
@@ -229,12 +192,11 @@ struct QHull_t
         }
 #endif
       }
-#if 1
+#if 0
       std::cout << "e\n";
 #endif
-#endif
 
-#if 1
+#if 0
       {
         const int vtx[4] =  {0,1,2,0};
         for (auto i : vtx)
@@ -263,7 +225,12 @@ struct QHull_t
       std::vector<int> whichFacet(np);
 
       for (int i = fmd.pbeg; i < fmd.pend; i++)
+        assert(fmd.it->distance(fmd.pBuf[i]) > 0.0);
+
+      for (int i = fmd.pbeg; i < fmd.pend; i++)
       {
+        if (i == iMax)
+          continue;
         const auto &p = fmd.pBuf[i];
         bool used = false;
         for (int l = 0; l < NDIM; l++)
@@ -277,23 +244,24 @@ struct QHull_t
             count[l]++;
             whichFacet[i-fmd.pbeg] = l;
             used = true;
+            break;
           }
       }
-      assert(0);
 
       /* compute offset */
-      int pbeg[NDIM] = {0};
-      int pend[NDIM] = {0};
+      int pbeg[NDIM] = {fmd.pbeg};
+      int pend[NDIM] = {fmd.pbeg};
       for (int l = 1; l < NDIM; l++)
       {
-        pbeg[l] = pbeg[l-1] + count[l-1] + fmd.pbeg;
+        pbeg[l] = pbeg[l-1] + count[l-1];
         pend[l] = pbeg[l  ];
       }
-      assert(pbeg[NDIM-1] + count[NDIM-1] == fmd.pend - fmd.pbeg);
 
       /* sort */
       for (int i = fmd.pbeg; i < fmd.pend; i++)
       {
+        if (i == iMax)
+          continue;
         const int l = whichFacet[i-fmd.pbeg];
         pBuf[pend[l]++] = fmd.pBuf[i];
       }
@@ -409,8 +377,21 @@ struct QHull_t
 
       int count = 0;
       for (int i = 0; i < np; i++)
-        if (facets[0].distance(pBuf1[i]) >= 0.0)
+      {
+        const auto &p = pBuf1[i];
+
+        bool inUse = false;
+        for (int l = 0; l < NDIM; l++)
+          if (p.idx == facets[0].vtx[l].idx)
+          {
+            inUse = true;
+            break;
+          }
+        if (inUse) 
+          continue;
+        if (facets[0].distance(p) >= 0.0)
           count++;
+      }
 
       /*********** {outer, inner} ********/
       int pbeg[] = {0, count};
@@ -419,6 +400,17 @@ struct QHull_t
       for (int i = 0; i < np; i++)
       {
         const auto &p = pBuf1[i];
+
+        bool inUse = false;
+        for (int l = 0; l < NDIM; l++)
+          if (p.idx == facets[0].vtx[l].idx)
+          {
+            inUse = true;
+            break;
+          }
+        if (inUse) 
+          continue;
+
         if (facets[0].distance(p) >= 0.0)
           pBuf2[pend[0]++] = p;
         else
@@ -427,7 +419,9 @@ struct QHull_t
           pBuf2[pend[1]++] = p;
         }
       }
-      assert(pend[1] == np);
+      fprintf(stderr, " 0: pbeg= %d  pend= %d\n", pbeg[0],pend[0]);
+      fprintf(stderr, " 1: pbeg= %d  pend= %d\n", pbeg[1],pend[1]);
+      assert(pend[1] == np-NDIM);
 
       assert(facetList.empty());
       typename FacetMD::vector fmdVec;
