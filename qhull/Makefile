@@ -1,4 +1,5 @@
 CXX=g++-mp-4.8
+CXX=g++
 #CXX=clang++
 #CXX=~/usr/local/llvm/bin-3.4/bin/clang++
 LD=$(CXX)
