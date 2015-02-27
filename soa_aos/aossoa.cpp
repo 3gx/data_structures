@@ -10,20 +10,23 @@ using real_t = double;
 using real_t = float;
 #endif
 
+/* Base class describing the AoS */
 template<typename T>
 struct DataBaseT
 {
-  T a, b, c, d, e;
-  DataBaseT() {}
-  DataBaseT(
-      const T &_a, 
-      const T &_b, 
-      const T &_c, 
-      const T &_d, 
-      const T &_e) : a(_a), b(_b), c(_c), d(_d), e(_e) {}
-  DataBaseT(const T &x) : a(x), b(x), c(x), d(x), e(x) {}
-  template<typename TT>
-    void copy(const TT val)
+  public:
+    T a, b, c, d, e;
+    DataBaseT() {}
+    DataBaseT(
+        const T &_a,
+        const T &_b,
+        const T &_c,
+        const T &_d,
+        const T &_e) : a(_a), b(_b), c(_c), d(_d), e(_e) {}
+    DataBaseT(const T &x) : a(x), b(x), c(x), d(x), e(x) {}
+
+  protected:
+    template<typename TT> void copy(const TT val)
     {
       a = val.a;
       b = val.b;
