@@ -127,13 +127,12 @@ struct DataRefT : public DataRefBaseT<DataT, typename DataT::ref_t>
 {
   using Tref  = typename DataT::ref_t;
   using Tscal = typename DataT::scal_t;
-  using Tiref = typename DataT::iref_t;
   DataRefT(
       Tscal &a,
       Tscal &b,
       Tscal &c,
       Tscal &d,
-      Tscal &e) : DataRefBaseT<DataT, Tref>(a,b,c,d,e) {}
+      Tscal &e) : DataRefBaseT<DataT,Tref>(a,b,c,d,e) {}
   void operator=(const DataIRefT<DataT> p) { this->copy(p); }
   void operator=(const DataRefT<DataT>  p) { this->copy(p); }
   void operator=(const DataT           &p) { this->copy(p); }
@@ -141,7 +140,6 @@ struct DataRefT : public DataRefBaseT<DataT, typename DataT::ref_t>
 template<typename DataT>
 struct DataIRefT : public DataRefBaseT<DataT, typename DataT::iref_t>
 {
-  using Tref  = typename DataT::ref_t;
   using Tscal = typename DataT::scal_t;
   using Tiref = typename DataT::iref_t;
   DataIRefT(
