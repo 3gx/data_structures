@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 #include "simd.h"
 
 #ifndef FP32
@@ -243,6 +244,7 @@ int main(int argc, char * argv[])
   cout << "\nfilling array \n"; 
 
   DataSoA array(n);
+#pragma ivdep
   for (int i = 0; i < n; i++)
   {
 #if 0
@@ -264,6 +266,7 @@ int main(int argc, char * argv[])
   }
 
   cout << "\nprinting array \n"; 
+#pragma ivdep
   for (int i= 0; i < n; i++)
   {
     const auto&& pp = array[i];
@@ -277,9 +280,29 @@ int main(int argc, char * argv[])
   }
 
   ///////
+  std::vector<Data> darray(n);
+  std::vector<Data> dres(n);
+  asm("#test1a");
+#pragma ivdep
+  for (int i = 1; i < n-1; i++)
+  {
+    Data d0 = darray[i];
+    Data d1 = darray[i-1];
+    Data d2 = darray[i+1];
+#if 0
+    d0.a = d0.a*d1.b + d2.c;
+    d0.b = d0.b*d0.d + d1.c;
+    res[i] = (d0/d1 + d0.b) * d2 + d0.a;
+#else
+    dres[i] = d0/d1 + d2;
+#endif
+  }
+
+  asm("#test2a");
 
   DataSoA res(n);
   asm("#test1");
+#pragma ivdep
   for (int i = 1; i < n-1; i++)
   {
     Data d0 = array[i];
@@ -290,7 +313,7 @@ int main(int argc, char * argv[])
     d0.b = d0.b*d0.d + d1.c;
     res[i] = (d0/d1 + d0.b) * d2 + d0.a;
 #else
-    res[i] = d0*d1 + d2;
+    res[i] = d0/d1 + d2;
 #endif
   }
 
@@ -344,16 +367,28 @@ int main(int argc, char * argv[])
       << pp.e  << " "
       << endl;
   }
+  
+  //////
+  
+  cout << "VLEN= " << Simd<real_t>::VLEN << endl;
+  cout << "sizeof(Data):     " << sizeof(Data)     << " = " << sizeof(Data)/sizeof(real_t) << "x real_t" << endl;
+  cout << "sizeof(SimdData): " << sizeof(SimdData) << " = " << sizeof(SimdData)/sizeof(real_t) << "x real_t" << endl;
 
   std::vector<int> idx_src(n), idx_dst(n);
+  std::iota(idx_src.begin(), idx_src.end(), 0);
+  std::random_shuffle(idx_src.begin(), idx_src.end());
+  std::iota(idx_dst.begin(), idx_dst.end(), 0);
+  std::random_shuffle(idx_dst.begin(), idx_dst.end());
+
 #if 1
   asm("#test3");
   auto& res1 = res;
+#pragma ivdep
   for (int i = 0; i < n; i++)
   {
     const auto src = (idx_src[i]);
     const auto dst = (idx_dst[i]);
-    auto p  = array[src];
+    auto p  = array[src] + dres[src];
     p.a = p.b;
     auto res = p.a*p.a + p.b*p.b + p.c*p.c;
     res1[dst].a = res;
@@ -366,7 +401,7 @@ int main(int argc, char * argv[])
     d.c = res/res + res;
     d.d = res*res*res-res;
     d.e = res/(res*res - res);
-    res1[dst] = array[src]; // + res1[dst];
+    res1[dst] = array[src]; // + res1[dst] + d;
   };
   asm("#test4");
 #endif
@@ -395,11 +430,6 @@ int main(int argc, char * argv[])
   asm("#testvec4");
 #endif
 
-  //////
-  
-  cout << "VLEN= " << Simd<real_t>::VLEN << endl;
-  cout << "sizeof(Data):     " << sizeof(Data)     << " = " << sizeof(Data)/sizeof(real_t) << "x real_t" << endl;
-  cout << "sizeof(SimdData): " << sizeof(SimdData) << " = " << sizeof(SimdData)/sizeof(real_t) << "x real_t" << endl;
 
   return 0;
 }
