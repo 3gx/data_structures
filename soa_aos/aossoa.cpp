@@ -22,11 +22,30 @@ struct DataBaseT
       const T &_d, 
       const T &_e) : a(_a), b(_b), c(_c), d(_d), e(_e) {}
   DataBaseT(const T &x) : a(x), b(x), c(x), d(x), e(x) {}
+  template<typename TT>
+    void copy(const TT val)
+    {
+      a = val.a;
+      b = val.b;
+      c = val.c;
+      d = val.d;
+      e = val.e;
+    }
 };
+
+template<typename DataT>
+struct DataRefT;
+template<typename DataT>
+struct DataIRefT;
 
 template<typename T, typename Tref, typename Tscal = T, typename Tiref = Tref>
 struct DataT : public DataBaseT<T>
 {
+  using type = T;
+  using ref_t  = Tref;
+  using scal_t = Tscal;
+  using iref_t = Tiref;
+
   DataT() : DataBaseT<T>() {}
   DataT(
       const T &a,
@@ -35,56 +54,6 @@ struct DataT : public DataBaseT<T>
       const T &d,
       const T &e) : DataBaseT<T>(a,b,c,d,e) {}
   DataT(const T   &a) : DataBaseT<T>(a) {}
-  DataT(const Tref a) : DataBaseT<T>(a) {}
-
-  struct Ref : public DataBaseT<Tref>
-  {
-    Ref(
-      Tscal &a,
-      Tscal &b,
-      Tscal &c,
-      Tscal &d,
-      Tscal &e) : DataBaseT<Tref>(a,b,c,d,e) {}
-    Ref(Tscal &a) : DataBaseT<Tref>(a) {}
-
-    void operator=(const DataT &p)
-    {
-      DataBaseT<Tref>::a = p.a;
-      DataBaseT<Tref>::b = p.b;
-      DataBaseT<Tref>::c = p.c;
-      DataBaseT<Tref>::d = p.d;
-      DataBaseT<Tref>::e = p.e;
-    }
-  };
-  struct IndirectRef : public DataBaseT<Tiref>
-  {
-    IndirectRef(
-      Tscal &a,
-      Tscal &b,
-      Tscal &c,
-      Tscal &d,
-      Tscal &e,
-      const Simd<int> &idx) : 
-      DataBaseT<Tiref>(
-          Tiref(a,idx),
-          Tiref(b,idx),
-          Tiref(c,idx),
-          Tiref(d,idx),
-          Tiref(e,idx)) {}
-    IndirectRef(Tiref &a) : DataBaseT<Tiref>(a) {}
-
-    void operator=(const DataT &p)
-    {
-      DataBaseT<Tiref>::a = p.a;
-      DataBaseT<Tiref>::b = p.b;
-      DataBaseT<Tiref>::c = p.c;
-      DataBaseT<Tiref>::d = p.d;
-      DataBaseT<Tiref>::e = p.e;
-    }
-  };
-
-  DataT(const Ref p) : DataBaseT<T>(p.a,p.b,p.c,p.d,p.e) {}
-  DataT(const IndirectRef p) : DataBaseT<T>(p.a,p.b,p.c,p.d,p.e) {}
   friend DataT operator+(const DataT &x, const DataT &y) 
   {
     return DataT(
@@ -125,67 +94,99 @@ struct DataT : public DataBaseT<T>
         x.e / y.e);
 
   }
-
-#ifdef __clang__
-  template<typename T1, typename T2>
-    friend DataT operator+(const T1 x, const T2 y) 
-    {
-      return DataT(x) + DataT(y);
-    }
-  template<typename T1, typename T2>
-    friend DataT operator*(const T1 x, const T2 y) 
-    {
-      return DataT(x) * DataT(y);
-    }
-  template<typename T1, typename T2>
-    friend DataT operator/(const T1 x, const T2 y) 
-    {
-      return DataT(x) / DataT(y);
-    }
-  template<typename T1, typename T2>
-    friend DataT operator-(const T1 x, const T2 y) 
-    {
-      return DataT(x) - DataT(y);
-    }
-#endif
+  void operator=(const DataIRefT<DataT> p) { this->copy(p); }
+  void operator=(const DataRefT<DataT>  p) { this->copy(p); }
+  void operator=(const DataT           &p) { this->copy(p); }
 };
 
-using Data        = DataT<real_t, real_t&>;
-using DataRef     = Data::Ref;
-using SimdData    = DataT<Simd<real_t>, SimdRefT<real_t>, real_t, SimdIndirectRefT<real_t>>;
-using SimdDataRef = SimdData::Ref;
-using SimdDataIndirectRef = SimdData::IndirectRef;
+template<typename DataT, typename Tref>
+struct DataRefBaseT : public DataBaseT<Tref>
+{
+  DataRefBaseT(
+      Tref a,
+      Tref b,
+      Tref c,
+      Tref d,
+      Tref e) : DataBaseT<Tref>(a,b,c,d,e) {}
+  operator DataT() const  
+  {
+    return DataT(
+        this->a,
+        this->b,
+        this->c,
+        this->d,
+        this->e);
+  }
+};
 
-#if 0
-template<typename T1, typename T2>
-static SimdData operator+(const T1 x, const T2 y) 
+template<typename DataT>
+struct DataRefT : public DataRefBaseT<DataT, typename DataT::ref_t>
 {
-  return SimdData(x) + SimdData(y);
-}
-template<typename T1, typename T2>
-static SimdData operator*(const T1 x, const T2 y) 
+  using Tref  = typename DataT::ref_t;
+  using Tscal = typename DataT::scal_t;
+  using Tiref = typename DataT::iref_t;
+  DataRefT(
+      Tscal &a,
+      Tscal &b,
+      Tscal &c,
+      Tscal &d,
+      Tscal &e) : DataRefBaseT<DataT, Tref>(a,b,c,d,e) {}
+  void operator=(const DataIRefT<DataT> p) { this->copy(p); }
+  void operator=(const DataRefT<DataT>  p) { this->copy(p); }
+  void operator=(const DataT           &p) { this->copy(p); }
+};
+template<typename DataT>
+struct DataIRefT : public DataRefBaseT<DataT, typename DataT::iref_t>
 {
-  return SimdData(x) * SimdData(y);
-}
-template<typename T1, typename T2>
-static SimdData operator/(const T1 x, const T2 y) 
-{
-  return SimdData(x) / SimdData(y);
-}
-template<typename T1, typename T2>
-static SimdData operator-(const T1 x, const T2 y) 
-{
-  return SimdData(x) - SimdData(y);
-}
-#endif
+  using Tref  = typename DataT::ref_t;
+  using Tscal = typename DataT::scal_t;
+  using Tiref = typename DataT::iref_t;
+  DataIRefT(
+      Tscal &a,
+      Tscal &b,
+      Tscal &c,
+      Tscal &d,
+      Tscal &e,
+      const Simd<int> &idx) : 
+    DataRefBaseT<DataT, Tiref>(
+        Tiref(a,idx),
+        Tiref(b,idx),
+        Tiref(c,idx),
+        Tiref(d,idx),
+        Tiref(e,idx)) {}
+  void operator=(const DataIRefT<DataT> p) { this->copy(p); }
+  void operator=(const DataRefT<DataT>  p) { this->copy(p); }
+  void operator=(const DataT           &p) { this->copy(p); }
+};
+ 
+using Data         = DataT<real_t, real_t&>;
+using DataRef      = DataRefT<Data>;
+using SimdData     = DataT    <Simd<real_t>, SimdRefT<real_t>, real_t, SimdIRefT<real_t>>;
+using SimdDataRef  = DataRefT <SimdData>;
+using SimdDataIRef = DataIRefT<SimdData>;
 
-#if 0
-  template<template<typename...> class Tref1, template<typename> class Tref2, typename... T>
-static inline DataT<T...> operator+(const Tref1<T> x, const Tref2<T> y)
+template<template<typename> class T1, template<typename> class T2>
+static SimdData operator+(const T1<SimdData> x, const T2<SimdData> y) 
 {
-  return Simd<T>(x) + Simd<T>(y);
+  return static_cast<SimdData>(x) + static_cast<SimdData>(y);
 }
-#endif
+template<template<typename> class T1, template<typename> class T2>
+static SimdData operator-(const T1<SimdData> x, const T2<SimdData> y) 
+{
+  return static_cast<SimdData>(x) - static_cast<SimdData>(y);
+}
+template<template<typename> class T1, template<typename> class T2>
+static SimdData operator*(const T1<SimdData> x, const T2<SimdData> y) 
+{
+  return static_cast<SimdData>(x) * static_cast<SimdData>(y);
+}
+template<template<typename> class T1, template<typename> class T2>
+static SimdData operator/(const T1<SimdData> x, const T2<SimdData> y) 
+{
+  return static_cast<SimdData>(x) / static_cast<SimdData>(y);
+}
+
+/////////////
 
 struct DataSoA
 {
@@ -222,9 +223,9 @@ struct DataSoA_simd
     d(data.d),
     e(data.e) {}
   SimdDataRef operator[](const int i){ return SimdDataRef(a[i],b[i],c[i],d[i],e[i]); }
-  SimdDataIndirectRef operator[](const Simd<int> &i) 
+  SimdDataIRef operator[](const Simd<int> &i) 
   {
-    return SimdDataIndirectRef(a[0],b[0],c[0],d[0],e[0],i);
+    return SimdDataIRef(a[0],b[0],c[0],d[0],e[0],i);
   }
 };
 
@@ -364,8 +365,8 @@ int main(int argc, char * argv[])
     d.c = res/res + res;
     d.d = res*res*res-res;
     d.e = res/(res*res - res);
-    res1[dst] = res1[src] + res1[dst];
-  }
+    res1[dst] = array[src]; // + res1[dst];
+  };
   asm("#test4");
 #endif
 

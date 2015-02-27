@@ -166,23 +166,23 @@ struct SimdRefT
 };
 
 template<typename T>
-struct SimdIndirectRefT
+struct SimdIRefT
 {
   private:
     T &base;
     const Simd<int> &idx;
   public:
-    SimdIndirectRefT(T &_base, const Simd<int> &_idx) : base(_base), idx(_idx) {}
+    SimdIRefT(T &_base, const Simd<int> &_idx) : base(_base), idx(_idx) {}
     operator Simd<T>() const
     {
       return Simd<T>::vgather(&base,idx);
     }
-    SimdIndirectRefT operator=(const Simd<T> &value)
+    SimdIRefT operator=(const Simd<T> &value)
     {
       Simd<T>::vscatter(&base, idx, value);
       return *this;
     }
-    SimdIndirectRefT operator=(const SimdIndirectRefT &value)
+    SimdIRefT operator=(const SimdIRefT &value)
     {
       Simd<T>::vscatter(&base, idx, Simd<T>(value));
       return *this;
