@@ -160,7 +160,7 @@ struct SimdRefT
     }
     SimdRefT operator=(const SimdRefT &value)
     {
-      Simd<T>::vstoreu(&ref,Simd<T>(value));
+      Simd<T>::vstoreu(&ref,static_cast<Simd<T>>(value));
       return *this;
     }
 };
@@ -184,7 +184,7 @@ struct SimdIRefT
     }
     SimdIRefT operator=(const SimdIRefT &value)
     {
-      Simd<T>::vscatter(&base, idx, Simd<T>(value));
+      Simd<T>::vscatter(&base, idx, static_cast<Simd<T>>(value));
       return *this;
     }
 };
@@ -192,24 +192,24 @@ struct SimdIRefT
 template<template<typename> class Tref1, template<typename> class Tref2, typename T>
 static inline Simd<T> operator*(const Tref1<T> x, const Tref2<T> y)
 {
-  return Simd<T>(x) * Simd<T>(y);
+  return static_cast<Simd<T>>(x) * static_cast<Simd<T>>(y);
 }
 
 template<template<typename> class Tref1, template<typename> class Tref2, typename T>
 static inline Simd<T> operator+(const Tref1<T> x, const Tref2<T> y)
 {
-  return Simd<T>(x) + Simd<T>(y);
+  return static_cast<Simd<T>>(x) + static_cast<Simd<T>>(y);
 }
 
 template<template<typename> class Tref1, template<typename> class Tref2, typename T>
 static inline Simd<T> operator-(const Tref1<T> x, const Tref2<T> y)
 {
-  return Simd<T>(x) - Simd<T>(y);
+  return static_cast<Simd<T>>(x) - static_cast<Simd<T>>(y);
 }
 
 template<template<typename> class Tref1, template<typename> class Tref2, typename T>
 static inline Simd<T> operator/(const Tref1<T> x, const Tref2<T> y)
 {
-  return Simd<T>(x) / Simd<T>(y);
+  return static_cast<Simd<T>>(x) / static_cast<Simd<T>>(y);
 }
 
