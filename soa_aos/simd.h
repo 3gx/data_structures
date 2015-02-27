@@ -98,9 +98,9 @@ struct Simd<int>
 
   public:
     enum {VLEN = 8};
-    operator __m256i() const { return v; }
-    __m128i first() const {return v1;}
-    __m128i second() const {return v2;}
+    __m256i getFull() const { return v; }
+    __m128i getFirst() const {return v1;}
+    __m128i getSecond() const {return v2;}
     
     static Simd vloadu(const int *ptr)
     {
@@ -115,8 +115,8 @@ struct Simd<int>
 inline Simd<double> Simd<double>::vgather(const double *base, const Simd<int> &idx)
 {
   return Simd<double>(
-      _mm256_i32gather_pd(base, idx.first(), /*scale*/ 1),
-      _mm256_i32gather_pd(base, idx.second(), /*scale*/ 1)
+      _mm256_i32gather_pd(base, idx.getFirst(), /*scale*/ 1),
+      _mm256_i32gather_pd(base, idx.getSecond(), /*scale*/ 1)
       );
 }
 inline void Simd<double>::vscatter(double *base, const Simd<int> &idx, const Simd<double> &x)
@@ -129,7 +129,7 @@ inline void Simd<double>::vscatter(double *base, const Simd<int> &idx, const Sim
 inline Simd<float> Simd<float>::vgather(const float *base, const Simd<int> &idx)
 {
   return Simd<float>(
-      _mm256_i32gather_ps(base, idx, /*scale*/ 1)
+      _mm256_i32gather_ps(base, idx.getFull(), /*scale*/ 1)
       );
 }
 inline void Simd<float>::vscatter(float *base, const Simd<int> &idx, const Simd<float> &x)
